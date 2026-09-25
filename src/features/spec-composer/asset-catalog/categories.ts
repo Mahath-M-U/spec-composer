@@ -1,0 +1,33 @@
+import type { AssetCategory } from "./types.ts";
+
+/** Every category, in display order within its collection. */
+export const CATEGORIES: AssetCategory[] = [
+  { id: "text", label: "Text", collection: "text" },
+  { id: "promo", label: "Promo", collection: "text" },
+  { id: "devices", label: "Devices", collection: "ui" },
+  { id: "mobile", label: "Mobile app", collection: "ui" },
+  { id: "web", label: "Web", collection: "ui" },
+  { id: "social", label: "Social", collection: "ui" },
+  { id: "charts", label: "Charts", collection: "ui" },
+  { id: "ai", label: "AI", collection: "ai" },
+  { id: "shapes", label: "Shapes", collection: "elements" },
+  { id: "lines", label: "Lines", collection: "elements" },
+  { id: "frames", label: "Frames", collection: "elements" },
+  { id: "icons", label: "Icons", collection: "elements" },
+  { id: "backgrounds", label: "Backgrounds", collection: "elements" },
+  { id: "abstract", label: "Abstract", collection: "elements" },
+  { id: "brand", label: "Brand", collection: "elements" },
+  { id: "people", label: "People", collection: "imagery" },
+  { id: "scenes", label: "Scenes", collection: "imagery" },
+  { id: "business", label: "Business", collection: "imagery" },
+  { id: "food", label: "Food", collection: "imagery" },
+  { id: "fashion", label: "Fashion", collection: "imagery" },
+  { id: "tech", label: "Tech", collection: "imagery" },
+  { id: "events", label: "Events", collection: "imagery" },
+  { id: "seasonal", label: "Seasonal", collection: "imagery" },
+  { id: "education", label: "Education", collection: "imagery" },
+  { id: "health", label: "Health", collection: "imagery" },
+  { id: "travel", label: "Travel", collection: "imagery" },
+  { id: "realestate", label: "Real estate", collection: "imagery" },
+  { id: "finance", label: "Finance", collection: "imagery" },
+];
