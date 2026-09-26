@@ -1,95 +1,12 @@
 import { Fragment, type ReactNode } from "react";
+import { parseDesignMarkdown, unquote } from "./design-md-parse";
 
 /** A small renderer for the DESIGN.md subset the design compiler writes:
  * headings, quotes, lists, tables, code fences, `code` and **bold**. Hex
  * codes get a swatch, the color table becomes a palette and the type scale
  * becomes a specimen, so the panel reads as a style guide, not source. */
 
-type Block =
-  | { type: "heading"; level: number; text: string }
-  | { type: "quote"; text: string }
-  | { type: "list"; ordered: boolean; start: number; items: string[] }
-  | { type: "table"; head: string[]; rows: string[][] }
-  | { type: "code"; text: string }
-  | { type: "para"; text: string };
-
 const HEX = /(#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b)/;
-const LIST = /^\s*(?:[-*]|(\d+)\.)\s+(.*)/;
-const BLOCK_START = /^(#{1,6}\s|```|\||>|\s*(?:[-*]|\d+\.)\s)/;
-const unquote = (s: string) => s.replace(/^`|`$/g, "");
-const cells = (row: string) =>
-  row
-    .trim()
-    .replace(/^\||\|$/g, "")
-    .split("|")
-    .map((c) => c.trim());
-
-function parse(md: string): Block[] {
-  const lines = md.split("\n");
-  const blocks: Block[] = [];
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i] ?? "";
-    if (!line.trim()) continue;
-    if (line.startsWith("```")) {
-      const body: string[] = [];
-      while (++i < lines.length && !lines[i]?.startsWith("```"))
-        body.push(lines[i] ?? "");
-      blocks.push({ type: "code", text: body.join("\n") });
-      continue;
-    }
-    const heading = /^(#{1,6})\s+(.*)/.exec(line);
-    if (heading) {
-      blocks.push({
-        type: "heading",
-        level: heading[1]?.length ?? 1,
-        text: heading[2] ?? "",
-      });
-      continue;
-    }
-    if (line.startsWith("|")) {
-      const rows: string[][] = [];
-      for (; i < lines.length && lines[i]?.startsWith("|"); i++)
-        rows.push(cells(lines[i] ?? ""));
-      i--;
-      const [head = [], ...rest] = rows;
-      // The |---|---| row only separates the header in source.
-      const body = rest.filter((r) => !r.every((c) => /^:?-+:?$/.test(c)));
-      blocks.push({ type: "table", head, rows: body });
-      continue;
-    }
-    if (line.startsWith(">")) {
-      const quote: string[] = [];
-      for (; i < lines.length && lines[i]?.startsWith(">"); i++)
-        quote.push((lines[i] ?? "").replace(/^>\s?/, ""));
-      i--;
-      blocks.push({ type: "quote", text: quote.join(" ") });
-      continue;
-    }
-    const item = LIST.exec(line);
-    if (item) {
-      const ordered = item[1] != null;
-      const items: string[] = [];
-      for (; i < lines.length; i++) {
-        const next = LIST.exec(lines[i] ?? "");
-        if (!next || (next[1] != null) !== ordered) break;
-        items.push(next[2] ?? "");
-      }
-      i--;
-      blocks.push({
-        type: "list",
-        ordered,
-        start: Number(item[1] ?? 1),
-        items,
-      });
-      continue;
-    }
-    const para = [line];
-    while (lines[i + 1]?.trim() && !BLOCK_START.test(lines[i + 1] ?? ""))
-      para.push(lines[++i] ?? "");
-    blocks.push({ type: "para", text: para.join(" ") });
-  }
-  return blocks;
-}
 
 const swatch = (hex: string, key: number) => (
   <span key={key} className="md-color">
@@ -146,7 +63,7 @@ export function PromptProse({ text }: { text: string }) {
   );
 }
 
-function Inline({ text }: { text: string }) {
+export function Inline({ text }: { text: string }) {
   return (
     <>
       {text
@@ -302,7 +219,7 @@ function Table({ head, rows }: { head: string[]; rows: string[][] }) {
 export function DesignMarkdown({ text }: { text: string }) {
   return (
     <div className="md">
-      {parse(text).map((b, i) => {
+      {parseDesignMarkdown(text).map((b, i) => {
         switch (b.type) {
           case "heading": {
             const Tag = b.level === 1 ? "h3" : b.level === 2 ? "h4" : "h5";
