@@ -319,6 +319,7 @@ export function Editor({ projectId }: { projectId: string }) {
     >
       <TopBar preview={() => setPreview(true)} sidebars={sidebars} />
       <ToolRail
+        sidebars={sidebars}
         onSelectPanel={(id) => {
           if (store.panel === id && sidebars.leftOpen)
             sidebars.setOpen("left", false);
@@ -476,25 +477,6 @@ function TopBar({
             <AppIcon className="h-full w-full" />
           </Link>
         </Hint>
-        <Hint label={sidebars.leftOpen ? "Hide left panel" : "Show left panel"}>
-          <button
-            type="button"
-            id="editor-toggle-left"
-            className={cn("tool-button", sidebars.leftOpen && "active")}
-            aria-label={
-              sidebars.leftOpen ? "Hide left panel" : "Show left panel"
-            }
-            aria-expanded={sidebars.leftOpen}
-            aria-controls="editor-left-panel"
-            onClick={() => sidebars.toggle("left")}
-          >
-            {sidebars.leftOpen ? (
-              <PanelLeftClose aria-hidden="true" />
-            ) : (
-              <PanelLeftOpen aria-hidden="true" />
-            )}
-          </button>
-        </Hint>
         <label className="project-name-field" data-tour="project">
           <span
             className="project-name-autosize text-sm font-bold"
@@ -593,9 +575,11 @@ function TopBar({
 }
 
 function ToolRail({
+  sidebars,
   onSelectPanel,
   onTour,
 }: {
+  sidebars: SidebarLayout;
   onSelectPanel: (id: PanelMode) => void;
   onTour: () => void;
 }) {
@@ -616,6 +600,26 @@ function ToolRail({
   ] as const;
   return (
     <aside className="tool-rail">
+      <Hint
+        label={sidebars.leftOpen ? "Hide left panel" : "Show left panel"}
+        side="right"
+      >
+        <button
+          type="button"
+          id="editor-toggle-left"
+          aria-label={sidebars.leftOpen ? "Hide left panel" : "Show left panel"}
+          aria-expanded={sidebars.leftOpen}
+          aria-controls="editor-left-panel"
+          onClick={() => sidebars.toggle("left")}
+        >
+          {sidebars.leftOpen ? (
+            <PanelLeftClose aria-hidden="true" />
+          ) : (
+            <PanelLeftOpen aria-hidden="true" />
+          )}
+          <span>{sidebars.leftOpen ? "Collapse" : "Expand"}</span>
+        </button>
+      </Hint>
       {items.map(([id, Icon, label, hint]) => (
         <Hint key={id} label={hint} side="right">
           <button
