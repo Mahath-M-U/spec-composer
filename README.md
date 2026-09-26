@@ -199,3 +199,5 @@ Scaffolded with [Lovable](https://lovable.dev). UI primitives from
 [shadcn/ui](https://ui.shadcn.com) and [Radix UI](https://www.radix-ui.com);
 some tool glyphs from [Simple Icons](https://simpleicons.org). The full list of
 third-party assets is in [ATTRIBUTIONS.md](ATTRIBUTIONS.md).
+
+The sidebar toggle change in [PR #5](https://github.com/Mahath-M-U/spec-composer/pull/5) was developed with OpenAI Codex.
