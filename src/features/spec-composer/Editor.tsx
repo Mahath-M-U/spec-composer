@@ -79,7 +79,13 @@ import { cn } from "@/lib/utils";
 import { AppIcon } from "@/components/app-icon";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useEditorStore, type Box, type ComposeLayout } from "./store";
-import { useSidebarLayout, type SidebarLayout } from "./use-sidebar-layout";
+import {
+  useSidebarLayout,
+  focusSidebarControl,
+  RIGHT_REOPEN_ID,
+  RIGHT_COLLAPSE_ID,
+  type SidebarLayout,
+} from "./use-sidebar-layout";
 import { alignUnits } from "./canvas-geometry";
 import { Sep, Tool } from "./toolbar-controls";
 import { applyBrandKitToDocument } from "./brand-kits";
@@ -317,7 +323,7 @@ export function Editor({ projectId }: { projectId: string }) {
         } as CSSProperties
       }
     >
-      <TopBar preview={() => setPreview(true)} sidebars={sidebars} />
+      <TopBar preview={() => setPreview(true)} />
       <ToolRail
         sidebars={sidebars}
         onSelectPanel={(id) => {
@@ -345,6 +351,7 @@ export function Editor({ projectId }: { projectId: string }) {
         className="panel-resize-handle--left"
       />
       <Workspace />
+      <RightPanelReopen sidebars={sidebars} />
       <PanelResizeHandle
         label="Resize right sidebar"
         side="right"
@@ -455,13 +462,7 @@ function PanelResizeHandle({
   );
 }
 
-function TopBar({
-  preview,
-  sidebars,
-}: {
-  preview: () => void;
-  sidebars: SidebarLayout;
-}) {
+function TopBar({ preview }: { preview: () => void }) {
   const s = useEditorStore();
   const d = s.doc;
   return (
@@ -547,24 +548,31 @@ function TopBar({
             <span className="hidden sm:inline">Preview</span>
           </Button>
         </Hint>
-        {!sidebars.rightOpen && (
-          <Hint label="Show prompt panel">
-            <button
-              type="button"
-              id="editor-toggle-right"
-              className="tool-button"
-              aria-label="Show prompt panel"
-              aria-expanded={false}
-              aria-controls="editor-right-panel"
-              onClick={() => sidebars.setOpen("right", true)}
-            >
-              <PanelRightOpen aria-hidden="true" />
-            </button>
-          </Hint>
-        )}
         <ThemeToggle className="text-editor-muted hover:bg-editor-hover hover:text-editor-foreground" />
       </div>
     </header>
+  );
+}
+
+function RightPanelReopen({ sidebars }: { sidebars: SidebarLayout }) {
+  if (sidebars.rightOpen) return null;
+  return (
+    <Hint label="Show prompt panel" side="left">
+      <button
+        type="button"
+        id={RIGHT_REOPEN_ID}
+        className="right-panel-reopen"
+        aria-label="Show prompt panel"
+        aria-expanded={false}
+        aria-controls="editor-right-panel"
+        onClick={() => {
+          sidebars.setOpen("right", true);
+          focusSidebarControl(RIGHT_COLLAPSE_ID);
+        }}
+      >
+        <PanelRightOpen aria-hidden="true" />
+      </button>
+    </Hint>
   );
 }
 
@@ -2606,12 +2614,15 @@ function PromptPanel({
           <Hint label="Hide prompt panel">
             <button
               type="button"
-              id="editor-toggle-right"
+              id={RIGHT_COLLAPSE_ID}
               className="right-panel-toggle"
               aria-label="Hide prompt panel"
               aria-expanded={true}
               aria-controls="editor-right-panel"
-              onClick={() => sidebars.setOpen("right", false)}
+              onClick={() => {
+                sidebars.setOpen("right", false);
+                focusSidebarControl(RIGHT_REOPEN_ID);
+              }}
             >
               <PanelRightClose aria-hidden="true" />
             </button>
