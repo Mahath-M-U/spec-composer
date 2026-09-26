@@ -3597,12 +3597,14 @@ button:disabled {
   text-align: center;
 }
 .editor-shell {
+  --rail-width: 58px;
   display: grid;
   height: 100vh;
   min-width: 1100px;
   grid-template-columns:
-    58px var(--left-panel-width, 280px) 6px minmax(0, 1fr) 6px
-    var(--right-panel-width, 360px);
+    var(--rail-width) var(--left-track, var(--left-panel-width, 280px))
+    var(--left-handle, 6px) minmax(0, 1fr) var(--right-handle, 6px)
+    var(--right-track, var(--right-panel-width, 360px));
   grid-template-rows: 52px minmax(0, 1fr);
   overflow: hidden;
   background: var(--color-editor);
@@ -3900,6 +3902,42 @@ button:disabled {
 .panel-resize-handle:focus-visible::after {
   inset-inline: 1px;
   background: var(--color-primary);
+}
+/* Explicit grid columns so a hidden (display:none) sidebar or handle can't
+ * shift the rest of the shell's auto-placed children into the wrong track. */
+.editor-shell > .tool-rail {
+  grid-column: 1;
+}
+.editor-shell > .context-panel {
+  grid-column: 2;
+}
+.editor-shell > .panel-resize-handle--left {
+  grid-column: 3;
+}
+.editor-shell > .workspace {
+  grid-column: 4;
+}
+.editor-shell > .panel-resize-handle--right {
+  grid-column: 5;
+}
+.editor-shell > .right-panel {
+  grid-column: 6;
+}
+.editor-shell[data-left-panel="closed"] {
+  --left-track: 0px;
+  --left-handle: 0px;
+}
+.editor-shell[data-left-panel="closed"]
+  > :is(.context-panel, .panel-resize-handle--left) {
+  display: none;
+}
+.editor-shell[data-right-panel="closed"] {
+  --right-track: 0px;
+  --right-handle: 0px;
+}
+.editor-shell[data-right-panel="closed"]
+  > :is(.right-panel, .panel-resize-handle--right) {
+  display: none;
 }
 .panel-header {
   display: flex;
@@ -8687,9 +8725,7 @@ ol.md-list {
 }
 @media (max-width: 1250px) {
   .editor-shell {
-    grid-template-columns:
-      54px var(--left-panel-width, 280px) 6px minmax(0, 1fr) 6px
-      var(--right-panel-width, 360px);
+    --rail-width: 54px;
   }
 }
 

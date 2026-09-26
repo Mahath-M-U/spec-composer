@@ -68,6 +68,10 @@ import {
   RotateCw,
   Scaling,
   Compass,
+  PanelLeftClose,
+  PanelLeftOpen,
+  PanelRightClose,
+  PanelRightOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Hint } from "@/components/ui/tooltip";
@@ -75,6 +79,7 @@ import { cn } from "@/lib/utils";
 import { AppIcon } from "@/components/app-icon";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useEditorStore, type Box, type ComposeLayout } from "./store";
+import { useSidebarLayout, type SidebarLayout } from "./use-sidebar-layout";
 import { alignUnits } from "./canvas-geometry";
 import { Sep, Tool } from "./toolbar-controls";
 import { applyBrandKitToDocument } from "./brand-kits";
@@ -138,6 +143,7 @@ import {
   type ElementKind,
   type ExternalToolRequirement,
   type Format,
+  type PanelMode,
   type PromptMode,
   type SpecDocument,
   type SpecElement,
@@ -231,20 +237,35 @@ export function Editor({ projectId }: { projectId: string }) {
   const [mobile, setMobile] = useState(false);
   const [leftPanelWidth, setLeftPanelWidth] = useState(320);
   const [rightPanelWidth, setRightPanelWidth] = useState(460);
+  const sidebars = useSidebarLayout();
 
   useEffect(() => {
     const keepWorkspaceVisible = () => {
+      if (sidebars.overlay) return;
       const rail = window.innerWidth <= 1250 ? 54 : 58;
+      const left = sidebars.leftOpen ? leftPanelWidth : 0;
+      const right = sidebars.rightOpen ? rightPanelWidth : 0;
       const panelBudget = Math.max(1100, window.innerWidth) - rail - 12 - 350;
-      if (leftPanelWidth + rightPanelWidth <= panelBudget) return;
-      const nextRight = Math.max(280, panelBudget - leftPanelWidth);
-      setRightPanelWidth(nextRight);
-      setLeftPanelWidth(Math.max(240, panelBudget - nextRight));
+      if (left + right <= panelBudget) return;
+      if (sidebars.rightOpen) {
+        const nextRight = Math.max(280, panelBudget - left);
+        setRightPanelWidth(nextRight);
+        if (sidebars.leftOpen)
+          setLeftPanelWidth(Math.max(240, panelBudget - nextRight));
+      } else if (sidebars.leftOpen) {
+        setLeftPanelWidth(Math.max(240, panelBudget - right));
+      }
     };
     keepWorkspaceVisible();
     window.addEventListener("resize", keepWorkspaceVisible);
     return () => window.removeEventListener("resize", keepWorkspaceVisible);
-  }, [leftPanelWidth, rightPanelWidth]);
+  }, [
+    leftPanelWidth,
+    rightPanelWidth,
+    sidebars.overlay,
+    sidebars.leftOpen,
+    sidebars.rightOpen,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -295,6 +316,9 @@ export function Editor({ projectId }: { projectId: string }) {
   return (
     <div
       className="editor-shell"
+      data-layout={sidebars.overlay ? "overlay" : "inline"}
+      data-left-panel={sidebars.leftOpen ? "open" : "closed"}
+      data-right-panel={sidebars.rightOpen ? "open" : "closed"}
       style={
         {
           "--left-panel-width": `${leftPanelWidth}px`,
@@ -302,8 +326,21 @@ export function Editor({ projectId }: { projectId: string }) {
         } as CSSProperties
       }
     >
-      <TopBar preview={() => setPreview(true)} />
-      <ToolRail />
+      <TopBar preview={() => setPreview(true)} sidebars={sidebars} />
+      <ToolRail
+        onSelectPanel={(id) => {
+          if (store.panel === id && sidebars.leftOpen)
+            sidebars.setOpen("left", false);
+          else {
+            store.setPanel(id);
+            sidebars.setOpen("left", true);
+          }
+        }}
+        onTour={() => {
+          sidebars.setOpen("left", true);
+          if (!sidebars.overlay) sidebars.setOpen("right", true);
+        }}
+      />
       <ContextPanel />
       <PanelResizeHandle
         label="Resize left sidebar"
@@ -313,6 +350,7 @@ export function Editor({ projectId }: { projectId: string }) {
         min={340}
         max={580}
         defaultWidth={380}
+        className="panel-resize-handle--left"
       />
       <Workspace />
       <PanelResizeHandle
@@ -323,6 +361,7 @@ export function Editor({ projectId }: { projectId: string }) {
         min={340}
         max={760}
         defaultWidth={460}
+        className="panel-resize-handle--right"
       />
       <RightPanel exportOpen={() => setExportOpen(true)} />
       {preview && <Preview close={() => setPreview(false)} />}
@@ -339,6 +378,7 @@ function PanelResizeHandle({
   min,
   max,
   defaultWidth,
+  className,
 }: {
   label: string;
   side: "left" | "right";
@@ -347,6 +387,7 @@ function PanelResizeHandle({
   min: number;
   max: number;
   defaultWidth: number;
+  className?: string;
 }) {
   const drag = useRef<{ x: number; width: number } | null>(null);
   const clampWidth = useCallback(
@@ -354,11 +395,16 @@ function PanelResizeHandle({
       const shell = document.querySelector<HTMLElement>(".editor-shell");
       if (!shell) return Math.min(max, Math.max(min, next));
       const rail = window.innerWidth <= 1250 ? 54 : 58;
-      const oppositeWidth = Number.parseFloat(
-        shell.style.getPropertyValue(
-          side === "left" ? "--right-panel-width" : "--left-panel-width",
-        ),
-      );
+      const oppositeClosed =
+        shell.dataset[side === "left" ? "rightPanel" : "leftPanel"] ===
+        "closed";
+      const oppositeWidth = oppositeClosed
+        ? 0
+        : Number.parseFloat(
+            shell.style.getPropertyValue(
+              side === "left" ? "--right-panel-width" : "--left-panel-width",
+            ),
+          );
       const workspaceMax = shell.clientWidth - rail - 12 - 350 - oppositeWidth;
       return Math.min(max, Math.max(min, workspaceMax), Math.max(min, next));
     },
@@ -368,7 +414,7 @@ function PanelResizeHandle({
   return (
     <Hint label={`${label} (double-click to reset)`}>
       <div
-        className="panel-resize-handle"
+        className={cn("panel-resize-handle", className)}
         role="separator"
         aria-label={label}
         aria-orientation="vertical"
@@ -410,7 +456,13 @@ function PanelResizeHandle({
   );
 }
 
-function TopBar({ preview }: { preview: () => void }) {
+function TopBar({
+  preview,
+  sidebars,
+}: {
+  preview: () => void;
+  sidebars: SidebarLayout;
+}) {
   const s = useEditorStore();
   const d = s.doc;
   return (
@@ -425,6 +477,25 @@ function TopBar({ preview }: { preview: () => void }) {
           <Link to="/" className="spec-mark" aria-label="Home">
             <AppIcon className="h-full w-full" />
           </Link>
+        </Hint>
+        <Hint label={sidebars.leftOpen ? "Hide left panel" : "Show left panel"}>
+          <button
+            type="button"
+            id="editor-toggle-left"
+            className={cn("tool-button", sidebars.leftOpen && "active")}
+            aria-label={
+              sidebars.leftOpen ? "Hide left panel" : "Show left panel"
+            }
+            aria-expanded={sidebars.leftOpen}
+            aria-controls="editor-left-panel"
+            onClick={() => sidebars.toggle("left")}
+          >
+            {sidebars.leftOpen ? (
+              <PanelLeftClose aria-hidden="true" />
+            ) : (
+              <PanelLeftOpen aria-hidden="true" />
+            )}
+          </button>
         </Hint>
         <label className="project-name-field" data-tour="project">
           <span
@@ -495,13 +566,40 @@ function TopBar({ preview }: { preview: () => void }) {
             Preview
           </Button>
         </Hint>
+        <Hint
+          label={sidebars.rightOpen ? "Hide prompt panel" : "Show prompt panel"}
+        >
+          <button
+            type="button"
+            id="editor-toggle-right"
+            className={cn("tool-button", sidebars.rightOpen && "active")}
+            aria-label={
+              sidebars.rightOpen ? "Hide prompt panel" : "Show prompt panel"
+            }
+            aria-expanded={sidebars.rightOpen}
+            aria-controls="editor-right-panel"
+            onClick={() => sidebars.toggle("right")}
+          >
+            {sidebars.rightOpen ? (
+              <PanelRightClose aria-hidden="true" />
+            ) : (
+              <PanelRightOpen aria-hidden="true" />
+            )}
+          </button>
+        </Hint>
         <ThemeToggle className="text-editor-muted hover:bg-editor-hover hover:text-editor-foreground" />
       </div>
     </header>
   );
 }
 
-function ToolRail() {
+function ToolRail({
+  onSelectPanel,
+  onTour,
+}: {
+  onSelectPanel: (id: PanelMode) => void;
+  onTour: () => void;
+}) {
   const s = useEditorStore();
   const [mcpOpen, setMcpOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
@@ -526,7 +624,7 @@ function ToolRail() {
             className={s.panel === id ? "active" : ""}
             aria-pressed={s.panel === id}
             data-tour={`rail-${id}`}
-            onClick={() => s.setPanel(id)}
+            onClick={() => onSelectPanel(id)}
           >
             <Icon />
             <span>{label}</span>
@@ -540,6 +638,7 @@ function ToolRail() {
           aria-label="Quick tour"
           onClick={() => {
             s.setPanel("assets");
+            onTour();
             setGuideOpen(true);
           }}
         >
@@ -569,7 +668,12 @@ function ToolRail() {
 function ContextPanel() {
   const panel = useEditorStore((s) => s.panel);
   return (
-    <aside className="context-panel" data-tour="assets">
+    <aside
+      className="context-panel"
+      data-tour="assets"
+      id="editor-left-panel"
+      aria-label="Editor panel"
+    >
       {panel === "assets" ? (
         <AssetsPanel />
       ) : panel === "layers" ? (
@@ -2215,7 +2319,11 @@ function ComposeList() {
 
 function RightPanel({ exportOpen }: { exportOpen: () => void }) {
   return (
-    <aside className="right-panel">
+    <aside
+      className="right-panel"
+      id="editor-right-panel"
+      aria-label="Prompt panel"
+    >
       <PromptPanel exportOpen={exportOpen} />
     </aside>
   );
