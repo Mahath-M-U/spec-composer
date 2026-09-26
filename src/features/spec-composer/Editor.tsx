@@ -234,7 +234,6 @@ export function Editor({ projectId }: { projectId: string }) {
   const navigate = useNavigate();
   const [preview, setPreview] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
-  const [mobile, setMobile] = useState(false);
   const [leftPanelWidth, setLeftPanelWidth] = useState(320);
   const [rightPanelWidth, setRightPanelWidth] = useState(460);
   const sidebars = useSidebarLayout();
@@ -301,17 +300,9 @@ export function Editor({ projectId }: { projectId: string }) {
   // Kit changes made outside the editor must not reach the last open poster.
   useEffect(() => () => useEditorStore.getState().closeDocument(), []);
 
-  useEffect(() => {
-    const check = () => setMobile(innerWidth < 800);
-    check();
-    addEventListener("resize", check);
-    return () => removeEventListener("resize", check);
-  }, []);
-
   useShortcuts(() => setPreview(true));
 
   if (!store.doc) return <EditorSkeleton />;
-  if (mobile) return <MobilePreview close={() => navigate({ to: "/" })} />;
 
   return (
     <div
@@ -364,6 +355,13 @@ export function Editor({ projectId }: { projectId: string }) {
         className="panel-resize-handle--right"
       />
       <RightPanel exportOpen={() => setExportOpen(true)} />
+      {sidebars.overlay && (sidebars.leftOpen || sidebars.rightOpen) && (
+        <div
+          className="editor-drawer-backdrop"
+          aria-hidden="true"
+          onClick={sidebars.closeDrawers}
+        />
+      )}
       {preview && <Preview close={() => setPreview(false)} />}
       {exportOpen && <ExportDialog close={() => setExportOpen(false)} />}
     </div>
@@ -474,7 +472,7 @@ function TopBar({
           </Link>
         </Hint>
         <Hint label="Home">
-          <Link to="/" className="spec-mark" aria-label="Home">
+          <Link to="/" className="spec-mark editor-top-home" aria-label="Home">
             <AppIcon className="h-full w-full" />
           </Link>
         </Hint>
@@ -558,12 +556,13 @@ function TopBar({
             variant="ghost"
             size="sm"
             aria-keyshortcuts="P"
+            aria-label="Preview"
             data-tour="preview"
             onClick={preview}
             className="text-editor-muted hover:bg-editor-hover hover:text-editor-foreground"
           >
             <Eye size={14} aria-hidden="true" />
-            Preview
+            <span className="hidden sm:inline">Preview</span>
           </Button>
         </Hint>
         <Hint
@@ -3170,44 +3169,6 @@ function ExportDialog({ close }: { close: () => void }) {
         </div>
         <div className="pointer-events-none fixed -left-[10000px] top-0">
           <StaticArtboard exportRef={ref} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function MobilePreview({ close }: { close: () => void }) {
-  const d = useEditorStore((s) => s.doc);
-  if (!d) return null;
-  const scale = Math.min(
-    (innerWidth - 32) / d.format.width,
-    (innerHeight - 180) / d.format.height,
-  );
-  return (
-    <div className="min-h-screen bg-editor p-4 text-editor-foreground">
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-        <div className="min-w-0">
-          <h1 className="truncate font-bold">{d.name}</h1>
-          <p className="text-xs text-editor-muted">
-            Desktop editing recommended
-          </p>
-        </div>
-        <Button variant="secondary" size="sm" onClick={close}>
-          Done
-        </Button>
-      </div>
-      <div
-        className="mt-5 grid place-items-center overflow-hidden rounded-md border border-editor-border"
-        style={{ height: "calc(100vh - 100px)" }}
-      >
-        <div
-          style={{
-            width: d.format.width,
-            height: d.format.height,
-            transform: `scale(${scale})`,
-          }}
-        >
-          <StaticArtboard />
         </div>
       </div>
     </div>

@@ -3939,6 +3939,9 @@ button:disabled {
   > :is(.right-panel, .panel-resize-handle--right) {
   display: none;
 }
+.editor-drawer-backdrop {
+  display: none;
+}
 .panel-header {
   display: flex;
   min-height: 56px;
@@ -8728,6 +8731,91 @@ ol.md-list {
     --rail-width: 54px;
   }
 }
+@media (max-width: 1099px) {
+  .editor-shell {
+    min-width: 0;
+    height: 100dvh;
+    position: relative;
+    grid-template-columns: var(--rail-width) minmax(0, 1fr);
+  }
+  .editor-shell > .workspace {
+    grid-column: 2;
+  }
+  .editor-shell > .panel-resize-handle {
+    display: none;
+  }
+  .editor-shell > :is(.context-panel, .right-panel) {
+    position: absolute;
+    top: 52px;
+    bottom: 0;
+    z-index: 50;
+    box-shadow: 0 16px 48px rgb(0 0 0 / 0.28);
+  }
+  .editor-shell > .context-panel {
+    left: var(--rail-width);
+    width: min(
+      var(--left-panel-width, 320px),
+      calc(100% - var(--rail-width) - 24px)
+    );
+  }
+  .editor-shell > .right-panel {
+    right: 0;
+    width: min(var(--right-panel-width, 460px), calc(100% - 24px));
+  }
+  .editor-drawer-backdrop {
+    display: block;
+    position: absolute;
+    inset: 52px 0 0 var(--rail-width);
+    z-index: 45;
+    background: rgb(0 0 0 / 0.32);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .editor-shell > .context-panel,
+    .editor-shell > .right-panel {
+      --drawer-from: -12px;
+      animation: editor-drawer-in 0.18s ease-out;
+    }
+    .editor-shell > .right-panel {
+      --drawer-from: 12px;
+    }
+  }
+}
+@keyframes editor-drawer-in {
+  from {
+    opacity: 0;
+    transform: translateX(var(--drawer-from, -12px));
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@media (max-width: 767px) {
+  .editor-shell {
+    --rail-width: 48px;
+  }
+  .editor-shell .tool-rail button {
+    height: 44px;
+    width: 44px;
+  }
+  .editor-shell > .context-panel {
+    width: calc(100% - var(--rail-width));
+  }
+  .editor-shell > .right-panel {
+    left: 0;
+    width: 100%;
+  }
+  .editor-top-home {
+    display: none;
+  }
+  .editor-top {
+    padding: 0 0.4rem;
+    gap: 0.25rem;
+  }
+  .project-name-autosize {
+    max-width: 8rem;
+  }
+}
 
 /* Tooltips (see Hint in components/ui/tooltip.tsx) */
 .editor-hint {
@@ -8961,6 +9049,15 @@ ol.md-list {
 @container (max-width: 560px) {
   .editor-shell .style-dock {
     max-height: calc(100% - 80px);
+  }
+  .editor-shell .floating-controls {
+    left: 12px;
+    max-width: calc(100% - 24px);
+    transform: none;
+  }
+  .editor-shell .style-dock {
+    top: 60px;
+    max-height: calc(100% - 120px);
   }
 }
 
