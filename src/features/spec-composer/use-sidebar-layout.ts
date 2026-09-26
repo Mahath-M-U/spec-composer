@@ -81,7 +81,10 @@ export function useSidebarLayout() {
       const target = event.target as HTMLElement | null;
       if (target?.closest?.(DIALOG_SELECTOR)) return;
       closeDrawers();
-      document.getElementById(`editor-toggle-${openSide}`)?.focus();
+      // The right toggle moves from the drawer into the top bar when it closes.
+      requestAnimationFrame(() => {
+        document.getElementById(`editor-toggle-${openSide}`)?.focus();
+      });
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);

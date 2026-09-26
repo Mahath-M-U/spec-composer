@@ -6471,8 +6471,24 @@ button:disabled {
   width: 14px;
   color: var(--color-primary);
 }
-/* Icon-only Export in the sidebar's top-right; nudged so the icon lines up
-   with the panel padding. */
+.right-panel-toggle {
+  display: grid;
+  height: 28px;
+  width: 28px;
+  flex-shrink: 0;
+  place-items: center;
+  margin-right: -7px;
+  border-radius: 0.35rem;
+  transition: background 0.12s ease;
+}
+.right-panel-toggle:hover {
+  background: var(--color-editor-hover);
+}
+.right-panel-toggle:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+}
+/* Export sits before the collapse control in the sidebar's header actions. */
 .right-panel-export {
   display: grid;
   height: 28px;
@@ -6480,7 +6496,6 @@ button:disabled {
   flex-shrink: 0;
   place-items: center;
   margin-left: auto;
-  margin-right: -7px;
   border-radius: 0.35rem;
   transition:
     background 0.12s ease,

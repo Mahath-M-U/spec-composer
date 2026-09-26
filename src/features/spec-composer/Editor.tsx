@@ -355,7 +355,7 @@ export function Editor({ projectId }: { projectId: string }) {
         defaultWidth={460}
         className="panel-resize-handle--right"
       />
-      <RightPanel exportOpen={() => setExportOpen(true)} />
+      <RightPanel sidebars={sidebars} exportOpen={() => setExportOpen(true)} />
       {sidebars.overlay && (sidebars.leftOpen || sidebars.rightOpen) && (
         <div
           className="editor-drawer-backdrop"
@@ -547,27 +547,21 @@ function TopBar({
             <span className="hidden sm:inline">Preview</span>
           </Button>
         </Hint>
-        <Hint
-          label={sidebars.rightOpen ? "Hide prompt panel" : "Show prompt panel"}
-        >
-          <button
-            type="button"
-            id="editor-toggle-right"
-            className={cn("tool-button", sidebars.rightOpen && "active")}
-            aria-label={
-              sidebars.rightOpen ? "Hide prompt panel" : "Show prompt panel"
-            }
-            aria-expanded={sidebars.rightOpen}
-            aria-controls="editor-right-panel"
-            onClick={() => sidebars.toggle("right")}
-          >
-            {sidebars.rightOpen ? (
-              <PanelRightClose aria-hidden="true" />
-            ) : (
+        {!sidebars.rightOpen && (
+          <Hint label="Show prompt panel">
+            <button
+              type="button"
+              id="editor-toggle-right"
+              className="tool-button"
+              aria-label="Show prompt panel"
+              aria-expanded={false}
+              aria-controls="editor-right-panel"
+              onClick={() => sidebars.setOpen("right", true)}
+            >
               <PanelRightOpen aria-hidden="true" />
-            )}
-          </button>
-        </Hint>
+            </button>
+          </Hint>
+        )}
         <ThemeToggle className="text-editor-muted hover:bg-editor-hover hover:text-editor-foreground" />
       </div>
     </header>
@@ -2320,14 +2314,20 @@ function ComposeList() {
   );
 }
 
-function RightPanel({ exportOpen }: { exportOpen: () => void }) {
+function RightPanel({
+  sidebars,
+  exportOpen,
+}: {
+  sidebars: SidebarLayout;
+  exportOpen: () => void;
+}) {
   return (
     <aside
       className="right-panel"
       id="editor-right-panel"
       aria-label="Prompt panel"
     >
-      <PromptPanel exportOpen={exportOpen} />
+      <PromptPanel sidebars={sidebars} exportOpen={exportOpen} />
     </aside>
   );
 }
@@ -2401,7 +2401,13 @@ const clearHandEdit = (x: SpecDocument, mode: PromptMode) => {
   }
 };
 
-function PromptPanel({ exportOpen }: { exportOpen: () => void }) {
+function PromptPanel({
+  sidebars,
+  exportOpen,
+}: {
+  sidebars: SidebarLayout;
+  exportOpen: () => void;
+}) {
   const s = useEditorStore();
   const d = s.doc;
   const [copied, setCopied] = useState(false);
@@ -2596,6 +2602,21 @@ function PromptPanel({ exportOpen }: { exportOpen: () => void }) {
             <Download />
           </button>
         </Hint>
+        {sidebars.rightOpen && (
+          <Hint label="Hide prompt panel">
+            <button
+              type="button"
+              id="editor-toggle-right"
+              className="right-panel-toggle"
+              aria-label="Hide prompt panel"
+              aria-expanded={true}
+              aria-controls="editor-right-panel"
+              onClick={() => sidebars.setOpen("right", false)}
+            >
+              <PanelRightClose aria-hidden="true" />
+            </button>
+          </Hint>
+        )}
       </div>
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="p-3">
