@@ -17,6 +17,17 @@ interface SidebarState {
 const DIALOG_SELECTOR =
   '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]';
 
+export const RIGHT_REOPEN_ID = "editor-toggle-right";
+export const RIGHT_COLLAPSE_ID = "editor-collapse-right";
+
+/** Focuses the sidebar control with the given id on the next animation
+ * frame, after the element it replaces has finished unmounting. */
+export function focusSidebarControl(id: string): void {
+  requestAnimationFrame(() => {
+    document.getElementById(id)?.focus();
+  });
+}
+
 /** Hides/shows the left (`ContextPanel`) and right (`RightPanel`) sidebars in
  * `Editor`. Desktop (inline) and overlay (drawer) visibility are tracked
  * separately so switching breakpoints doesn't clobber the other mode's
@@ -81,10 +92,9 @@ export function useSidebarLayout() {
       const target = event.target as HTMLElement | null;
       if (target?.closest?.(DIALOG_SELECTOR)) return;
       closeDrawers();
-      // The right toggle moves from the drawer into the top bar when it closes.
-      requestAnimationFrame(() => {
-        document.getElementById(`editor-toggle-${openSide}`)?.focus();
-      });
+      // The left toggle stays in the tool rail; the right toggle becomes a
+      // floating button over the workspace once its drawer closes.
+      focusSidebarControl(`editor-toggle-${openSide}`);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);

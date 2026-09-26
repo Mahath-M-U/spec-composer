@@ -3917,6 +3917,9 @@ button:disabled {
 .editor-shell > .workspace {
   grid-column: 4;
 }
+.editor-shell > .right-panel-reopen {
+  grid-column: 4;
+}
 .editor-shell > .panel-resize-handle--right {
   grid-column: 5;
 }
@@ -6488,6 +6491,42 @@ button:disabled {
   outline: 2px solid var(--color-ring);
   outline-offset: 2px;
 }
+/* Floating reopen button shown over the workspace when the prompt panel is
+ * collapsed, replacing the button that used to live in the top bar. */
+.right-panel-reopen {
+  position: relative;
+  z-index: 40;
+  grid-row: 2;
+  justify-self: end;
+  align-self: start;
+  margin: 12px 16px 0 0;
+  display: grid;
+  height: 32px;
+  width: 32px;
+  place-items: center;
+  border: 1px solid var(--color-editor-border);
+  border-radius: 0.4rem;
+  background: var(--color-editor-surface);
+  color: var(--color-editor-muted);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.12);
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+.right-panel-reopen:hover {
+  background: var(--color-editor-hover);
+  color: var(--color-editor-foreground);
+}
+.right-panel-reopen svg {
+  height: 15px;
+  width: 15px;
+}
+/* Keep the style dock clear of the floating reopen button when the prompt
+ * panel is collapsed. */
+.editor-shell[data-right-panel="closed"] .style-dock {
+  top: 56px;
+  max-height: calc(100% - 72px);
+}
 /* Export sits before the collapse control in the sidebar's header actions. */
 .right-panel-export {
   display: grid;
@@ -8756,6 +8795,9 @@ ol.md-list {
   .editor-shell > .workspace {
     grid-column: 2;
   }
+  .editor-shell > .right-panel-reopen {
+    grid-column: 2;
+  }
   .editor-shell > .panel-resize-handle {
     display: none;
   }
@@ -9071,6 +9113,13 @@ ol.md-list {
     transform: none;
   }
   .editor-shell .style-dock {
+    top: 60px;
+    max-height: calc(100% - 120px);
+  }
+  .editor-shell[data-right-panel="closed"] .floating-controls {
+    max-width: calc(100% - 72px);
+  }
+  .editor-shell[data-right-panel="closed"] .style-dock {
     top: 60px;
     max-height: calc(100% - 120px);
   }
