@@ -9336,6 +9336,601 @@ ol.md-list {
   cursor: pointer;
 }
 
+/* Design Editor redesign: presentation only — see design-editor-cards.tsx.
+   The panel and its Design Editor content are separate named containers, so
+   the tabs/select row and the cards can each respond to their own width. */
+.right-panel {
+  container: right-panel / inline-size;
+}
+.prompt-view-md {
+  container: design-editor / inline-size;
+}
+.right-panel-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* Tabs: a little roomier, with a tab icon ahead of each label. */
+.editor-shell .segmented {
+  gap: 2px;
+  border-radius: 0.625rem;
+}
+.editor-shell .segmented button {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  font-size: 12px;
+}
+.editor-shell .segmented button svg {
+  height: 13px;
+  width: 13px;
+  flex-shrink: 0;
+}
+.editor-shell .segmented .active {
+  background: color-mix(
+    in oklab,
+    var(--editor-action) 14%,
+    var(--color-editor-surface)
+  );
+  color: var(--editor-action);
+}
+
+/* Image style select: a touch taller, with a plain two-line chevron instead
+   of the browser default, so it matches the rest of the panel's chrome. */
+.editor-shell .prompt-style-row select.se-input {
+  height: 38px;
+  border-radius: 0.625rem;
+  border-color: var(--color-editor-border);
+  padding-right: 28px;
+  font-size: 13px;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--color-editor-muted) 50%),
+    linear-gradient(135deg, var(--color-editor-muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) calc(50% - 3px),
+    calc(100% - 13px) calc(50% - 3px);
+  background-size:
+    5px 5px,
+    5px 5px;
+  background-repeat: no-repeat;
+}
+@container right-panel (max-width: 340px) {
+  .editor-shell .prompt-style-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Include in output: a bordered, self-contained control with a chevron that
+   flips open, matching the cards below it rather than the plain <details>
+   it used to be. */
+.editor-shell .prompt-options {
+  border: 1px solid var(--color-editor-border);
+  border-radius: 0.75rem;
+  background: var(--color-editor-surface);
+  padding: 0.55rem 0.75rem;
+}
+.editor-shell .prompt-options summary {
+  gap: 0.4rem;
+}
+.editor-shell .prompt-options summary svg:first-child {
+  height: 13px;
+  width: 13px;
+}
+.editor-shell .prompt-options summary svg:last-child {
+  transition: transform 0.15s ease;
+}
+.editor-shell .prompt-options[open] > summary svg:last-child {
+  transform: rotate(180deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .editor-shell .prompt-options summary svg:last-child {
+    transition: none;
+  }
+}
+
+/* Design Editor cards (design-editor-cards.tsx): a style-guide grid instead
+   of the Prompt Editor's flat section list. */
+.de-sections {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+.de-card {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+  border: 1px solid var(--color-editor-border);
+  border-radius: 14px;
+  background: var(--color-editor-surface);
+  box-shadow: 0 1px 2px
+    color-mix(in oklab, var(--color-editor-foreground) 6%, transparent);
+  padding: 16px;
+  overflow-wrap: anywhere;
+}
+.de-card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  color: var(--color-editor-foreground);
+  font-size: 14px;
+  font-weight: 600;
+}
+.de-card-icon {
+  flex-shrink: 0;
+  color: var(--editor-action);
+}
+.de-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+}
+.de-subhead {
+  margin: 0 0 6px;
+  color: var(--color-editor-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Edit/delete actions stay low-opacity chrome until the row or card they
+   belong to is hovered or focused, or the device can't hover at all. */
+.de-card .prompt-part-edit,
+.de-card .prompt-part-delete {
+  opacity: 0;
+}
+.de-card:hover .prompt-part-edit,
+.de-card:hover .prompt-part-delete,
+.de-card:focus-within .prompt-part-edit,
+.de-card:focus-within .prompt-part-delete,
+.de-field:hover .prompt-part-edit,
+.de-field:hover .prompt-part-delete,
+.de-subrow:hover .prompt-part-edit,
+.de-subrow:hover .prompt-part-delete {
+  opacity: 0.7;
+}
+.de-card .prompt-part-edit:focus-visible,
+.de-card .prompt-part-delete:focus-visible {
+  opacity: 1;
+  outline: 2px solid var(--editor-focus);
+  outline-offset: 2px;
+}
+@media (hover: none) {
+  .de-card .prompt-part-edit,
+  .de-card .prompt-part-delete {
+    opacity: 0.7;
+  }
+}
+
+/* Design settings: the poster preview beside title/tagline/theme fields. */
+.de-settings {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+@container design-editor (min-width: 400px) {
+  .de-settings {
+    grid-template-columns: minmax(120px, 38%) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+.de-settings[data-editing] {
+  grid-template-columns: 1fr;
+}
+.de-poster-cell {
+  min-width: 0;
+}
+.de-poster {
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--color-editor-hover);
+}
+.de-poster-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.de-fields {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.de-field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.de-field-label {
+  color: var(--color-editor-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.de-field-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.de-field-value {
+  flex: 1;
+  min-width: 0;
+  color: var(--color-editor-foreground);
+  font-size: 13px;
+}
+.de-field-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+.de-field-tagline {
+  border-radius: 8px;
+  background: var(--color-editor-hover);
+  padding: 6px 10px;
+  font-style: italic;
+  white-space: pre-line;
+}
+.de-field-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 2px;
+}
+.de-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  background: var(--color-editor-hover);
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Colors: a swatch grid, two-up until the card has room for more. */
+.de-swatches {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+@container design-editor (min-width: 520px) {
+  .de-swatches {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  }
+}
+.de-swatch-card {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.de-swatch {
+  display: block;
+  height: 44px;
+  border: 1px solid var(--color-editor-border);
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 1px
+    color-mix(in oklab, var(--color-editor-foreground) 6%, transparent);
+}
+.de-swatch-name {
+  font-size: 12px;
+  font-weight: 600;
+}
+.de-swatch-hex {
+  color: var(--color-editor-muted);
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+}
+.de-swatch-role {
+  display: block;
+  color: var(--color-editor-muted);
+  font-size: 10.5px;
+  line-height: 1.4;
+}
+.de-info-strip {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+  border-radius: 8px;
+  background: var(--color-editor-hover);
+  padding: 8px 10px;
+  color: var(--color-editor-muted);
+  font-size: 11px;
+}
+.de-info-strip svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* Typography: font-family tokens stacked (two-up once there's room) above
+   the full-width type scale. */
+.de-typography {
+  display: grid;
+  gap: 14px;
+}
+.de-families {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+@container design-editor (min-width: 560px) {
+  .de-families {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.de-family {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  border-radius: 10px;
+  background: var(--color-editor-hover);
+  padding: 10px 12px;
+}
+.de-family-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+.de-family-name {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.de-family-role {
+  color: var(--color-editor-muted);
+  font-size: 11px;
+}
+.de-family-fields {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+.de-family-field {
+  display: flex;
+  gap: 6px;
+  font-size: 11px;
+}
+.de-family-field dt {
+  flex-shrink: 0;
+  color: var(--color-editor-muted);
+  font-weight: 600;
+}
+.de-family-field dd {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  color: var(--color-editor-foreground);
+}
+.de-chip {
+  border: 1px solid var(--color-editor-border);
+  border-radius: 999px;
+  background: var(--color-editor-surface);
+  padding: 1px 8px;
+  font-size: 10.5px;
+}
+.de-type-scale-wrap {
+  min-width: 0;
+}
+.de-type-scale {
+  display: grid;
+  gap: 10px;
+}
+.de-type-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  border-radius: 10px;
+  background: var(--color-editor-hover);
+  padding: 8px 12px;
+}
+.de-type-sample {
+  flex-shrink: 0;
+  min-width: 32px;
+  color: var(--color-editor-foreground);
+  text-align: center;
+}
+.de-type-meta {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.de-type-role {
+  font-size: 13px;
+  text-transform: capitalize;
+}
+.de-type-meta small {
+  color: var(--color-editor-muted);
+  font-size: 11px;
+}
+
+/* Spacing & Shapes: bars on a muted track, base-unit/density tiles and
+   radius corners; Layout tokens are their own sibling card. */
+.de-spacing {
+  display: grid;
+  gap: 14px;
+}
+.de-spacing-scale,
+.de-radius {
+  display: grid;
+  gap: 8px;
+}
+.de-scale {
+  display: grid;
+  gap: 6px;
+}
+.de-scale-row {
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+.de-scale-label {
+  color: var(--color-editor-muted);
+}
+.de-scale-track {
+  position: relative;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--color-editor-hover);
+}
+.de-scale-bar {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--editor-action);
+}
+.de-spacing-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 8px;
+}
+.de-tile {
+  display: grid;
+  gap: 2px;
+  border-radius: 10px;
+  background: var(--color-editor-hover);
+  padding: 8px 10px;
+}
+.de-tile svg {
+  color: var(--editor-action);
+}
+.de-tile-label {
+  color: var(--color-editor-muted);
+  font-size: 10.5px;
+}
+.de-tile-value {
+  font-size: 13px;
+  font-weight: 600;
+}
+.de-radii {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+  gap: 8px;
+}
+.de-radius-tile {
+  display: grid;
+  gap: 4px;
+  border-radius: 10px;
+  background: var(--color-editor-hover);
+  padding: 8px;
+}
+.de-radius-corner {
+  display: block;
+  height: 20px;
+  width: 20px;
+  border: 2px solid var(--editor-action);
+  border-right: none;
+  border-bottom: none;
+}
+.de-radius-value {
+  font-size: 12px;
+}
+.de-radius-label {
+  color: var(--color-editor-muted);
+  font-size: 10.5px;
+}
+
+/* Layout tokens, parsed out of Spacing & Shapes into their own card. */
+.de-layout-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 14px;
+  margin: 0;
+}
+@container design-editor (max-width: 360px) {
+  .de-layout-fields {
+    grid-template-columns: 1fr;
+  }
+}
+.de-layout-field {
+  display: grid;
+  gap: 2px;
+  font-size: 12px;
+}
+.de-layout-field dt {
+  color: var(--color-editor-muted);
+  font-size: 10.5px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.de-layout-field dd {
+  margin: 0;
+}
+
+/* Components: a name chip, muted role line and description prose. */
+.de-components {
+  display: grid;
+  gap: 10px;
+}
+.de-component {
+  display: grid;
+  gap: 4px;
+  border-radius: 10px;
+  background: var(--color-editor-hover);
+  padding: 10px 12px;
+}
+.de-component-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.de-component-chip {
+  border: 1px solid var(--color-editor-border);
+  border-radius: 999px;
+  background: var(--color-editor-surface);
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.de-component-count {
+  color: var(--color-editor-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+.de-component-role {
+  margin: 0;
+  color: var(--color-editor-muted);
+  font-size: 11px;
+}
+.de-component-desc {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* Layout slots: the section's own text, then each slot as a nested row. */
+.de-subrow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 4px 10px;
+  border-top: 1px solid var(--color-editor-border);
+  padding-top: 10px;
+}
+.de-subrow-tag {
+  color: var(--color-editor-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+.de-subrow-actions {
+  justify-self: end;
+}
+.de-subrow-body {
+  grid-column: 1 / -1;
+}
+
 .editor-shell .prompt-tool-add {
   position: relative;
   display: grid;

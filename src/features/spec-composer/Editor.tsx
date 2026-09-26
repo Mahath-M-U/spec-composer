@@ -115,6 +115,7 @@ import {
   DESIGN_SKILL_SECTIONS,
 } from "./design-md";
 import { DesignMarkdown, PromptProse, ProseText } from "./design-md-view";
+import { DesignEditorSections, type DesignPart } from "./design-editor-cards";
 import { PromptPart } from "./prompt-visuals";
 import { FEATURED_FONTS, MORE_FONTS } from "./fonts";
 import { SectionEditor } from "./section-editors";
@@ -240,8 +241,8 @@ export function Editor({ projectId }: { projectId: string }) {
   const navigate = useNavigate();
   const [preview, setPreview] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
-  const [leftPanelWidth, setLeftPanelWidth] = useState(320);
-  const [rightPanelWidth, setRightPanelWidth] = useState(460);
+  const [leftPanelWidth, setLeftPanelWidth] = useState(360);
+  const [rightPanelWidth, setRightPanelWidth] = useState(520);
   const sidebars = useSidebarLayout();
 
   useEffect(() => {
@@ -345,9 +346,9 @@ export function Editor({ projectId }: { projectId: string }) {
         side="left"
         width={leftPanelWidth}
         setWidth={setLeftPanelWidth}
-        min={340}
-        max={580}
-        defaultWidth={380}
+        min={360}
+        max={680}
+        defaultWidth={520}
         className="panel-resize-handle--left"
       />
       <Workspace />
@@ -357,9 +358,9 @@ export function Editor({ projectId }: { projectId: string }) {
         side="right"
         width={rightPanelWidth}
         setWidth={setRightPanelWidth}
-        min={340}
-        max={760}
-        defaultWidth={460}
+        min={360}
+        max={680}
+        defaultWidth={520}
         className="panel-resize-handle--right"
       />
       <RightPanel sidebars={sidebars} exportOpen={() => setExportOpen(true)} />
@@ -2426,6 +2427,7 @@ function PromptPanel({
   const [textMode, setTextMode] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [toolPicker, setToolPicker] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const toolButtonRef = useRef<HTMLButtonElement>(null);
   const styleSelectRef = useRef<HTMLSelectElement>(null);
   // Return focus to the control that opened the Tools dialog.
@@ -2496,7 +2498,7 @@ function PromptPanel({
       buttonRef={toolButtonRef}
     />
   );
-  const styleSelect = !isSkill && (
+  const styleSelect = (
     <label className="prompt-style-row">
       <span>Image style</span>
       <select
@@ -2593,12 +2595,168 @@ function PromptPanel({
       s.mutate((x) => clearHandEdit(x, x.promptMode), false);
     setEditing(false);
   };
+  // One section's row: tag, edit/delete actions and its body (visual
+  // controls, raw textarea or rendered text). Shared by the Prompt Editor's
+  // flat list and the Design Editor's cards below.
+  const renderPart = (line: PromptLine): DesignPart & { kind: string } => {
+    const m = meta(line.key, d);
+    const isEditing = editingPart === line.key;
+    const text = segText(line.segs);
+    const base = baseSegments.find((l) => l.key === line.key);
+    const elId = line.key.startsWith("skill:el:")
+      ? line.key.slice("skill:el:".length)
+      : line.key.startsWith("el:")
+        ? line.key.slice("el:".length)
+        : null;
+    const visual = !!sectionTarget(line.key, d);
+    const startTextEdit = () => {
+      s.mutate((x) => {
+        x.promptParts = { ...x.promptParts, [line.key]: text };
+      }, false);
+      setTextMode(true);
+    };
+    const controls = isEditing && !textMode && (
+      <SectionEditor
+        lineKey={line.key}
+        baseText={base ? segText(base.segs) : text}
+        onEditText={startTextEdit}
+      />
+    );
+    const actions = (
+      <span className="prompt-tag-actions">
+        <Hint label={isEditing ? "Done" : `Edit ${m.tag}`}>
+          <button
+            type="button"
+            className="prompt-part-edit"
+            aria-label={isEditing ? "Done" : `Edit ${m.tag}`}
+            onClick={() => {
+              if (!isEditing) {
+                setEditingPart(line.key);
+                if (visual) setTextMode(false);
+                else startTextEdit();
+                return;
+              }
+              if (textMode && base && text === segText(base.segs))
+                s.mutate((x) => {
+                  if (x.promptParts) delete x.promptParts[line.key];
+                }, false);
+              setEditingPart(null);
+            }}
+          >
+            {isEditing ? <Check size={11} /> : <Pencil size={11} />}
+          </button>
+        </Hint>
+        <Hint label={`Delete ${m.tag}`}>
+          <button
+            type="button"
+            className="prompt-part-delete"
+            aria-label={`Delete ${m.tag}`}
+            onClick={() => {
+              if (editingPart === line.key) setEditingPart(null);
+              if (elId) {
+                s.deleteElements([elId]);
+                s.mutate((x) => {
+                  if (x.promptParts) delete x.promptParts[line.key];
+                }, false);
+              } else if (line.key === "imageStyle") {
+                s.mutate((x) => setImageStyle(x, IMAGE_STYLE_NONE));
+                styleSelectRef.current?.focus();
+              } else {
+                s.mutate((x) => {
+                  x.promptParts = { ...x.promptParts, [line.key]: "" };
+                });
+              }
+            }}
+          >
+            <Trash2 size={11} />
+          </button>
+        </Hint>
+      </span>
+    );
+    const body = (
+      <>
+        {controls}
+        {isEditing && textMode ? (
+          <textarea
+            className="prompt-part-text"
+            autoFocus
+            value={text}
+            spellCheck={false}
+            onChange={(e) =>
+              s.mutate((x) => {
+                x.promptParts = {
+                  ...x.promptParts,
+                  [line.key]: e.target.value,
+                };
+              }, false)
+            }
+          />
+        ) : isSkill && !elId ? (
+          <DesignMarkdown
+            text={
+              line.key === "skill:title"
+                ? `# ${text}`
+                : line.key === "skill:tagline"
+                  ? `> ${text}`
+                  : text
+            }
+          />
+        ) : (
+          <PromptPart
+            lineKey={line.key}
+            doc={d}
+            text={text}
+            custom={line.custom}
+            bare={!!controls}
+          >
+            <p className="md-prose">
+              {line.segs.map((seg, j) =>
+                typeof seg === "string" ? (
+                  <ProseText
+                    key={j}
+                    // Slot bullets read as rows here, not a list.
+                    text={isSkill && j === 0 ? seg.replace(/^- /, "") : seg}
+                  />
+                ) : (
+                  <input
+                    key={j}
+                    className="prompt-field"
+                    value={seg.value}
+                    placeholder={seg.fallback || "Text"}
+                    spellCheck={false}
+                    onChange={(e) =>
+                      seg.field === "content"
+                        ? s.setElementText(seg.id, e.target.value)
+                        : s.updateElement(seg.id, {
+                            [seg.field]: e.target.value,
+                          })
+                    }
+                  />
+                ),
+              )}
+            </p>
+          </PromptPart>
+        )}
+      </>
+    );
+    return {
+      key: line.key,
+      tag: m.tag,
+      text,
+      editing: isEditing,
+      actions,
+      body,
+      kind: m.kind,
+    };
+  };
 
   return (
     <>
       {/* Pinned bar: stays put however the panel or the prompt scrolls. */}
       <div className="right-panel-head">
-        <span>{isSkill ? "Design Editor" : "Prompt Editor"}</span>
+        <span className="right-panel-title">
+          {isSkill ? "Design Editor" : "Prompt Editor"}
+        </span>
         <Hint label="Export as DESIGN.md, JSON or PNG">
           <button
             type="button"
@@ -2641,14 +2799,16 @@ function PromptPanel({
                     "design_skill",
                     "Design Editor",
                     "Reusable DESIGN.md with the design kit and layout",
+                    Palette,
                   ],
                   [
                     "visual_prompt",
                     "Prompt Editor",
                     "Natural-language prompt for image models",
+                    FileText,
                   ],
                 ] as const
-              ).map(([id, label, hint]) => (
+              ).map(([id, label, hint, Icon]) => (
                 <Hint key={id} label={hint}>
                   <button
                     type="button"
@@ -2666,6 +2826,7 @@ function PromptPanel({
                       }, false);
                     }}
                   >
+                    <Icon aria-hidden="true" />
                     {label}
                   </button>
                 </Hint>
@@ -2698,13 +2859,18 @@ function PromptPanel({
           )}
           {styleSelect}
           <div className="prompt-controls">
-            <details className="prompt-options" data-tour="include-output">
+            <details
+              className="prompt-options"
+              data-tour="include-output"
+              onToggle={(e) => setOptionsOpen(e.currentTarget.open)}
+            >
               <Hint
                 label={`Choose which sections appear in the ${noun}`}
                 side="left"
               >
-                <summary>
-                  Include in output <ChevronDown />
+                <summary aria-expanded={optionsOpen}>
+                  <SlidersHorizontal aria-hidden="true" />
+                  Include in output <ChevronDown aria-hidden="true" />
                 </summary>
               </Hint>
               {Object.entries(d.promptOptions).map(([k, v]) => (
@@ -2836,175 +3002,40 @@ function PromptPanel({
               </div>
             )}
             {sectionView && !briefAfterFormat && briefSection}
-            {edit != null
-              ? handEdited
-              : segments.flatMap((line) => {
-                  if (d.promptParts?.[line.key] === "") return [];
-                  const m = meta(line.key, d);
-                  const isEditing = editingPart === line.key;
-                  const text = segText(line.segs);
-                  const base = baseSegments.find((l) => l.key === line.key);
-                  const elId = line.key.startsWith("skill:el:")
-                    ? line.key.slice("skill:el:".length)
-                    : line.key.startsWith("el:")
-                      ? line.key.slice("el:".length)
-                      : null;
-                  const visual = !!sectionTarget(line.key, d);
-                  const startTextEdit = () => {
-                    s.mutate((x) => {
-                      x.promptParts = { ...x.promptParts, [line.key]: text };
-                    }, false);
-                    setTextMode(true);
-                  };
-                  const controls = isEditing && !textMode && (
-                    <SectionEditor
-                      lineKey={line.key}
-                      baseText={base ? segText(base.segs) : text}
-                      onEditText={startTextEdit}
-                    />
-                  );
-                  return [
-                    <div
-                      key={line.key}
-                      className="prompt-part"
-                      data-kind={m.kind}
-                    >
-                      <span className="prompt-tag">
-                        {m.tag}
-                        <span className="prompt-tag-actions">
-                          <Hint label={isEditing ? "Done" : `Edit ${m.tag}`}>
-                            <button
-                              type="button"
-                              className="prompt-part-edit"
-                              onClick={() => {
-                                if (!isEditing) {
-                                  setEditingPart(line.key);
-                                  if (visual) setTextMode(false);
-                                  else startTextEdit();
-                                  return;
-                                }
-                                if (
-                                  textMode &&
-                                  base &&
-                                  text === segText(base.segs)
-                                )
-                                  s.mutate((x) => {
-                                    if (x.promptParts)
-                                      delete x.promptParts[line.key];
-                                  }, false);
-                                setEditingPart(null);
-                              }}
-                            >
-                              {isEditing ? (
-                                <Check size={11} />
-                              ) : (
-                                <Pencil size={11} />
-                              )}
-                            </button>
-                          </Hint>
-                          <Hint label={`Delete ${m.tag}`}>
-                            <button
-                              type="button"
-                              className="prompt-part-delete"
-                              onClick={() => {
-                                if (editingPart === line.key)
-                                  setEditingPart(null);
-                                if (elId) {
-                                  s.deleteElements([elId]);
-                                  s.mutate((x) => {
-                                    if (x.promptParts)
-                                      delete x.promptParts[line.key];
-                                  }, false);
-                                } else if (line.key === "imageStyle") {
-                                  s.mutate((x) =>
-                                    setImageStyle(x, IMAGE_STYLE_NONE),
-                                  );
-                                  styleSelectRef.current?.focus();
-                                } else {
-                                  s.mutate((x) => {
-                                    x.promptParts = {
-                                      ...x.promptParts,
-                                      [line.key]: "",
-                                    };
-                                  });
-                                }
-                              }}
-                            >
-                              <Trash2 size={11} />
-                            </button>
-                          </Hint>
-                        </span>
-                      </span>
-                      {controls}
-                      {isEditing && textMode ? (
-                        <textarea
-                          className="prompt-part-text"
-                          autoFocus
-                          value={text}
-                          spellCheck={false}
-                          onChange={(e) =>
-                            s.mutate((x) => {
-                              x.promptParts = {
-                                ...x.promptParts,
-                                [line.key]: e.target.value,
-                              };
-                            }, false)
-                          }
-                        />
-                      ) : isSkill && !elId ? (
-                        <DesignMarkdown
-                          text={
-                            line.key === "skill:title"
-                              ? `# ${text}`
-                              : line.key === "skill:tagline"
-                                ? `> ${text}`
-                                : text
-                          }
-                        />
-                      ) : (
-                        <PromptPart
-                          lineKey={line.key}
-                          doc={d}
-                          text={text}
-                          custom={line.custom}
-                          bare={!!controls}
-                        >
-                          <p className="md-prose">
-                            {line.segs.map((seg, j) =>
-                              typeof seg === "string" ? (
-                                <ProseText
-                                  key={j}
-                                  // Slot bullets read as rows here, not a list.
-                                  text={
-                                    isSkill && j === 0
-                                      ? seg.replace(/^- /, "")
-                                      : seg
-                                  }
-                                />
-                              ) : (
-                                <input
-                                  key={j}
-                                  className="prompt-field"
-                                  value={seg.value}
-                                  placeholder={seg.fallback || "Text"}
-                                  spellCheck={false}
-                                  onChange={(e) =>
-                                    seg.field === "content"
-                                      ? s.setElementText(seg.id, e.target.value)
-                                      : s.updateElement(seg.id, {
-                                          [seg.field]: e.target.value,
-                                        })
-                                  }
-                                />
-                              ),
-                            )}
-                          </p>
-                        </PromptPart>
-                      )}
-                    </div>,
-                    line.key === "format" ? briefSection : null,
-                  ];
-                })}
+            {edit != null ? (
+              handEdited
+            ) : isSkill ? (
+              <DesignEditorSections
+                parts={segments
+                  .filter(
+                    (line) =>
+                      d.promptParts?.[line.key] !== "" &&
+                      line.key !== "skill:overview",
+                  )
+                  .map(renderPart)}
+                doc={d}
+                kit={kit}
+              />
+            ) : (
+              segments.flatMap((line) => {
+                if (d.promptParts?.[line.key] === "") return [];
+                const part = renderPart(line);
+                return [
+                  <div
+                    key={line.key}
+                    className="prompt-part"
+                    data-kind={part.kind}
+                  >
+                    <span className="prompt-tag">
+                      {part.tag}
+                      {part.actions}
+                    </span>
+                    {part.body}
+                  </div>,
+                  line.key === "format" ? briefSection : null,
+                ];
+              })
+            )}
           </div>
         )}
         <div
