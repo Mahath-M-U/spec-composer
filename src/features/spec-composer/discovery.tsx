@@ -119,6 +119,7 @@ export function DiscoveryShell({
             <Link to="/" className="flex min-w-0 items-center gap-3 font-bold">
               <Mark />
               <span>Spec Composer</span>
+              <span className="sidebar-soon-badge shrink-0">Beta</span>
             </Link>
             <ThemeToggle />
           </div>
@@ -196,6 +197,7 @@ export function DiscoveryShell({
             <Link to="/" className="flex items-center gap-2 font-bold">
               <Mark />
               <span>Spec Composer</span>
+              <span className="sidebar-soon-badge shrink-0">Beta</span>
             </Link>
             <div className="flex items-center gap-1">
               <button
