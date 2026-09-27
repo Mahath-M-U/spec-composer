@@ -36,7 +36,6 @@ export function sectionTarget(key: string, doc: SpecDocument): Target | null {
       return dominant ? { type: "element", id: dominant.id } : null;
     }
     case "skill:colors":
-    case "skill:surfaces":
       return { type: "palette" };
     case "skill:type":
       return visible.some((e) => isTextKind(e.kind)) ? { type: "type" } : null;

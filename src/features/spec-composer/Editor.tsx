@@ -75,6 +75,11 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Hint } from "@/components/ui/tooltip";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { AppIcon } from "@/components/app-icon";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -1178,17 +1183,29 @@ function DockNumberField({
   );
 }
 
+const STYLE_DOCK_OPEN_ID = "style-dock-open";
+const STYLE_DOCK_COLLAPSE_ID = "style-dock-collapse";
+
 function StyleDock() {
   const s = useEditorStore();
   const d = s.doc;
   const dockRef = useRef<HTMLElement>(null);
   const { pos, dragging, startDrag } = useDockDrag(dockRef);
+  const [expanded, setExpanded] = useState(false);
   const [brandKitOpen, setBrandKitOpen] = useState(false);
   const brandKitPickerRef = useRef<HTMLDivElement>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const detailsRef = useRef<HTMLDivElement>(null);
   const [regenCopied, setRegenCopied] = useState(false);
   const [tab, setTab] = useState<"style" | "layout">("style");
+  const selectionKey =
+    s.selectedIds.length || s.backgroundSelected
+      ? `${s.backgroundSelected ? "bg" : ""}|${s.selectedIds.join(",")}`
+      : "";
+
+  useEffect(() => {
+    if (selectionKey) setExpanded(true);
+  }, [selectionKey]);
 
   useEffect(() => {
     if (!brandKitOpen) return;
@@ -1225,6 +1242,17 @@ function StyleDock() {
       document.removeEventListener("keydown", closeOnEscape);
     };
   }, [detailsOpen]);
+
+  const collapse = () => {
+    setExpanded(false);
+    setDetailsOpen(false);
+    setBrandKitOpen(false);
+    focusSidebarControl(STYLE_DOCK_OPEN_ID);
+  };
+  const expand = () => {
+    setExpanded(true);
+    focusSidebarControl(STYLE_DOCK_COLLAPSE_ID);
+  };
 
   if (!d) return null;
 
@@ -1277,721 +1305,784 @@ function StyleDock() {
       data-canvas-ui
       data-tour="style"
       ref={dockRef}
-      className={`style-dock${dragging ? " dragging" : ""}`}
+      className={`style-dock${dragging ? " dragging" : ""}${expanded ? "" : " is-collapsed"}`}
       aria-label="Style controls"
       style={pos ? { left: pos.x, top: pos.y, right: "auto" } : undefined}
     >
-      <Hint label="Drag to move" side="top">
-        <div className="style-dock-title" onPointerDown={startDrag}>
-          <span className="style-dock-title-label">
+      {!expanded ? (
+        <Hint label="Style" side="left">
+          <button
+            type="button"
+            id={STYLE_DOCK_OPEN_ID}
+            className="style-dock-toggle"
+            aria-label="Show style controls"
+            aria-expanded={false}
+            onClick={expand}
+          >
             <Palette aria-hidden="true" />
-            Style
-          </span>
-          <GripVertical className="style-dock-grip" aria-hidden="true" />
-        </div>
-      </Hint>
-      <div className="style-dock-tabs" role="tablist">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === "style"}
-          className={tab === "style" ? "active" : ""}
-          onClick={() => setTab("style")}
-        >
-          <Palette aria-hidden="true" />
-          Style
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === "layout"}
-          className={tab === "layout" ? "active" : ""}
-          data-tour="style-layout"
-          onClick={() => setTab("layout")}
-        >
-          <LayoutGrid aria-hidden="true" />
-          Layout
-        </button>
-      </div>
-      <span className="style-dock-separator" />
-
-      {tab === "layout" && <ComposeList />}
-
-      {tab === "style" && (
+          </button>
+        </Hint>
+      ) : (
         <>
-          {firstElement && !s.backgroundSelected && (
-            <div
-              ref={detailsRef}
-              className="style-dock-control style-dock-details"
-            >
-              <span>Element</span>
-              <button
-                className="font-trigger"
-                type="button"
-                aria-haspopup="dialog"
-                aria-expanded={detailsOpen}
-                onClick={() => setDetailsOpen((open) => !open)}
-              >
-                <SlidersHorizontal aria-hidden="true" />
-                <b>{firstElement.name}</b>
-                <ChevronDown aria-hidden="true" />
-              </button>
-
-              {detailsOpen && (
-                <div
-                  className="font-picker-popover element-details-popover"
-                  role="dialog"
-                  aria-label="Element details"
+          <Hint label="Drag to move" side="top">
+            <div className="style-dock-title" onPointerDown={startDrag}>
+              <span className="style-dock-title-label">
+                <Palette aria-hidden="true" />
+                Style
+              </span>
+              <span className="style-dock-title-actions">
+                <button
+                  type="button"
+                  id={STYLE_DOCK_COLLAPSE_ID}
+                  className="style-dock-collapse"
+                  aria-label="Collapse style controls"
+                  aria-expanded={true}
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onClick={collapse}
                 >
-                  <div className="font-picker-head">
-                    <div>
-                      <SlidersHorizontal aria-hidden="true" />
-                      <div>
-                        <b>Element details</b>
-                        <small>Content and element metadata</small>
+                  <X aria-hidden="true" />
+                </button>
+                <GripVertical className="style-dock-grip" aria-hidden="true" />
+              </span>
+            </div>
+          </Hint>
+          <div className="style-dock-tabs" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === "style"}
+              className={tab === "style" ? "active" : ""}
+              onClick={() => setTab("style")}
+            >
+              <Palette aria-hidden="true" />
+              Style
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === "layout"}
+              className={tab === "layout" ? "active" : ""}
+              data-tour="style-layout"
+              onClick={() => setTab("layout")}
+            >
+              <LayoutGrid aria-hidden="true" />
+              Layout
+            </button>
+          </div>
+          <span className="style-dock-separator" />
+
+          {tab === "layout" && <ComposeList />}
+
+          {tab === "style" && (
+            <>
+              {firstElement && !s.backgroundSelected && (
+                <div
+                  ref={detailsRef}
+                  className="style-dock-control style-dock-details"
+                >
+                  <span>Element</span>
+                  <button
+                    className="font-trigger"
+                    type="button"
+                    aria-haspopup="dialog"
+                    aria-expanded={detailsOpen}
+                    onClick={() => setDetailsOpen((open) => !open)}
+                  >
+                    <SlidersHorizontal aria-hidden="true" />
+                    <b>{firstElement.name}</b>
+                    <ChevronDown aria-hidden="true" />
+                  </button>
+
+                  {detailsOpen && (
+                    <div
+                      className="font-picker-popover element-details-popover"
+                      role="dialog"
+                      aria-label="Element details"
+                    >
+                      <div className="font-picker-head">
+                        <div>
+                          <SlidersHorizontal aria-hidden="true" />
+                          <div>
+                            <b>Element details</b>
+                            <small>Content and element metadata</small>
+                          </div>
+                        </div>
+                        <Hint label="Close element details">
+                          <button
+                            type="button"
+                            aria-label="Close element details"
+                            onClick={() => setDetailsOpen(false)}
+                          >
+                            <X />
+                          </button>
+                        </Hint>
                       </div>
-                    </div>
-                    <Hint label="Close element details">
-                      <button
-                        type="button"
-                        aria-label="Close element details"
-                        onClick={() => setDetailsOpen(false)}
-                      >
-                        <X />
-                      </button>
-                    </Hint>
-                  </div>
-                  <div className="element-details-fields">
-                    <label>
-                      <span>Name</span>
-                      <input
-                        value={firstElement.name}
-                        onChange={(event) =>
-                          updateFirstElement({ name: event.target.value })
-                        }
-                      />
-                    </label>
-                    {(isTextKind(firstElement.kind) ||
-                      firstElement.content !== undefined) && (
-                      <label>
-                        <span>Content</span>
-                        <textarea
-                          value={firstElement.content ?? ""}
-                          onChange={(event) =>
-                            s.setElementText(
-                              firstElement.id,
-                              event.target.value,
-                            )
-                          }
-                        />
-                      </label>
-                    )}
-                    {isImageKind(firstElement.kind) && (
-                      <label>
-                        <span>AI description</span>
-                        <textarea
-                          value={firstElement.aiDescription ?? ""}
-                          onChange={(event) =>
-                            updateFirstElement({
-                              aiDescription: event.target.value,
-                            })
-                          }
-                        />
-                      </label>
-                    )}
-                    {isImageKind(firstElement.kind) && !firstElement.src && (
-                      <label>
-                        <span>Placeholder art</span>
-                        <select
-                          value={
-                            hasPlaceholderArt(firstElement.placeholderArt)
-                              ? firstElement.placeholderArt
-                              : "none"
-                          }
-                          onChange={(event) =>
-                            updateFirstElement({
-                              placeholderArt: event.target.value,
-                            })
-                          }
-                        >
-                          {PLACEHOLDER_ART_GROUPS.map(([group, options]) => (
-                            <optgroup key={group} label={group}>
-                              {options.map((option) => (
-                                <option key={option.key} value={option.key}>
-                                  {option.label}
-                                </option>
-                              ))}
-                            </optgroup>
-                          ))}
-                          <option value="none">None (empty slot)</option>
-                        </select>
-                      </label>
-                    )}
-                    {isImageKind(firstElement.kind) && (
-                      <label>
-                        <span>Replace image (regenerate this region)</span>
-                        <input
-                          type="file"
-                          accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                          onChange={(event) => {
-                            const f = event.target.files?.[0];
-                            if (!f || f.size > 5_000_000) return;
-                            const reader = new FileReader();
-                            reader.onload = () => {
-                              if (typeof reader.result === "string")
+                      <div className="element-details-fields">
+                        <label>
+                          <span>Name</span>
+                          <input
+                            value={firstElement.name}
+                            onChange={(event) =>
+                              updateFirstElement({ name: event.target.value })
+                            }
+                          />
+                        </label>
+                        {(isTextKind(firstElement.kind) ||
+                          firstElement.content !== undefined) && (
+                          <label>
+                            <span>Content</span>
+                            <textarea
+                              value={firstElement.content ?? ""}
+                              onChange={(event) =>
+                                s.setElementText(
+                                  firstElement.id,
+                                  event.target.value,
+                                )
+                              }
+                            />
+                          </label>
+                        )}
+                        {isImageKind(firstElement.kind) && (
+                          <label>
+                            <span>AI description</span>
+                            <textarea
+                              value={firstElement.aiDescription ?? ""}
+                              onChange={(event) =>
                                 updateFirstElement({
-                                  src: reader.result,
-                                  aiDescription: f.name,
-                                });
-                            };
-                            reader.readAsDataURL(f);
-                            event.target.value = "";
-                          }}
-                        />
-                      </label>
-                    )}
-                    <div className="element-constraint-fields">
-                      <label>
-                        <span>Lock (anti-slop)</span>
-                        <select
-                          value={firstElement.constraint?.lock ?? "guided"}
-                          onChange={(event) =>
-                            s.updateElementConstraint(firstElement.id, {
-                              lock: event.target.value as
-                                "exact" | "guided" | "free",
-                            })
-                          }
-                        >
-                          <option value="free">Free — fully generative</option>
-                          <option value="guided">Guided — stay in style</option>
-                          <option value="exact">Exact — must not change</option>
-                        </select>
-                      </label>
-                      <label>
-                        <span>Must include</span>
-                        <textarea
-                          placeholder="e.g. photographic, studio lighting"
-                          value={
-                            firstElement.constraint?.positiveConstraint ?? ""
-                          }
-                          onChange={(event) =>
-                            s.updateElementConstraint(firstElement.id, {
-                              positiveConstraint: event.target.value,
-                            })
-                          }
-                        />
-                      </label>
-                      <label>
-                        <span>Must avoid</span>
-                        <textarea
-                          placeholder="e.g. no added text, no watermark"
-                          value={
-                            firstElement.constraint?.negativeConstraint ?? ""
-                          }
-                          onChange={(event) =>
-                            s.updateElementConstraint(firstElement.id, {
-                              negativeConstraint: event.target.value,
-                            })
-                          }
-                        />
-                      </label>
-                      <label className="element-constraint-checkbox">
-                        <input
-                          type="checkbox"
-                          checked={
-                            firstElement.constraint?.brandLocked ?? false
-                          }
-                          onChange={(event) =>
-                            s.updateElementConstraint(firstElement.id, {
-                              brandLocked: event.target.checked,
-                            })
-                          }
-                        />
-                        <span>Brand-locked (colors/fonts non-negotiable)</span>
-                      </label>
-                      <div className="element-constraint-actions">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          type="button"
-                          onClick={() =>
-                            s.mutate((doc) => {
-                              doc.elements.forEach((el) => {
-                                if (el.id !== firstElement.id)
-                                  el.constraint = {
-                                    ...el.constraint,
-                                    lock: "exact",
-                                  };
-                                else if (el.constraint?.lock === "exact")
-                                  el.constraint = {
-                                    ...el.constraint,
-                                    lock: "guided",
-                                  };
-                              });
-                            })
-                          }
-                        >
-                          <Lock size={14} />
-                          Lock all except this
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          type="button"
-                          onClick={async () => {
-                            await navigator.clipboard.writeText(
-                              compileRegionPrompt(d, firstElement.id),
-                            );
-                            setRegenCopied(true);
-                            setTimeout(() => setRegenCopied(false), 1500);
-                          }}
-                        >
-                          {regenCopied ? (
-                            <Check size={14} />
-                          ) : (
-                            <Clipboard size={14} />
+                                  aiDescription: event.target.value,
+                                })
+                              }
+                            />
+                          </label>
+                        )}
+                        {isImageKind(firstElement.kind) &&
+                          !firstElement.src && (
+                            <label>
+                              <span>Placeholder art</span>
+                              <select
+                                value={
+                                  hasPlaceholderArt(firstElement.placeholderArt)
+                                    ? firstElement.placeholderArt
+                                    : "none"
+                                }
+                                onChange={(event) =>
+                                  updateFirstElement({
+                                    placeholderArt: event.target.value,
+                                  })
+                                }
+                              >
+                                {PLACEHOLDER_ART_GROUPS.map(
+                                  ([group, options]) => (
+                                    <optgroup key={group} label={group}>
+                                      {options.map((option) => (
+                                        <option
+                                          key={option.key}
+                                          value={option.key}
+                                        >
+                                          {option.label}
+                                        </option>
+                                      ))}
+                                    </optgroup>
+                                  ),
+                                )}
+                                <option value="none">None (empty slot)</option>
+                              </select>
+                            </label>
                           )}
-                          {regenCopied ? "Copied" : "Copy region prompt"}
-                        </Button>
+                        {isImageKind(firstElement.kind) && (
+                          <label>
+                            <span>Replace image (regenerate this region)</span>
+                            <input
+                              type="file"
+                              accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                              onChange={(event) => {
+                                const f = event.target.files?.[0];
+                                if (!f || f.size > 5_000_000) return;
+                                const reader = new FileReader();
+                                reader.onload = () => {
+                                  if (typeof reader.result === "string")
+                                    updateFirstElement({
+                                      src: reader.result,
+                                      aiDescription: f.name,
+                                    });
+                                };
+                                reader.readAsDataURL(f);
+                                event.target.value = "";
+                              }}
+                            />
+                          </label>
+                        )}
+                        <div className="element-constraint-fields">
+                          <label>
+                            <span>Lock (anti-slop)</span>
+                            <select
+                              value={firstElement.constraint?.lock ?? "guided"}
+                              onChange={(event) =>
+                                s.updateElementConstraint(firstElement.id, {
+                                  lock: event.target.value as
+                                    "exact" | "guided" | "free",
+                                })
+                              }
+                            >
+                              <option value="free">
+                                Free — fully generative
+                              </option>
+                              <option value="guided">
+                                Guided — stay in style
+                              </option>
+                              <option value="exact">
+                                Exact — must not change
+                              </option>
+                            </select>
+                          </label>
+                          <label>
+                            <span>Must include</span>
+                            <textarea
+                              placeholder="e.g. photographic, studio lighting"
+                              value={
+                                firstElement.constraint?.positiveConstraint ??
+                                ""
+                              }
+                              onChange={(event) =>
+                                s.updateElementConstraint(firstElement.id, {
+                                  positiveConstraint: event.target.value,
+                                })
+                              }
+                            />
+                          </label>
+                          <label>
+                            <span>Must avoid</span>
+                            <textarea
+                              placeholder="e.g. no added text, no watermark"
+                              value={
+                                firstElement.constraint?.negativeConstraint ??
+                                ""
+                              }
+                              onChange={(event) =>
+                                s.updateElementConstraint(firstElement.id, {
+                                  negativeConstraint: event.target.value,
+                                })
+                              }
+                            />
+                          </label>
+                          <label className="element-constraint-checkbox">
+                            <input
+                              type="checkbox"
+                              checked={
+                                firstElement.constraint?.brandLocked ?? false
+                              }
+                              onChange={(event) =>
+                                s.updateElementConstraint(firstElement.id, {
+                                  brandLocked: event.target.checked,
+                                })
+                              }
+                            />
+                            <span>
+                              Brand-locked (colors/fonts non-negotiable)
+                            </span>
+                          </label>
+                          <div className="element-constraint-actions">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              type="button"
+                              onClick={() =>
+                                s.mutate((doc) => {
+                                  doc.elements.forEach((el) => {
+                                    if (el.id !== firstElement.id)
+                                      el.constraint = {
+                                        ...el.constraint,
+                                        lock: "exact",
+                                      };
+                                    else if (el.constraint?.lock === "exact")
+                                      el.constraint = {
+                                        ...el.constraint,
+                                        lock: "guided",
+                                      };
+                                  });
+                                })
+                              }
+                            >
+                              <Lock size={14} />
+                              Lock all except this
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              type="button"
+                              onClick={async () => {
+                                await navigator.clipboard.writeText(
+                                  compileRegionPrompt(d, firstElement.id),
+                                );
+                                setRegenCopied(true);
+                                setTimeout(() => setRegenCopied(false), 1500);
+                              }}
+                            >
+                              {regenCopied ? (
+                                <Check size={14} />
+                              ) : (
+                                <Clipboard size={14} />
+                              )}
+                              {regenCopied ? "Copied" : "Copy region prompt"}
+                            </Button>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
-            </div>
-          )}
 
-          {firstElement && !s.backgroundSelected && (
-            <div className="style-dock-section">
-              <h3 className="style-dock-section-title">Transform</h3>
-              <div className="style-dock-grid">
-                <DockNumberField
-                  prefix="X"
-                  label="X position"
-                  disabled={selectedElements.some((el) => el.locked)}
-                  value={Math.round(firstElement.x)}
-                  onChange={(value) => updateFirstElement({ x: value })}
-                />
-                <DockNumberField
-                  prefix="Y"
-                  label="Y position"
-                  disabled={selectedElements.some((el) => el.locked)}
-                  value={Math.round(firstElement.y)}
-                  onChange={(value) => updateFirstElement({ y: value })}
-                />
-                <DockNumberField
-                  prefix="W"
-                  label="Width"
-                  disabled={selectedElements.some((el) => el.locked)}
-                  min={1}
-                  value={Math.round(firstElement.width)}
-                  onChange={(value) =>
-                    updateFirstElement({ width: Math.max(1, value) })
-                  }
-                />
-                <DockNumberField
-                  prefix="H"
-                  label="Height"
-                  disabled={selectedElements.some((el) => el.locked)}
-                  min={1}
-                  value={Math.round(firstElement.height)}
-                  onChange={(value) =>
-                    updateFirstElement({ height: Math.max(1, value) })
-                  }
-                />
-                <DockNumberField
-                  prefix={<RotateCw aria-hidden="true" />}
-                  label="Rotation"
-                  disabled={selectedElements.some((el) => el.locked)}
-                  suffix="°"
-                  value={Math.round(firstElement.rotation)}
-                  onChange={(value) => updateFirstElement({ rotation: value })}
-                />
-                <DockNumberField
-                  prefix="O"
-                  label="Opacity"
-                  suffix="%"
-                  min={0}
-                  max={100}
-                  value={Math.round((firstElement.style.opacity ?? 1) * 100)}
-                  onChange={(value) =>
-                    updateSelectedStyles({
-                      opacity: Math.min(100, Math.max(0, value)) / 100,
-                    })
-                  }
-                />
-              </div>
-              <input
-                className="style-dock-opacity-range"
-                type="range"
-                min="0"
-                max="100"
-                step="1"
-                aria-label="Opacity"
-                value={Math.round((firstElement.style.opacity ?? 1) * 100)}
-                onChange={(event) =>
-                  updateSelectedStyles({
-                    opacity: Number(event.target.value) / 100,
-                  })
-                }
-              />
-            </div>
-          )}
-
-          {firstTextElement && (
-            <div className="style-dock-section">
-              <h3 className="style-dock-section-title">Text</h3>
-              <label className="style-dock-control style-dock-font">
-                {activeBrandKit?.typography ? (
-                  <Hint label="Font is set by this poster's design kit">
-                    <div className="font-trigger style-dock-font-locked">
-                      <Lock aria-hidden="true" />
-                      <b>
-                        {firstTextElement.style.fontFamily ??
-                          activeBrandKit.typography}
-                      </b>
-                    </div>
-                  </Hint>
-                ) : (
-                  <select
-                    aria-label="Font"
-                    value={firstTextElement.style.fontFamily ?? "Manrope"}
-                    onChange={(event) =>
-                      updateSelectedStyles(
-                        { fontFamily: event.target.value },
-                        true,
-                      )
-                    }
-                  >
-                    {[...FEATURED_FONTS, ...MORE_FONTS].map((font) => (
-                      <option key={font} value={font}>
-                        {font}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </label>
-              <div className="style-dock-grid">
-                <DockNumberField
-                  prefix="Aa"
-                  label="Font size"
-                  min={1}
-                  max={1000}
-                  value={Math.round(firstTextElement.style.fontSize ?? 16)}
-                  onChange={(value) =>
-                    updateSelectedStyles({ fontSize: Math.max(1, value) }, true)
-                  }
-                />
-                <label className="style-dock-control style-dock-weight">
-                  <select
-                    aria-label="Font weight"
-                    title="Font weight"
-                    value={firstTextElement.style.fontWeight ?? 400}
-                    onChange={(event) =>
-                      updateSelectedStyles(
-                        { fontWeight: Number(event.target.value) },
-                        true,
-                      )
-                    }
-                  >
-                    {[100, 200, 300, 400, 500, 600, 700, 800, 900].map(
-                      (weight) => (
-                        <option key={weight} value={weight}>
-                          {weight}
-                        </option>
-                      ),
-                    )}
-                  </select>
-                </label>
-              </div>
-              {activeBrandKit ? (
-                <Hint label="Overrides the design kit for this text; editing the kit resets it">
-                  <label className="style-dock-row">
-                    <span>Text color</span>
-                    <input
-                      type="color"
-                      className="style-dock-swatch"
-                      value={colorInputValue(
-                        firstTextElement.style.color,
-                        "#18181b",
+              {firstElement && !s.backgroundSelected && (
+                <div className="style-dock-section">
+                  <h3 className="style-dock-section-title">Transform</h3>
+                  <div className="style-dock-grid">
+                    <DockNumberField
+                      prefix="X"
+                      label="X position"
+                      disabled={selectedElements.some((el) => el.locked)}
+                      value={Math.round(firstElement.x)}
+                      onChange={(value) => updateFirstElement({ x: value })}
+                    />
+                    <DockNumberField
+                      prefix="Y"
+                      label="Y position"
+                      disabled={selectedElements.some((el) => el.locked)}
+                      value={Math.round(firstElement.y)}
+                      onChange={(value) => updateFirstElement({ y: value })}
+                    />
+                    <DockNumberField
+                      prefix="W"
+                      label="Width"
+                      disabled={selectedElements.some((el) => el.locked)}
+                      min={1}
+                      value={Math.round(firstElement.width)}
+                      onChange={(value) =>
+                        updateFirstElement({ width: Math.max(1, value) })
+                      }
+                    />
+                    <DockNumberField
+                      prefix="H"
+                      label="Height"
+                      disabled={selectedElements.some((el) => el.locked)}
+                      min={1}
+                      value={Math.round(firstElement.height)}
+                      onChange={(value) =>
+                        updateFirstElement({ height: Math.max(1, value) })
+                      }
+                    />
+                    <DockNumberField
+                      prefix={<RotateCw aria-hidden="true" />}
+                      label="Rotation"
+                      disabled={selectedElements.some((el) => el.locked)}
+                      suffix="°"
+                      value={Math.round(firstElement.rotation)}
+                      onChange={(value) =>
+                        updateFirstElement({ rotation: value })
+                      }
+                    />
+                    <DockNumberField
+                      prefix="O"
+                      label="Opacity"
+                      suffix="%"
+                      min={0}
+                      max={100}
+                      value={Math.round(
+                        (firstElement.style.opacity ?? 1) * 100,
                       )}
-                      onChange={(event) =>
+                      onChange={(value) =>
+                        updateSelectedStyles({
+                          opacity: Math.min(100, Math.max(0, value)) / 100,
+                        })
+                      }
+                    />
+                  </div>
+                  <input
+                    className="style-dock-opacity-range"
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    aria-label="Opacity"
+                    value={Math.round((firstElement.style.opacity ?? 1) * 100)}
+                    onChange={(event) =>
+                      updateSelectedStyles({
+                        opacity: Number(event.target.value) / 100,
+                      })
+                    }
+                  />
+                </div>
+              )}
+
+              {firstTextElement && (
+                <div className="style-dock-section">
+                  <h3 className="style-dock-section-title">Text</h3>
+                  <label className="style-dock-control style-dock-font">
+                    {activeBrandKit?.typography ? (
+                      <Hint label="Font is set by this poster's design kit">
+                        <div className="font-trigger style-dock-font-locked">
+                          <Lock aria-hidden="true" />
+                          <b>
+                            {firstTextElement.style.fontFamily ??
+                              activeBrandKit.typography}
+                          </b>
+                        </div>
+                      </Hint>
+                    ) : (
+                      <select
+                        aria-label="Font"
+                        value={firstTextElement.style.fontFamily ?? "Manrope"}
+                        onChange={(event) =>
+                          updateSelectedStyles(
+                            { fontFamily: event.target.value },
+                            true,
+                          )
+                        }
+                      >
+                        {[...FEATURED_FONTS, ...MORE_FONTS].map((font) => (
+                          <option key={font} value={font}>
+                            {font}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </label>
+                  <div className="style-dock-grid">
+                    <DockNumberField
+                      prefix="Aa"
+                      label="Font size"
+                      min={1}
+                      max={1000}
+                      value={Math.round(firstTextElement.style.fontSize ?? 16)}
+                      onChange={(value) =>
                         updateSelectedStyles(
-                          { color: event.target.value },
+                          { fontSize: Math.max(1, value) },
                           true,
                         )
                       }
                     />
-                  </label>
-                </Hint>
-              ) : (
-                <label className="style-dock-row">
-                  <span>Text color</span>
-                  <input
-                    type="color"
-                    className="style-dock-swatch"
-                    value={colorInputValue(
-                      firstTextElement.style.color,
-                      "#18181b",
-                    )}
-                    onChange={(event) =>
-                      updateSelectedStyles({ color: event.target.value }, true)
-                    }
-                  />
-                </label>
-              )}
-            </div>
-          )}
-
-          {(showImageFit || showColorControls) && (
-            <div className="style-dock-section">
-              <h3 className="style-dock-section-title">Appearance</h3>
-              {showColorControls && firstElement && (
-                <>
-                  {isTextKind(firstElement.kind) ? (
+                    <label className="style-dock-control style-dock-weight">
+                      <select
+                        aria-label="Font weight"
+                        title="Font weight"
+                        value={firstTextElement.style.fontWeight ?? 400}
+                        onChange={(event) =>
+                          updateSelectedStyles(
+                            { fontWeight: Number(event.target.value) },
+                            true,
+                          )
+                        }
+                      >
+                        {[100, 200, 300, 400, 500, 600, 700, 800, 900].map(
+                          (weight) => (
+                            <option key={weight} value={weight}>
+                              {weight}
+                            </option>
+                          ),
+                        )}
+                      </select>
+                    </label>
+                  </div>
+                  {activeBrandKit ? (
+                    <Hint label="Overrides the design kit for this text; editing the kit resets it">
+                      <label className="style-dock-row">
+                        <span>Text color</span>
+                        <input
+                          type="color"
+                          className="style-dock-swatch"
+                          value={colorInputValue(
+                            firstTextElement.style.color,
+                            "#18181b",
+                          )}
+                          onChange={(event) =>
+                            updateSelectedStyles(
+                              { color: event.target.value },
+                              true,
+                            )
+                          }
+                        />
+                      </label>
+                    </Hint>
+                  ) : (
                     <label className="style-dock-row">
-                      <span>Background</span>
+                      <span>Text color</span>
                       <input
                         type="color"
                         className="style-dock-swatch"
                         value={colorInputValue(
-                          firstElement.style.background,
-                          "#ffffff",
+                          firstTextElement.style.color,
+                          "#18181b",
                         )}
                         onChange={(event) =>
                           updateSelectedStyles(
-                            { background: event.target.value },
+                            { color: event.target.value },
                             true,
                           )
                         }
                       />
                     </label>
-                  ) : firstElement.kind === "shape" ||
-                    firstElement.kind === "divider" ? (
+                  )}
+                </div>
+              )}
+
+              {(showImageFit || showColorControls) && (
+                <div className="style-dock-section">
+                  <h3 className="style-dock-section-title">Appearance</h3>
+                  {showColorControls && firstElement && (
+                    <>
+                      {isTextKind(firstElement.kind) ? (
+                        <label className="style-dock-row">
+                          <span>Background</span>
+                          <input
+                            type="color"
+                            className="style-dock-swatch"
+                            value={colorInputValue(
+                              firstElement.style.background,
+                              "#ffffff",
+                            )}
+                            onChange={(event) =>
+                              updateSelectedStyles(
+                                { background: event.target.value },
+                                true,
+                              )
+                            }
+                          />
+                        </label>
+                      ) : firstElement.kind === "shape" ||
+                        firstElement.kind === "divider" ? (
+                        <label className="style-dock-row">
+                          <span>Element color</span>
+                          <input
+                            type="color"
+                            className="style-dock-swatch"
+                            value={colorInputValue(
+                              firstElement.style.background,
+                              "#8b5cf6",
+                            )}
+                            onChange={(event) =>
+                              updateSelectedStyles({
+                                background: event.target.value,
+                              })
+                            }
+                          />
+                        </label>
+                      ) : null}
+                    </>
+                  )}
+                  {showImageFit && firstElement && (
                     <label className="style-dock-row">
-                      <span>Element color</span>
+                      <span>Image fit</span>
+                      <select
+                        className="style-dock-row-select"
+                        value={firstElement.style.objectFit ?? "cover"}
+                        onChange={(event) =>
+                          updateSelectedStyles({
+                            objectFit: event.target.value as
+                              "cover" | "contain",
+                          })
+                        }
+                      >
+                        <option value="cover">Cover</option>
+                        <option value="contain">Contain</option>
+                      </select>
+                    </label>
+                  )}
+                </div>
+              )}
+
+              {!activeBrandKit && s.backgroundSelected && (
+                <div className="style-dock-section">
+                  <h3 className="style-dock-section-title">Background</h3>
+                  <label className="style-dock-row">
+                    <span>Fill</span>
+                    <select
+                      className="style-dock-row-select"
+                      value={d.background.type}
+                      onChange={(event) =>
+                        updateBackground({
+                          type: event.target.value as "solid" | "gradient",
+                          ...(event.target.value === "gradient" &&
+                          !d.background.secondaryValue
+                            ? { secondaryValue: d.background.value, angle: 135 }
+                            : {}),
+                        })
+                      }
+                    >
+                      <option value="solid">Solid</option>
+                      <option value="gradient">Gradient</option>
+                    </select>
+                  </label>
+                  {d.background.type === "gradient" ? (
+                    <>
+                      <label className="style-dock-row">
+                        <span>From</span>
+                        <input
+                          type="color"
+                          className="style-dock-swatch"
+                          value={d.background.value}
+                          onChange={(event) =>
+                            updateBackground({ value: event.target.value })
+                          }
+                        />
+                      </label>
+                      <label className="style-dock-row">
+                        <span>To</span>
+                        <input
+                          type="color"
+                          className="style-dock-swatch"
+                          value={
+                            d.background.secondaryValue ?? d.background.value
+                          }
+                          onChange={(event) =>
+                            updateBackground({
+                              secondaryValue: event.target.value,
+                            })
+                          }
+                        />
+                      </label>
+                    </>
+                  ) : (
+                    <label className="style-dock-row">
+                      <span>Color</span>
                       <input
                         type="color"
                         className="style-dock-swatch"
-                        value={colorInputValue(
-                          firstElement.style.background,
-                          "#8b5cf6",
-                        )}
+                        value={d.background.value}
                         onChange={(event) =>
-                          updateSelectedStyles({
-                            background: event.target.value,
-                          })
+                          updateBackground({ value: event.target.value })
                         }
                       />
                     </label>
-                  ) : null}
-                </>
-              )}
-              {showImageFit && firstElement && (
-                <label className="style-dock-row">
-                  <span>Image fit</span>
-                  <select
-                    className="style-dock-row-select"
-                    value={firstElement.style.objectFit ?? "cover"}
-                    onChange={(event) =>
-                      updateSelectedStyles({
-                        objectFit: event.target.value as "cover" | "contain",
-                      })
-                    }
-                  >
-                    <option value="cover">Cover</option>
-                    <option value="contain">Contain</option>
-                  </select>
-                </label>
-              )}
-            </div>
-          )}
-
-          {!activeBrandKit && s.backgroundSelected && (
-            <div className="style-dock-section">
-              <h3 className="style-dock-section-title">Background</h3>
-              <label className="style-dock-row">
-                <span>Fill</span>
-                <select
-                  className="style-dock-row-select"
-                  value={d.background.type}
-                  onChange={(event) =>
-                    updateBackground({
-                      type: event.target.value as "solid" | "gradient",
-                      ...(event.target.value === "gradient" &&
-                      !d.background.secondaryValue
-                        ? { secondaryValue: d.background.value, angle: 135 }
-                        : {}),
-                    })
-                  }
-                >
-                  <option value="solid">Solid</option>
-                  <option value="gradient">Gradient</option>
-                </select>
-              </label>
-              {d.background.type === "gradient" ? (
-                <>
-                  <label className="style-dock-row">
-                    <span>From</span>
-                    <input
-                      type="color"
-                      className="style-dock-swatch"
-                      value={d.background.value}
-                      onChange={(event) =>
-                        updateBackground({ value: event.target.value })
+                  )}
+                  {d.background.type === "gradient" && (
+                    <DockNumberField
+                      prefix={<RotateCw aria-hidden="true" />}
+                      label="Gradient angle"
+                      suffix="°"
+                      min={0}
+                      max={360}
+                      value={d.background.angle ?? 135}
+                      onChange={(value) =>
+                        updateBackground({
+                          angle: Math.min(360, Math.max(0, value)),
+                        })
                       }
                     />
-                  </label>
-                  <label className="style-dock-row">
-                    <span>To</span>
-                    <input
-                      type="color"
-                      className="style-dock-swatch"
-                      value={d.background.secondaryValue ?? d.background.value}
-                      onChange={(event) =>
-                        updateBackground({ secondaryValue: event.target.value })
-                      }
-                    />
-                  </label>
-                </>
-              ) : (
-                <label className="style-dock-row">
-                  <span>Color</span>
-                  <input
-                    type="color"
-                    className="style-dock-swatch"
-                    value={d.background.value}
-                    onChange={(event) =>
-                      updateBackground({ value: event.target.value })
-                    }
-                  />
-                </label>
-              )}
-              {d.background.type === "gradient" && (
-                <DockNumberField
-                  prefix={<RotateCw aria-hidden="true" />}
-                  label="Gradient angle"
-                  suffix="°"
-                  min={0}
-                  max={360}
-                  value={d.background.angle ?? 135}
-                  onChange={(value) =>
-                    updateBackground({
-                      angle: Math.min(360, Math.max(0, value)),
-                    })
-                  }
-                />
-              )}
-            </div>
-          )}
-
-          <div
-            ref={brandKitPickerRef}
-            className="style-dock-section style-dock-brandkit"
-            data-tour="style-design-kit"
-          >
-            <h3 className="style-dock-section-title">Design kit</h3>
-            <button
-              className="font-trigger"
-              type="button"
-              aria-haspopup="listbox"
-              aria-expanded={brandKitOpen}
-              onClick={() => setBrandKitOpen((open) => !open)}
-            >
-              <Gem aria-hidden="true" />
-              <b>{activeBrandKit?.name ?? "No design kit"}</b>
-              <ChevronDown aria-hidden="true" />
-            </button>
-
-            {brandKitOpen && (
-              <div className="font-picker-popover brandkit-picker-popover">
-                <div className="font-picker-head">
-                  <div>
-                    <Gem aria-hidden="true" />
-                    <div>
-                      <b>Design kit</b>
-                      <small>Apply colors and type to this poster</small>
-                    </div>
-                  </div>
-                  <Hint label="Close design kit picker">
-                    <button
-                      type="button"
-                      aria-label="Close design kit picker"
-                      onClick={() => setBrandKitOpen(false)}
-                    >
-                      <X />
-                    </button>
-                  </Hint>
-                </div>
-                <div
-                  className="brandkit-list"
-                  role="listbox"
-                  aria-label="Design kits"
-                >
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={!activeBrandKit}
-                    className={`brandkit-option${!activeBrandKit ? " active" : ""}`}
-                    onClick={() => {
-                      if (activeBrandKit) s.deactivateBrandKit();
-                      setBrandKitOpen(false);
-                    }}
-                  >
-                    <span className="brandkit-swatches" aria-hidden="true">
-                      <i className="brandkit-swatch-empty" />
-                    </span>
-                    <span className="truncate">No design kit</span>
-                    {!activeBrandKit && <Check aria-hidden="true" />}
-                  </button>
-                  {s.brandKits.length ? (
-                    <>
-                      {s.brandKits.map((kit) => {
-                        const isActive = activeBrandKit?.id === kit.id;
-                        return (
-                          <button
-                            key={kit.id}
-                            type="button"
-                            role="option"
-                            aria-selected={isActive}
-                            className={`brandkit-option${isActive ? " active" : ""}`}
-                            onClick={() => {
-                              s.activateBrandKit(kit.id);
-                              setBrandKitOpen(false);
-                            }}
-                          >
-                            <span
-                              className="brandkit-swatches"
-                              aria-hidden="true"
-                            >
-                              {kit.colors.length ? (
-                                kit.colors
-                                  .slice(0, 5)
-                                  .map((c) => (
-                                    <i
-                                      key={c.id}
-                                      style={{ background: brandKitPaint(c) }}
-                                    />
-                                  ))
-                              ) : (
-                                <i className="brandkit-swatch-empty" />
-                              )}
-                            </span>
-                            <span className="truncate">{kit.name}</span>
-                            {isActive && <Check aria-hidden="true" />}
-                          </button>
-                        );
-                      })}
-                    </>
-                  ) : (
-                    <p className="font-empty brandkit-empty-inline">
-                      No saved design kits yet.
-                    </p>
                   )}
                 </div>
+              )}
+
+              <div
+                ref={brandKitPickerRef}
+                className="style-dock-section style-dock-brandkit"
+                data-tour="style-design-kit"
+              >
+                <h3 className="style-dock-section-title">Design kit</h3>
+                <button
+                  className="font-trigger"
+                  type="button"
+                  aria-haspopup="listbox"
+                  aria-expanded={brandKitOpen}
+                  onClick={() => setBrandKitOpen((open) => !open)}
+                >
+                  <Gem aria-hidden="true" />
+                  <b>{activeBrandKit?.name ?? "No design kit"}</b>
+                  <ChevronDown aria-hidden="true" />
+                </button>
+
+                {brandKitOpen && (
+                  <div className="font-picker-popover brandkit-picker-popover">
+                    <div className="font-picker-head">
+                      <div>
+                        <Gem aria-hidden="true" />
+                        <div>
+                          <b>Design kit</b>
+                          <small>Apply colors and type to this poster</small>
+                        </div>
+                      </div>
+                      <Hint label="Close design kit picker">
+                        <button
+                          type="button"
+                          aria-label="Close design kit picker"
+                          onClick={() => setBrandKitOpen(false)}
+                        >
+                          <X />
+                        </button>
+                      </Hint>
+                    </div>
+                    <div
+                      className="brandkit-list"
+                      role="listbox"
+                      aria-label="Design kits"
+                    >
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={!activeBrandKit}
+                        className={`brandkit-option${!activeBrandKit ? " active" : ""}`}
+                        onClick={() => {
+                          if (activeBrandKit) s.deactivateBrandKit();
+                          setBrandKitOpen(false);
+                        }}
+                      >
+                        <span className="brandkit-swatches" aria-hidden="true">
+                          <i className="brandkit-swatch-empty" />
+                        </span>
+                        <span className="truncate">No design kit</span>
+                        {!activeBrandKit && <Check aria-hidden="true" />}
+                      </button>
+                      {s.brandKits.length ? (
+                        <>
+                          {s.brandKits.map((kit) => {
+                            const isActive = activeBrandKit?.id === kit.id;
+                            return (
+                              <button
+                                key={kit.id}
+                                type="button"
+                                role="option"
+                                aria-selected={isActive}
+                                className={`brandkit-option${isActive ? " active" : ""}`}
+                                onClick={() => {
+                                  s.activateBrandKit(kit.id);
+                                  setBrandKitOpen(false);
+                                }}
+                              >
+                                <span
+                                  className="brandkit-swatches"
+                                  aria-hidden="true"
+                                >
+                                  {kit.colors.length ? (
+                                    kit.colors
+                                      .slice(0, 5)
+                                      .map((c) => (
+                                        <i
+                                          key={c.id}
+                                          style={{
+                                            background: brandKitPaint(c),
+                                          }}
+                                        />
+                                      ))
+                                  ) : (
+                                    <i className="brandkit-swatch-empty" />
+                                  )}
+                                </span>
+                                <span className="truncate">{kit.name}</span>
+                                {isActive && <Check aria-hidden="true" />}
+                              </button>
+                            );
+                          })}
+                        </>
+                      ) : (
+                        <p className="font-empty brandkit-empty-inline">
+                          No saved design kits yet.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </>
+          )}
         </>
       )}
     </section>
@@ -2374,7 +2465,7 @@ const skillMeta = (key: string, d: SpecDocument) => {
   const heading = DESIGN_SKILL_SECTIONS[key];
   if (heading)
     return {
-      kind: ["skill:rules", "skill:layout", "skill:agent"].includes(key)
+      kind: ["skill:rules", "skill:layout"].includes(key)
         ? "rules"
         : ["skill:components", "skill:imagery"].includes(key)
           ? "visual"
@@ -2488,7 +2579,8 @@ function PromptPanel({
   const briefAfterFormat = segments.some(
     (l) => l.key === "format" && d.promptParts?.[l.key] !== "",
   );
-  // Keep tool selection beside Include in output in Prompt Editor.
+  // Tool selection sits beside Include in output in the actions row (Prompt
+  // Editor only).
   const toolButton = !isSkill && (
     <ToolAddButton
       settings={toolSettings}
@@ -2500,7 +2592,9 @@ function PromptPanel({
   );
   const styleSelect = (
     <label className="prompt-style-row">
-      <span>Image style</span>
+      <Hint label="Used by the Prompt Editor output">
+        <span>Image style</span>
+      </Hint>
       <select
         ref={styleSelectRef}
         className="se-input"
@@ -2752,22 +2846,8 @@ function PromptPanel({
 
   return (
     <>
-      {/* Pinned bar: stays put however the panel or the prompt scrolls. */}
+      {/* Pinned bar: collapse, mode tabs and Chat, then Export at the far end. */}
       <div className="right-panel-head">
-        <span className="right-panel-title">
-          {isSkill ? "Design Editor" : "Prompt Editor"}
-        </span>
-        <Hint label="Export as DESIGN.md, JSON or PNG">
-          <button
-            type="button"
-            className="right-panel-export"
-            aria-label="Export"
-            data-tour="export"
-            onClick={exportOpen}
-          >
-            <Download />
-          </button>
-        </Hint>
         {sidebars.rightOpen && (
           <Hint label="Hide prompt panel">
             <button
@@ -2786,65 +2866,76 @@ function PromptPanel({
             </button>
           </Hint>
         )}
+        <div className="segmented">
+          {/* display:contents keeps the tabs grid items of .segmented while
+            Chat, a dialog trigger rather than a tab, sits outside the list. */}
+          <div className="contents" role="tablist" aria-label="Prompt mode">
+            {(
+              [
+                [
+                  "design_skill",
+                  "design.md",
+                  "Reusable DESIGN.md with the design kit and layout",
+                  Palette,
+                ],
+                [
+                  "visual_prompt",
+                  "prompt.md",
+                  "Natural-language prompt for image models",
+                  FileText,
+                ],
+              ] as const
+            ).map(([id, label, hint, Icon]) => (
+              <Hint key={id} label={hint}>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={d.promptMode === id}
+                  className={d.promptMode === id ? "active" : ""}
+                  data-tour={
+                    id === "design_skill" ? "design-editor" : "prompt-editor"
+                  }
+                  onClick={() => {
+                    if (editing) finishEditing();
+                    setEditingPart(null);
+                    s.mutate((x) => {
+                      x.promptMode = id;
+                    }, false);
+                  }}
+                >
+                  <Icon aria-hidden="true" />
+                  <span className="segmented-label">{label}</span>
+                </button>
+              </Hint>
+            ))}
+          </div>
+          <Hint label="Edit the composition by chatting (coming soon)">
+            <button
+              type="button"
+              className="segmented-chat"
+              aria-haspopup="dialog"
+              data-tour="chat"
+              onClick={() => setChatOpen(true)}
+            >
+              <MessagesSquare aria-hidden="true" />
+              <span className="segmented-chat-label">Chat</span>
+            </button>
+          </Hint>
+        </div>
+        <Hint label="Export as DESIGN.md, JSON or PNG">
+          <button
+            type="button"
+            className="right-panel-export"
+            aria-label="Export"
+            data-tour="export"
+            onClick={exportOpen}
+          >
+            <Download />
+          </button>
+        </Hint>
       </div>
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="p-3">
-          <div className="segmented">
-            {/* display:contents keeps the tabs grid items of .segmented while
-              Chat, a dialog trigger rather than a tab, sits outside the list. */}
-            <div className="contents" role="tablist" aria-label="Prompt mode">
-              {(
-                [
-                  [
-                    "design_skill",
-                    "Design Editor",
-                    "Reusable DESIGN.md with the design kit and layout",
-                    Palette,
-                  ],
-                  [
-                    "visual_prompt",
-                    "Prompt Editor",
-                    "Natural-language prompt for image models",
-                    FileText,
-                  ],
-                ] as const
-              ).map(([id, label, hint, Icon]) => (
-                <Hint key={id} label={hint}>
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={d.promptMode === id}
-                    className={d.promptMode === id ? "active" : ""}
-                    data-tour={
-                      id === "design_skill" ? "design-editor" : "prompt-editor"
-                    }
-                    onClick={() => {
-                      if (editing) finishEditing();
-                      setEditingPart(null);
-                      s.mutate((x) => {
-                        x.promptMode = id;
-                      }, false);
-                    }}
-                  >
-                    <Icon aria-hidden="true" />
-                    {label}
-                  </button>
-                </Hint>
-              ))}
-            </div>
-            <Hint label="Edit the composition by chatting (coming soon)">
-              <button
-                type="button"
-                className="segmented-chat"
-                aria-haspopup="dialog"
-                data-tour="chat"
-                onClick={() => setChatOpen(true)}
-              >
-                <MessagesSquare />
-                Chat
-              </button>
-            </Hint>
-          </div>
+        <div className="p-3 empty:hidden">
           {chatOpen && (
             <ChatComingSoonSplash close={() => setChatOpen(false)} />
           )}
@@ -2857,40 +2948,7 @@ function PromptPanel({
               {briefField}
             </div>
           )}
-          {styleSelect}
-          <div className="prompt-controls">
-            <details
-              className="prompt-options"
-              data-tour="include-output"
-              onToggle={(e) => setOptionsOpen(e.currentTarget.open)}
-            >
-              <Hint
-                label={`Choose which sections appear in the ${noun}`}
-                side="left"
-              >
-                <summary aria-expanded={optionsOpen}>
-                  <SlidersHorizontal aria-hidden="true" />
-                  Include in output <ChevronDown aria-hidden="true" />
-                </summary>
-              </Hint>
-              {Object.entries(d.promptOptions).map(([k, v]) => (
-                <label key={k}>
-                  <input
-                    type="checkbox"
-                    checked={!!v}
-                    onChange={(e) =>
-                      s.mutate((x) => {
-                        x.promptOptions[k as keyof typeof x.promptOptions] =
-                          e.target.checked;
-                      }, false)
-                    }
-                  />
-                  {k.replace(/([A-Z])/g, " $1")}
-                </label>
-              ))}
-            </details>
-            {toolButton}
-          </div>
+          {!isSkill && styleSelect}
         </div>
         {editing ? (
           <>
@@ -3015,6 +3073,8 @@ function PromptPanel({
                   .map(renderPart)}
                 doc={d}
                 kit={kit}
+                styleControl={styleSelect}
+                styleLabel={resolveImageStyle(d)?.label ?? "None"}
               />
             ) : (
               segments.flatMap((line) => {
@@ -3039,9 +3099,51 @@ function PromptPanel({
           </div>
         )}
         <div
-          className="prompt-actions grid grid-cols-2 gap-2 p-3"
+          className="prompt-actions flex items-center gap-2 p-3"
           data-tour="copy-actions"
         >
+          <Popover open={optionsOpen} onOpenChange={setOptionsOpen}>
+            <Hint
+              label={`Choose which sections appear in the ${noun}`}
+              side="top"
+            >
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="prompt-options-trigger"
+                  aria-label="Include in output"
+                  data-tour="include-output"
+                  data-active={optionsOpen || undefined}
+                >
+                  <SlidersHorizontal size={14} aria-hidden="true" />
+                </button>
+              </PopoverTrigger>
+            </Hint>
+            <PopoverContent
+              side="top"
+              align="start"
+              className="prompt-options-menu"
+              aria-label="Include in output"
+            >
+              <p className="prompt-options-title">Include in output</p>
+              {Object.entries(d.promptOptions).map(([k, v]) => (
+                <label key={k}>
+                  <input
+                    type="checkbox"
+                    checked={!!v}
+                    onChange={(e) =>
+                      s.mutate((x) => {
+                        x.promptOptions[k as keyof typeof x.promptOptions] =
+                          e.target.checked;
+                      }, false)
+                    }
+                  />
+                  {k.replace(/([A-Z])/g, " $1")}
+                </label>
+              ))}
+            </PopoverContent>
+          </Popover>
+          {toolButton}
           <Hint
             label={
               editing
@@ -3052,6 +3154,7 @@ function PromptPanel({
           >
             <Button
               variant="outline"
+              className="prompt-edit-button"
               onClick={() => {
                 if (editing) finishEditing();
                 else setEditing(true);

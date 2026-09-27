@@ -279,9 +279,15 @@ const splitLegacyPromptEdit = (value: unknown) => {
   return next;
 };
 
-/** Section overrides saved for skills that were later retired; kept in
- * `promptParts` they'd render as dangling text with nothing to attach to. */
-const RETIRED_PROMPT_PARTS = ["skill:quickstart"];
+/** Section overrides saved for skills that were later retired — Surfaces and
+ * the Agent Prompt Guide were dropped because Colors and Components already
+ * cover the same ground; kept in `promptParts` they'd render as dangling
+ * text with nothing to attach to. */
+const RETIRED_PROMPT_PARTS = [
+  "skill:quickstart",
+  "skill:surfaces",
+  "skill:agent",
+];
 
 function dropRetiredPromptParts(value: unknown) {
   if (!value || typeof value !== "object") return value;
