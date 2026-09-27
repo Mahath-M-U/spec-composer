@@ -195,6 +195,10 @@ A short version of these notices is available in the app at `/legal`.
 
 ## Acknowledgements
 
+The idea for Spec Composer was inspired by the canvas-to-prompt workflow of
+[m3e-canvas](https://github.com/lnkiai/m3e-canvas), adapted here for graphic
+design.
+
 Scaffolded with [Lovable](https://lovable.dev). UI primitives from
 [shadcn/ui](https://ui.shadcn.com) and [Radix UI](https://www.radix-ui.com);
 some tool glyphs from [Simple Icons](https://simpleicons.org). The full list of
