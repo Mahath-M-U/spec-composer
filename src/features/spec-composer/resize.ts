@@ -255,7 +255,7 @@ export function makeResizeFormat(
 }
 
 const DIMENSION_DEPENDENT_OVERRIDE =
-  /^(format|dominant|el:|skill:(title|overview|type|spacing|components|layout|agent|el:))/;
+  /^(format|dominant|el:|skill:(title|overview|type|spacing|components|layout|el:))/;
 
 export function hasResizeTextOverrides(doc: SpecDocument): boolean {
   return !!(

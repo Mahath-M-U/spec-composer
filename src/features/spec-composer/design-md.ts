@@ -32,14 +32,12 @@ export const DESIGN_SKILL_SECTIONS: Record<string, string> = {
   "skill:spacing": "Spacing & Shapes",
   "skill:components": "Components",
   "skill:rules": "Do's and Don'ts",
-  "skill:surfaces": "Surfaces",
   "skill:elevation": "Elevation",
   "skill:imagery": "Imagery",
   "skill:layout": "Layout",
-  "skill:agent": "Agent Prompt Guide",
 };
 
-const KIND_INFO: Record<ElementKind, [label: string, role: string]> = {
+export const KIND_INFO: Record<ElementKind, [label: string, role: string]> = {
   title: ["Headline", "Primary headline — the first read of the composition"],
   subheading: ["Subheading", "Supporting line that expands on the headline"],
   body: ["Body Copy", "Descriptive supporting copy"],
@@ -84,12 +82,38 @@ const kebab = (s: string) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
 const uniq = <T>(xs: T[]) => [...new Set(xs)];
+const SPACING_LADDER = [
+  "Text gap",
+  "Component gap",
+  "Content gap",
+  "Section gap",
+  "Hero spacing",
+] as const;
+/** Names the Spacing Scale's `count` values by size rank, smallest to
+ * largest, so each reads as a role (text gap, hero spacing…) rather than a
+ * raw pixel step. Beyond five, the middle ranks repeat as "Section gap 2",
+ * "Section gap 3" and so on. */
+export function spacingTokenNames(count: number): string[] {
+  if (count <= 0) return [];
+  if (count === 1) return ["Component gap"];
+  if (count <= 5)
+    return Array.from(
+      { length: count },
+      (_, i) => SPACING_LADDER[Math.round((i * 4) / (count - 1))]!,
+    );
+  return Array.from({ length: count }, (_, i) => {
+    if (i < 4) return SPACING_LADDER[i]!;
+    if (i === count - 1) return "Hero spacing";
+    const n = i - 2;
+    return `Section gap ${n}`;
+  });
+}
 const median = (xs: number[]) =>
   [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)] ?? 0;
 const lineHeight = (v: number | undefined) => (v ?? 1.2).toFixed(2);
 /** Text slots carry a length budget alongside their current copy, so the
  * skill works for any content. */
-const copyBudget = (el: SpecElement) =>
+export const copyBudget = (el: SpecElement) =>
   Math.max(5, Math.ceil((el.content?.length ?? 0) / 5) * 5);
 
 function hexRgb(hex: string): [number, number, number] | undefined {
@@ -294,41 +318,12 @@ function measure(doc: SpecDocument, kit?: BrandKit) {
     if (!radii.some(([l]) => l === label(e.kind)))
       radii.push([label(e.kind), r]);
   }
-  const bgValue =
-    doc.background.type === "gradient"
-      ? `${doc.background.angle ?? 135}° gradient ${doc.background.value} → ${doc.background.secondaryValue}`
-      : doc.background.value;
-  const surfaces: {
-    name: string;
-    value: string;
-    purpose: string;
-  }[] = [
-    {
-      name: "Canvas",
-      value: bgValue,
-      purpose: "Default background; every slot sits on it",
-    },
-  ];
-  for (const e of visible) {
-    const fill = e.style.background;
-    if (!fill || surfaces.some((s) => s.value === fill)) continue;
-    surfaces.push({
-      name: `${colorName(fill)} ${label(e.kind)}`,
-      value: fill,
-      purpose: isTextKind(e.kind)
-        ? `${label(e.kind)} surface behind its label`
-        : `${label(e.kind)} layer, ${region(e, doc)}`,
-    });
-  }
   const largest = [...images].sort(
     (a, b) => b.width * b.height - a.width * a.height,
   )[0];
-  const textColors = uniq(text.map((e) => e.style.color).filter(Boolean));
   const accent = hx(
     kit?.colors.find((c) => c.role === "accent")?.hex ?? cd.secondaryColor,
   );
-  const action =
-    visible.find((e) => e.kind === "cta")?.style.background ?? cd.primaryColor;
 
   return {
     W,
@@ -351,11 +346,8 @@ function measure(doc: SpecDocument, kit?: BrandKit) {
     coverage,
     align,
     radii,
-    surfaces,
     largest,
-    textColors,
     accent,
-    action,
     theme:
       (luminance(doc.background.value) +
         luminance(doc.background.secondaryValue ?? doc.background.value)) /
@@ -507,6 +499,7 @@ export function compileDesignSkillSegments(
     ]);
   }
 
+  const spacingNames = spacingTokenNames(m.spacing.length);
   lines.push([
     "skill:spacing",
     [
@@ -515,8 +508,8 @@ export function compileDesignSkillSegments(
         `**Density:** ${m.density}`,
         m.spacing.length
           ? `### Spacing Scale\n\n${table(
-              ["Name", "Value"],
-              m.spacing.map((v) => [`${v}`, `${v}px`]),
+              ["Token", "Value"],
+              m.spacing.map((v, i) => [spacingNames[i] ?? "", `${v}px`]),
             )}`
           : "",
         m.radii.length
@@ -606,21 +599,6 @@ export function compileDesignSkillSegments(
     ],
   ]);
 
-  if (o.colors)
-    lines.push([
-      "skill:surfaces",
-      [
-        table(
-          ["Level", "Name", "Value", "Purpose"],
-          m.surfaces.map((s, i) => [
-            `${i}`,
-            s.name,
-            `\`${s.value}\``,
-            s.purpose,
-          ]),
-        ),
-      ],
-    ]);
   lines.push([
     "skill:elevation",
     [
@@ -643,33 +621,6 @@ export function compileDesignSkillSegments(
   ]);
   for (const e of visible) lines.push([`skill:el:${e.id}`, slotSegs(e, doc)]);
 
-  const quickColors = [
-    m.textColors[0] ? `- text: ${m.textColors[0]}` : "",
-    `- background: ${m.surfaces[0]?.value}`,
-    m.textColors[1] ? `- muted text: ${m.textColors[1]}` : "",
-    m.accent ? `- accent: ${m.accent}` : "",
-    m.action ? `- primary action: ${m.action}` : "",
-    visible.find((e) => e.style.borderColor)?.style.borderColor
-      ? `- border: ${visible.find((e) => e.style.borderColor)?.style.borderColor}`
-      : "",
-  ].filter(Boolean);
-  const prompts = [
-    `**Full composition**: ${m.W} × ${m.H} canvas, background ${m.surfaces[0]?.value}; ${mood} ${cd.style.toLowerCase()} mood. Back-to-front: ${visible.map((e) => `${label(e.kind).toLowerCase()} ${region(e, doc)} (${pct(e.width, m.W)} × ${pct(e.height, m.H)})`).join("; ")}. Keep a ${m.safeMargin}px safe margin.`,
-    ...kinds.slice(0, 5).map(
-      (k) =>
-        `**${label(k)}**: ${describeComponent(
-          visible.find((e) => e.kind === k)!,
-          doc,
-          m,
-        )}`,
-    ),
-  ];
-  lines.push([
-    "skill:agent",
-    [
-      `${o.colors ? `### Quick Color Reference\n${quickColors.join("\n")}\n\n` : ""}### Example Component Prompts\n${prompts.map((p, i) => `${i + 1}. ${p}`).join("\n\n")}`,
-    ],
-  ]);
   return withOverrides(lines, doc);
 }
 
