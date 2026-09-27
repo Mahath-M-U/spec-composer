@@ -64,7 +64,13 @@ type Gesture = {
   moved: boolean;
 };
 
-export function CanvasWorkspace({ children }: { children: ReactNode }) {
+export function CanvasWorkspace({
+  children,
+  onCanvasSelect,
+}: {
+  children: ReactNode;
+  onCanvasSelect?: () => void;
+}) {
   const s = useEditorStore();
   const doc = s.doc;
   const surface = useRef<HTMLDivElement>(null);
@@ -132,6 +138,8 @@ export function CanvasWorkspace({ children }: { children: ReactNode }) {
       if (id && !handle) {
         if (e.shiftKey) {
           state.select(id, true);
+          if (useEditorStore.getState().selectedIds.length > 0)
+            onCanvasSelect?.();
           return;
         }
         if (!state.selectedIds.includes(id)) state.select(id);
@@ -241,6 +249,7 @@ export function CanvasWorkspace({ children }: { children: ReactNode }) {
     move(e);
     if (gesture.current !== g) return;
     const state = useEditorStore.getState();
+    let canvasSelected = g.kind === "drag" || g.kind === "resize";
     if (g.kind === "marquee") {
       const view = { zoom: g.zoom, pan: g.initialPan };
       const a = toDocumentPoint(g.start, view),
@@ -260,21 +269,24 @@ export function CanvasWorkspace({ children }: { children: ReactNode }) {
             .map((el) => el.id),
           g.additive,
         );
+        canvasSelected = useEditorStore.getState().selectedIds.length > 0;
       } else if (!g.additive) {
         if (
           a.x >= 0 &&
           a.x <= g.document.format.width &&
           a.y >= 0 &&
           a.y <= g.document.format.height
-        )
+        ) {
           state.selectBackground();
-        else state.select();
+          canvasSelected = true;
+        } else state.select();
       }
     }
     const patches = previewRef.current;
     cancel();
     if (g.moved && (g.kind === "drag" || g.kind === "resize"))
       state.commitCanvasTransform(g.document, patches);
+    if (canvasSelected) onCanvasSelect?.();
   };
   const editable = (el: SpecElement | undefined): el is SpecElement =>
     !!el && el.visible && !el.locked && isTextKind(el.kind);
@@ -335,7 +347,7 @@ export function CanvasWorkspace({ children }: { children: ReactNode }) {
     activeKind === "pan" ||
     (!activeKind && (s.tool === "hand" || viewport.space));
   return (
-    <main className="workspace style-dock-open" data-tour="canvas">
+    <main className="workspace" data-tour="canvas">
       <div
         ref={surface}
         className={`canvas-surface${panning ? " panning" : ""}${activeKind === "pan" ? " grabbing" : ""}${activeKind === "drag" ? " moving" : ""}${activeKind === "marquee" ? " selecting" : ""}`}

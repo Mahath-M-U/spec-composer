@@ -27,6 +27,12 @@ const STEPS: Record<GuidePage, GuideStep[]> = {
       body: "Search and add images, icons, shapes, text, and more from the asset library.",
     },
     {
+      target: "rail-style",
+      section: "Left panel",
+      title: "Style",
+      body: "Style the selected element's position, text and colors, or the background. Switch to Layout for one-click layouts, and apply a design kit. Selecting an element or the background on the canvas opens it automatically.",
+    },
+    {
       target: "rail-layers",
       section: "Left panel",
       title: "Layers",
@@ -67,24 +73,6 @@ const STEPS: Record<GuidePage, GuideStep[]> = {
       section: "Canvas",
       title: "Canvas tools",
       body: "Switch between select and hand, zoom or fit the canvas, and undo or redo.",
-    },
-    {
-      target: "style",
-      section: "Style dock",
-      title: "Style dock",
-      body: "Style the selected element's position, text and colors, or the background. Drag the title to move it.",
-    },
-    {
-      target: "style-layout",
-      section: "Style dock",
-      title: "Layout",
-      body: "Rearrange your design with one-click layouts, or tidy up the spacing.",
-    },
-    {
-      target: "style-design-kit",
-      section: "Style dock",
-      title: "Design kit",
-      body: "Apply a saved design kit's colors and type to this design.",
     },
     {
       target: "design-editor",

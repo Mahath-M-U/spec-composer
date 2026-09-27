@@ -43,12 +43,11 @@ export function fitView(
   height: number,
   format: CanvasBox,
 ): View {
-  const availableWidth = Math.max(80, width - 240);
   const zoom = Math.min(
     0.72,
     clampZoom(
       Math.min(
-        Math.max(40, availableWidth - 48) / format.width,
+        Math.max(40, width - 48) / format.width,
         Math.max(40, height - 120) / format.height,
       ),
     ),
@@ -56,7 +55,7 @@ export function fitView(
   return {
     zoom,
     pan: {
-      x: (availableWidth - format.width * zoom) / 2,
+      x: (width - format.width * zoom) / 2,
       y: (height - format.height * zoom) / 2,
     },
   };

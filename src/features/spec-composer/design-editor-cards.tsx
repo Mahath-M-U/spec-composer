@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type MouseEventHandler,
   type ReactNode,
 } from "react";
 import {
@@ -50,6 +51,7 @@ import {
   type CompositionModel,
   type CompSlot,
 } from "./composition-view";
+import { ratio } from "./compiler";
 import type { BrandKit, SpecDocument } from "./types";
 
 /** Presentational cards for the Design Editor: each reads a compiled
@@ -66,6 +68,12 @@ export type DesignPart = {
   editing: boolean;
   actions: ReactNode;
   body: ReactNode;
+  /** The element this section targets, when it has one (see sectionTarget). */
+  elementId?: string | undefined;
+  /** Whether that element is the current canvas selection. */
+  selected?: boolean | undefined;
+  /** Selects the element and opens the Style panel. */
+  onSelect?: (() => void) | undefined;
 };
 
 type TableBlock = Extract<MdBlock, { type: "table" }>;
@@ -80,6 +88,33 @@ const boldFields = (blocks: MdBlock[]) =>
     .map((b) => boldField(b.text))
     .filter((f): f is { label: string; value: string } => !!f);
 
+/** Interactive descendants that should keep their own click behavior
+ * instead of triggering a row/card `onSelect` (prompt-field inputs,
+ * edit/delete buttons, SectionEditor controls, the subrow label button…). */
+const INTERACTIVE =
+  "input, textarea, select, button, a, label, [contenteditable], [role='button'], [role='slider'], [role='combobox']";
+
+/** Builds an `onClick` that selects the element behind a row/card (and
+ * opens the Style panel) when the click lands on non-interactive space —
+ * the thumbnail, prose or padding — but leaves clicks on interactive
+ * descendants and text selection alone. Returns `undefined` when there's
+ * nothing to select or the row is mid-edit, so callers can skip wiring up
+ * `data-clickable` too. */
+function selectOnClick(
+  onSelect: (() => void) | undefined,
+  disabled: boolean,
+): MouseEventHandler<HTMLDivElement> | undefined {
+  if (!onSelect || disabled) return undefined;
+  return (e) => {
+    if (!(e.target instanceof Element) || !e.currentTarget.contains(e.target))
+      return;
+    const hit = e.target.closest(INTERACTIVE);
+    if (hit && e.currentTarget.contains(hit)) return;
+    if (window.getSelection()?.toString()) return;
+    onSelect();
+  };
+}
+
 export function TokenCard({
   icon: Icon,
   title,
@@ -88,6 +123,8 @@ export function TokenCard({
   summary,
   preview,
   forceOpen,
+  defaultOpen,
+  selected,
   children,
 }: {
   icon: LucideIcon;
@@ -97,11 +134,13 @@ export function TokenCard({
   summary?: ReactNode | undefined;
   preview?: ReactNode | undefined;
   forceOpen?: boolean | undefined;
+  defaultOpen?: boolean | undefined;
+  selected?: boolean | undefined;
   children: ReactNode;
 }) {
   const headingId = useId();
   const bodyId = useId();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen ?? false);
   const expanded = open || !!forceOpen;
   useEffect(() => {
     if (forceOpen) setOpen(true);
@@ -111,6 +150,7 @@ export function TokenCard({
       className="de-card"
       aria-labelledby={headingId}
       data-open={expanded ? "" : undefined}
+      data-selected={selected ? "" : undefined}
     >
       <div
         className="de-card-head"
@@ -1501,6 +1541,138 @@ export function DesignEditorSections({
         {part.body}
       </TokenCard>,
     );
+  }
+
+  return <div className="de-sections">{cards}</div>;
+}
+
+const PROMPT_ICONS: Record<string, LucideIcon> = {
+  format: Frame,
+  imageStyle: ImageIcon,
+  colors: Palette,
+  brand: Sparkles,
+  mood: Type,
+  dominant: ImageIcon,
+  layout: LayoutGrid,
+  avoid: ListChecks,
+};
+
+/** The Prompt Editor's own `.de-sections` grid: one card per generated
+ * line, all `el:*` elements folded into a single "Elements" card (mirroring
+ * how DesignEditorSections folds Components/Layout/Imagery into one
+ * Composition card), with the purpose brief inserted right after Format. */
+export function PromptEditorSections({
+  parts,
+  doc,
+  brief,
+}: {
+  parts: DesignPart[];
+  doc: SpecDocument;
+  brief?: ReactNode;
+}) {
+  const cards: ReactNode[] = [];
+  let elementsPushed = false;
+
+  for (const part of parts) {
+    if (part.key.startsWith("el:")) {
+      if (elementsPushed) continue;
+      elementsPushed = true;
+      const els = parts.filter((p) => p.key.startsWith("el:"));
+      cards.push(
+        <TokenCard
+          key="elements"
+          icon={LayoutTemplate}
+          title="Elements"
+          summary={`${els.length} element${els.length === 1 ? "" : "s"}`}
+          preview={<ChipsPreview names={els.map((p) => p.tag)} />}
+          forceOpen={els.some((p) => p.editing || p.selected)}
+          defaultOpen
+        >
+          {els.map((p) => (
+            <div
+              key={p.key}
+              className="de-subrow"
+              data-selected={p.selected ? "" : undefined}
+              data-clickable={p.onSelect && !p.editing ? "" : undefined}
+              onClick={selectOnClick(p.onSelect, !!p.editing)}
+            >
+              {p.onSelect ? (
+                <button
+                  type="button"
+                  className="de-subrow-tag"
+                  onClick={p.onSelect}
+                  aria-label={`Edit style of ${p.tag}`}
+                >
+                  {p.tag}
+                </button>
+              ) : (
+                <span className="de-subrow-tag">{p.tag}</span>
+              )}
+              <span className="de-subrow-actions">{p.actions}</span>
+              <div className="de-subrow-body">{p.body}</div>
+            </div>
+          ))}
+        </TokenCard>,
+      );
+      continue;
+    }
+
+    let summary: ReactNode | undefined;
+    let preview: ReactNode | undefined;
+    if (part.key === "format") {
+      summary = `${doc.format.width} × ${doc.format.height} · ${ratio(doc.format.width, doc.format.height)}`;
+    } else if (part.key === "colors") {
+      preview = (
+        <ColorsPreview
+          hexes={[
+            doc.background.value,
+            doc.background.type === "gradient"
+              ? doc.background.secondaryValue
+              : undefined,
+            doc.creativeDirection.primaryColor,
+            doc.creativeDirection.secondaryColor,
+          ].filter((h): h is string => !!h)}
+        />
+      );
+    } else if (part.key === "brand") {
+      summary = doc.creativeDirection.typography;
+      preview = (
+        <ColorsPreview
+          hexes={[
+            doc.creativeDirection.primaryColor,
+            doc.creativeDirection.secondaryColor,
+          ]}
+        />
+      );
+    } else if (part.key === "mood") {
+      preview = <ChipsPreview names={doc.creativeDirection.mood} />;
+    }
+
+    const selectHandler = selectOnClick(part.onSelect, !!part.editing);
+    const body = selectHandler ? (
+      <div className="de-select-area" data-clickable="" onClick={selectHandler}>
+        {part.body}
+      </div>
+    ) : (
+      part.body
+    );
+
+    cards.push(
+      <TokenCard
+        key={part.key}
+        icon={PROMPT_ICONS[part.key] ?? FileText}
+        title={part.tag}
+        actions={part.actions}
+        forceOpen={part.editing || part.selected}
+        selected={part.selected}
+        defaultOpen
+        summary={summary}
+        preview={preview}
+      >
+        {body}
+      </TokenCard>,
+    );
+    if (part.key === "format" && brief) cards.push(brief);
   }
 
   return <div className="de-sections">{cards}</div>;
