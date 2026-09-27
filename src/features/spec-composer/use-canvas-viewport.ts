@@ -67,7 +67,7 @@ export function useCanvasViewport(
       const view = zoomAt(
         state,
         point ?? {
-          x: Math.max(80, el.clientWidth - 240) / 2,
+          x: el.clientWidth / 2,
           y: el.clientHeight / 2,
         },
         state.zoom * factor,

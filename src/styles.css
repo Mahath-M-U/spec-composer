@@ -3827,7 +3827,6 @@ button:disabled {
 }
 .context-panel,
 .right-panel,
-.element-details-fields,
 .font-list,
 .brandkit-list {
   scrollbar-width: thin;
@@ -3840,21 +3839,18 @@ button:disabled {
 }
 .context-panel::-webkit-scrollbar,
 .right-panel::-webkit-scrollbar,
-.element-details-fields::-webkit-scrollbar,
 .font-list::-webkit-scrollbar,
 .brandkit-list::-webkit-scrollbar {
   width: 8px;
 }
 .context-panel::-webkit-scrollbar-track,
 .right-panel::-webkit-scrollbar-track,
-.element-details-fields::-webkit-scrollbar-track,
 .font-list::-webkit-scrollbar-track,
 .brandkit-list::-webkit-scrollbar-track {
   background: transparent;
 }
 .context-panel::-webkit-scrollbar-thumb,
 .right-panel::-webkit-scrollbar-thumb,
-.element-details-fields::-webkit-scrollbar-thumb,
 .font-list::-webkit-scrollbar-thumb,
 .brandkit-list::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
@@ -3868,7 +3864,6 @@ button:disabled {
 }
 .context-panel::-webkit-scrollbar-thumb:hover,
 .right-panel::-webkit-scrollbar-thumb:hover,
-.element-details-fields::-webkit-scrollbar-thumb:hover,
 .font-list::-webkit-scrollbar-thumb:hover,
 .brandkit-list::-webkit-scrollbar-thumb:hover {
   background: color-mix(
@@ -5768,63 +5763,15 @@ button:disabled {
   display: none;
 }
 .style-dock {
-  position: absolute;
-  right: 16px;
-  top: 16px;
-  z-index: 30;
   display: flex;
-  width: 208px;
-  max-height: calc(100% - 32px);
   flex-direction: column;
-  flex-wrap: nowrap;
-  align-items: stretch;
   gap: 12px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  border: 1px solid color-mix(in oklab, white 16%, var(--color-editor-border));
-  border-radius: 10px;
-  background: color-mix(in oklab, var(--color-editor-surface) 96%, transparent);
-  padding: 10px;
-  cursor: default;
-  touch-action: auto;
+  padding: 0.8rem 0.9rem 1rem;
 }
-.style-dock::-webkit-scrollbar {
-  display: none;
-}
-.style-dock.dragging {
-  cursor: grabbing;
-  user-select: none;
-}
-.style-dock-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  padding: 0 5px;
-  font-size: 12px;
-  font-weight: 800;
-  cursor: grab;
-  touch-action: none;
-}
-.style-dock-title:active {
-  cursor: grabbing;
-}
-.style-dock-title-label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.style-dock-title svg {
-  height: 16px;
-  width: 16px;
-  color: var(--color-primary);
-}
-.style-dock-title .style-dock-grip {
-  height: 13px;
-  width: 13px;
-  color: var(--color-editor-muted);
+.style-panel {
+  min-height: 100%;
+  background: var(--color-editor-surface);
+  color: var(--color-editor-foreground);
 }
 .style-dock-separator {
   align-self: stretch;
@@ -5876,6 +5823,48 @@ button:disabled {
   letter-spacing: 0.04em;
   line-height: 1.2;
   text-transform: uppercase;
+}
+.element-details-heading {
+  padding-left: 0;
+}
+.element-details-toggle {
+  display: grid;
+  width: 100%;
+  grid-template-columns: auto minmax(0, 1fr) 14px;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  text-transform: inherit;
+  cursor: pointer;
+}
+.element-details-toggle b {
+  overflow: hidden;
+  justify-self: end;
+  color: var(--color-editor-foreground);
+  font-size: 11px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
+}
+.element-details-toggle svg {
+  height: 14px;
+  width: 14px;
+  transition: transform 0.15s ease;
+}
+.element-details-toggle[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+.element-details-toggle:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid color-mix(in oklab, var(--color-primary) 22%, transparent);
+  outline-offset: 2px;
 }
 /* Two-up grid for paired values (X/Y, W/H, rotation/opacity, size/weight). */
 .style-dock-grid {
@@ -5993,9 +5982,6 @@ button:disabled {
   -webkit-appearance: none;
   margin: 0;
 }
-.style-dock-details {
-  width: 100%;
-}
 .style-dock-font select {
   width: 100%;
   padding: 0 26px 0 9px;
@@ -6057,19 +6043,10 @@ button:disabled {
   border-radius: 14px;
   background: var(--color-editor-surface);
 }
-.element-details-popover {
-  right: auto;
-  left: 0;
-  width: 360px;
-}
 .element-details-fields {
   display: flex;
-  max-height: min(460px, 60vh);
   flex-direction: column;
   gap: 10px;
-  overflow-y: auto;
-  border-top: 1px solid var(--color-editor-border);
-  padding: 12px;
 }
 .element-details-fields label {
   display: flex;
@@ -6099,8 +6076,9 @@ button:disabled {
   height: 34px;
 }
 .style-dock .element-details-fields textarea {
-  min-height: 68px;
+  min-height: 0;
   resize: vertical;
+  line-height: 1.4;
 }
 .style-dock .element-details-fields input:focus,
 .style-dock .element-details-fields textarea:focus {
@@ -6114,6 +6092,16 @@ button:disabled {
   padding-top: 10px;
   border-top: 1px dashed var(--color-editor-border);
 }
+.element-constraint-title {
+  margin: 0;
+  padding-left: 2px;
+  color: var(--color-editor-muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
 .style-dock .element-constraint-fields select {
   height: 34px;
   width: 100%;
@@ -6125,25 +6113,33 @@ button:disabled {
   font-size: 11px;
   outline: none;
 }
-.element-constraint-checkbox {
-  flex-direction: row !important;
-  align-items: center;
-  gap: 8px !important;
+.element-details-fields .element-constraint-checkbox {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 8px;
 }
-.element-constraint-checkbox input {
-  height: auto !important;
-  width: auto;
+.element-details-fields .element-constraint-checkbox input {
+  width: 14px;
+  height: 14px;
+  margin: 1px 0 0;
+  accent-color: var(--color-primary);
 }
-.element-constraint-checkbox span {
-  color: var(--color-editor-foreground) !important;
-  font-size: 11px !important;
-  font-weight: 500 !important;
-  text-transform: none !important;
+.element-details-fields .element-constraint-checkbox span {
+  color: var(--color-editor-foreground);
+  font-size: 11px;
+  font-weight: 500;
+  text-align: left;
+  text-transform: none;
 }
 .element-constraint-actions {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 6px;
+}
+.element-constraint-actions button {
+  width: 100%;
+  min-width: 0;
 }
 .font-picker-head {
   display: flex;
@@ -6527,12 +6523,6 @@ button:disabled {
 .right-panel-reopen svg {
   height: 15px;
   width: 15px;
-}
-/* Keep the style dock clear of the floating reopen button when the prompt
- * panel is collapsed. */
-.editor-shell[data-right-panel="closed"] .style-dock {
-  top: 56px;
-  max-height: calc(100% - 72px);
 }
 /* Export sits at the far end of the panel head, after the mode tabs. */
 .right-panel-export {
@@ -9017,14 +9007,7 @@ ol.md-list {
   text-align: center;
 }
 
-.editor-shell
-  :is(
-    .context-panel,
-    .right-panel,
-    .element-details-fields,
-    .font-list,
-    .brandkit-list
-  ),
+.editor-shell :is(.context-panel, .right-panel, .font-list, .brandkit-list),
 .editor-shell :is(.brandkit-list-panel, .brandkit-card-content) {
   scrollbar-color: var(--color-editor-border) transparent;
 }
@@ -9039,7 +9022,6 @@ ol.md-list {
   :is(
     .context-panel,
     .right-panel,
-    .element-details-fields,
     .font-list,
     .brandkit-list
   )::-webkit-scrollbar-thumb {
@@ -9081,103 +9063,15 @@ ol.md-list {
   background: var(--color-editor-border);
 }
 
-@container (max-width: 900px) {
-  .editor-shell .floating-controls {
-    left: 12px;
-    max-width: calc(100% - 240px);
-    transform: none;
-  }
-}
-
 @container (max-width: 560px) {
-  .editor-shell .style-dock {
-    max-height: calc(100% - 80px);
-  }
   .editor-shell .floating-controls {
     left: 12px;
     max-width: calc(100% - 24px);
     transform: none;
   }
-  .editor-shell .style-dock {
-    top: 60px;
-    max-height: calc(100% - 120px);
-  }
   .editor-shell[data-right-panel="closed"] .floating-controls {
     max-width: calc(100% - 72px);
   }
-  .editor-shell[data-right-panel="closed"] .style-dock {
-    top: 60px;
-    max-height: calc(100% - 120px);
-  }
-}
-
-.editor-shell .style-dock {
-  border-color: var(--color-editor-border);
-  background: var(--color-editor-surface);
-}
-
-.editor-shell .style-dock.is-collapsed {
-  width: auto;
-  padding: 0;
-  gap: 0;
-  overflow: visible;
-  border-radius: 0.4rem;
-}
-
-.style-dock-toggle {
-  display: grid;
-  height: 32px;
-  width: 32px;
-  place-items: center;
-  border: 0;
-  border-radius: inherit;
-  background: transparent;
-  color: var(--color-primary);
-  cursor: pointer;
-}
-.style-dock-toggle:hover {
-  background: var(--color-editor-hover);
-}
-.style-dock-toggle:focus-visible {
-  outline: 2px solid color-mix(in oklab, var(--color-primary) 22%, transparent);
-  outline-offset: 2px;
-}
-.style-dock-toggle svg {
-  height: 16px;
-  width: 16px;
-}
-.editor-shell .style-dock-toggle:focus-visible {
-  outline-color: var(--editor-focus);
-}
-
-.style-dock-title-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.style-dock-collapse {
-  display: grid;
-  height: 20px;
-  width: 20px;
-  place-items: center;
-  border: 0;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--color-editor-muted);
-  cursor: pointer;
-}
-.style-dock-collapse:hover {
-  background: var(--color-editor-hover);
-  color: var(--color-editor-foreground);
-}
-.style-dock-title .style-dock-collapse svg {
-  width: 13px;
-  height: 13px;
-  color: inherit;
-}
-
-.editor-shell .style-dock:has(.font-picker-popover) {
-  overflow-y: auto;
 }
 
 @container (max-width: 480px) {
@@ -9188,7 +9082,6 @@ ol.md-list {
   }
 }
 
-.editor-shell .style-dock-title svg,
 .editor-shell .font-picker-head > div > svg {
   color: var(--color-editor-muted);
 }
@@ -11436,10 +11329,8 @@ ol.md-list {
 }
 .context-panel,
 .right-panel,
-.style-dock,
 .compose-scroll,
-.font-list,
-.element-details-fields {
+.font-list {
   overscroll-behavior: contain;
   min-height: 0;
 }
@@ -11453,9 +11344,6 @@ ol.md-list {
   width: 100%;
   max-width: 100%;
   margin-top: 8px;
-}
-.editor-shell .style-dock .element-details-popover {
-  width: 100%;
 }
 
 .canvas-handle-ring {

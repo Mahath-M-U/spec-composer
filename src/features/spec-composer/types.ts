@@ -31,7 +31,7 @@ export type ElementKind = (typeof ELEMENT_KINDS)[number];
 
 export type PromptMode = "visual_prompt" | "design_skill";
 export type PanelMode =
-  "assets" | "layers" | "templates" | "brandKit" | "resize";
+  "assets" | "layers" | "templates" | "brandKit" | "resize" | "style";
 export type ToolMode = "select" | "hand";
 
 export const isTextKind = (kind: ElementKind): kind is TextKind =>
