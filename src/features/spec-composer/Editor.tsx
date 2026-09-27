@@ -119,7 +119,11 @@ import {
   DESIGN_SKILL_SECTIONS,
 } from "./design-md";
 import { DesignMarkdown, PromptProse, ProseText } from "./design-md-view";
-import { DesignEditorSections, type DesignPart } from "./design-editor-cards";
+import {
+  DesignEditorSections,
+  PromptEditorSections,
+  type DesignPart,
+} from "./design-editor-cards";
 import { PromptPart } from "./prompt-visuals";
 import { FEATURED_FONTS, MORE_FONTS } from "./fonts";
 import { SectionEditor } from "./section-editors";
@@ -243,6 +247,16 @@ const COMPOSE_LAYOUTS: { id: ComposeLayout; label: string; hint: string }[] = [
 const LEFT_PANEL_DEFAULT_WIDTH = 432;
 const RIGHT_PANEL_DEFAULT_WIDTH = 624;
 
+/** Switches the left sidebar to the Style panel's Style tab and, on desktop,
+ * opens it — shared by canvas selection and prompt-panel selection so both
+ * land on the same place. */
+function openStyleEditor(sidebars: SidebarLayout) {
+  const store = useEditorStore.getState();
+  store.setPanel("style");
+  store.setStyleTab("style");
+  if (!sidebars.overlay && !sidebars.leftOpen) sidebars.setOpen("left", true);
+}
+
 export function Editor({ projectId }: { projectId: string }) {
   const store = useEditorStore();
   const navigate = useNavigate();
@@ -320,10 +334,7 @@ export function Editor({ projectId }: { projectId: string }) {
 
   useShortcuts(() => setPreview(true));
 
-  const openStyleFromCanvas = () => {
-    if (useEditorStore.getState().panel !== "style") store.setPanel("style");
-    if (!sidebars.overlay && !sidebars.leftOpen) sidebars.setOpen("left", true);
-  };
+  const openStyleFromCanvas = () => openStyleEditor(sidebars);
 
   if (!store.doc) return <EditorSkeleton />;
 
@@ -1143,7 +1154,8 @@ function StylePanel() {
   const brandKitPickerRef = useRef<HTMLDivElement>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [regenCopied, setRegenCopied] = useState(false);
-  const [tab, setTab] = useState<"style" | "layout">("style");
+  const tab = s.styleTab;
+  const setTab = s.setStyleTab;
 
   useEffect(() => {
     if (!brandKitOpen) return;
@@ -1212,7 +1224,7 @@ function StylePanel() {
       firstElement.kind === "divider");
 
   return (
-    <section className="style-panel" aria-label="Style controls">
+    <section className="style-panel" data-tab={tab} aria-label="Style controls">
       <PanelHeader
         icon={Palette}
         eyebrow="Design"
@@ -2398,6 +2410,30 @@ function PromptPanel({
   >(null);
   const briefMissing =
     !!copyWarnings?.some((w) => w.key === "brief") && !d?.imageBrief.trim();
+  // Selecting from a prompt row shouldn't also scroll the panel that
+  // triggered it — only canvas-originated selection changes should.
+  const fromPromptRef = useRef(false);
+  const viewRef = useRef<HTMLDivElement>(null);
+  const selectedKey = s.selectedIds.join(",");
+  useEffect(() => {
+    if (fromPromptRef.current) {
+      fromPromptRef.current = false;
+      return;
+    }
+    if (!sidebars.rightOpen) return;
+    const frame = requestAnimationFrame(() => {
+      const row =
+        viewRef.current?.querySelector(".de-subrow[data-selected]") ??
+        viewRef.current?.querySelector("[data-selected]");
+      row?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [selectedKey, sidebars.rightOpen]);
+  const selectFromPrompt = (id: string) => {
+    fromPromptRef.current = true;
+    s.select(id);
+    openStyleEditor(sidebars);
+  };
   if (!d) return null;
   const kit = s.brandKits.find((k) => k.id === d.creativeDirection.brandKitId);
   const isSkill = d.promptMode === "design_skill";
@@ -2572,7 +2608,9 @@ function PromptPanel({
       : line.key.startsWith("el:")
         ? line.key.slice("el:".length)
         : null;
-    const visual = !!sectionTarget(line.key, d);
+    const target = sectionTarget(line.key, d);
+    const targetId = target?.type === "element" ? target.id : undefined;
+    const visual = !!target;
     const startTextEdit = () => {
       s.mutate((x) => {
         x.promptParts = { ...x.promptParts, [line.key]: text };
@@ -2588,6 +2626,18 @@ function PromptPanel({
     );
     const actions = (
       <span className="prompt-tag-actions">
+        {!isSkill && line.key === "dominant" && targetId && (
+          <Hint label={`Edit ${m.tag} style`}>
+            <button
+              type="button"
+              className="prompt-part-edit"
+              aria-label={`Edit ${m.tag} style`}
+              onClick={() => selectFromPrompt(targetId)}
+            >
+              <Palette size={11} />
+            </button>
+          </Hint>
+        )}
         <Hint label={isEditing ? "Done" : `Edit ${m.tag}`}>
           <button
             type="button"
@@ -2644,6 +2694,7 @@ function PromptPanel({
         value={seg.value}
         placeholder={seg.fallback || "Text"}
         spellCheck={false}
+        onFocus={() => selectFromPrompt(seg.id)}
         onChange={(e) =>
           seg.field === "content"
             ? s.setElementText(seg.id, e.target.value)
@@ -2717,6 +2768,9 @@ function PromptPanel({
       actions,
       body,
       kind: m.kind,
+      elementId: targetId,
+      selected: !!targetId && s.selectedIds.includes(targetId),
+      onSelect: targetId ? () => selectFromPrompt(targetId) : undefined,
     };
   };
 
@@ -2865,6 +2919,7 @@ function PromptPanel({
           </>
         ) : (
           <div
+            ref={viewRef}
             className={`prompt-text prompt-view${isSkill ? " prompt-view-md" : ""}`}
           >
             {!isSkill && toolSettings.enabled && (
@@ -2953,24 +3008,13 @@ function PromptPanel({
                 styleLabel={resolveImageStyle(d)?.label ?? "None"}
               />
             ) : (
-              segments.flatMap((line) => {
-                if (d.promptParts?.[line.key] === "") return [];
-                const part = renderPart(line);
-                return [
-                  <div
-                    key={line.key}
-                    className="prompt-part"
-                    data-kind={part.kind}
-                  >
-                    <span className="prompt-tag">
-                      {part.tag}
-                      {part.actions}
-                    </span>
-                    {part.body}
-                  </div>,
-                  line.key === "format" ? briefSection : null,
-                ];
-              })
+              <PromptEditorSections
+                parts={segments
+                  .filter((line) => d.promptParts?.[line.key] !== "")
+                  .map(renderPart)}
+                doc={d}
+                brief={briefSection}
+              />
             )}
           </div>
         )}

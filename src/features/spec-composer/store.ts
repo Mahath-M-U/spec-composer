@@ -68,6 +68,9 @@ interface EditorState {
   selectedIds: string[];
   backgroundSelected: boolean;
   panel: PanelMode;
+  /** Which tab the Style panel shows; lifted out of local state so canvas
+   * selection can force it open to Style. */
+  styleTab: "style" | "layout";
   tool: ToolMode;
   zoom: number;
   pan: { x: number; y: number };
@@ -90,6 +93,7 @@ interface EditorState {
   selectMany: (ids: string[], add?: boolean) => void;
   selectBackground: () => void;
   setPanel: (p: PanelMode) => void;
+  setStyleTab: (tab: "style" | "layout") => void;
   setTool: (t: ToolMode) => void;
   setView: (zoom: number, pan?: { x: number; y: number }) => void;
   setGuides: (guides: Guide[]) => void;
@@ -216,6 +220,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   selectedIds: [],
   backgroundSelected: false,
   panel: "assets",
+  styleTab: "style",
   tool: "select",
   zoom: 1,
   pan: { x: 0, y: 0 },
@@ -339,6 +344,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     })),
 
   setPanel: (panel) => set({ panel }),
+  setStyleTab: (styleTab) => set({ styleTab }),
   setTool: (tool) => set({ tool }),
   setView: (zoom, pan) =>
     set((s) => ({ zoom: Math.min(3, Math.max(0.1, zoom)), pan: pan ?? s.pan })),

@@ -7998,10 +7998,9 @@ ol.md-list {
 }
 .md-measure {
   border-radius: 0.25rem;
-  background: var(--color-editor-hover);
-  padding: 0.05rem 0.3rem;
-  font-family: ui-monospace, monospace;
-  font-size: 10.5px;
+  background: none;
+  padding: 0;
+  font: inherit;
   white-space: nowrap;
 }
 .md-prose .md-color {
@@ -8420,18 +8419,27 @@ ol.md-list {
   field-sizing: content;
   min-width: 3rem;
   max-width: 100%;
-  border: 1px solid color-mix(in oklab, var(--tone) 60%, transparent);
-  border-radius: 0.3rem;
-  background: color-mix(in oklab, var(--tone) 22%, transparent);
-  padding: 0 0.35rem;
-  color: var(--color-editor-foreground);
+  border: 0;
+  border-bottom: 1px dashed transparent;
+  border-radius: 0;
+  background: none;
+  padding: 0;
+  color: var(--color-primary);
   font: inherit;
   font-weight: 600;
   line-height: 1.6;
   outline: none;
 }
+.prompt-field::placeholder {
+  color: color-mix(in oklab, var(--color-primary) 55%, transparent);
+}
+.prompt-field:hover,
 .prompt-field:focus {
-  border-color: var(--tone);
+  border-bottom-color: color-mix(
+    in oklab,
+    var(--color-primary) 60%,
+    transparent
+  );
 }
 .preview-overlay {
   position: fixed;
@@ -8616,6 +8624,31 @@ ol.md-list {
 .compose-tidy:hover {
   border-color: var(--color-primary);
   color: var(--color-editor-foreground);
+}
+/* Layout tab: fill the sidebar so the compose list scrolls internally and
+ * "Tidy up spacing" stays pinned at the bottom instead of trailing content. */
+.context-panel:has(> .style-panel[data-tab="layout"]) {
+  overflow: hidden;
+}
+.style-panel[data-tab="layout"] {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.style-panel[data-tab="layout"] .style-dock {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.style-panel[data-tab="layout"] .style-dock > .compose-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.style-panel[data-tab="layout"] .compose-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
 }
 @media (max-width: 680px) {
   .dialog-backdrop {
@@ -9373,6 +9406,10 @@ ol.md-list {
   padding: 16px;
   overflow-wrap: anywhere;
 }
+.de-card[data-selected] {
+  border: 1px solid
+    color-mix(in oklab, var(--color-primary) 45%, var(--color-editor-border));
+}
 .de-card-title {
   margin: 0;
   min-width: 0;
@@ -9478,6 +9515,21 @@ ol.md-list {
 }
 .de-card-body[hidden] {
   display: none;
+}
+
+/* The Prompt Editor's purpose brief, inserted into .de-sections by
+   PromptEditorSections: card-styled like its neighbours instead of the flat
+   .prompt-view row .prompt-part normally renders as. The extra .prompt-view
+   ancestor class out-specifies `.editor-shell .prompt-view .prompt-part`
+   regardless of stylesheet order. */
+.editor-shell .prompt-view .de-sections > .prompt-brief {
+  margin: 0;
+  border-bottom: 0;
+  border-radius: 14px;
+  background: var(--color-editor-surface);
+  box-shadow: 0 1px 2px
+    color-mix(in oklab, var(--color-editor-foreground) 6%, transparent);
+  padding: 16px;
 }
 
 /* Compact previews shown in a collapsed card's header (design-editor-cards.tsx
@@ -10450,11 +10502,43 @@ ol.md-list {
   font-size: 11px;
   font-weight: 700;
 }
+button.de-subrow-tag {
+  border: 0;
+  background: none;
+  padding: 0;
+  text-align: start;
+  font: inherit;
+  cursor: pointer;
+}
+button.de-subrow-tag:hover,
+button.de-subrow-tag:focus-visible {
+  color: var(--color-editor-foreground);
+}
+.de-subrow[data-selected] .de-subrow-tag {
+  color: var(--color-primary);
+}
 .de-subrow-actions {
   justify-self: end;
 }
 .de-subrow-body {
   grid-column: 1 / -1;
+}
+
+.de-subrow[data-clickable],
+.de-select-area[data-clickable] {
+  cursor: pointer;
+}
+.de-subrow[data-clickable]:not([data-selected]):hover .de-subrow-tag {
+  color: var(--color-editor-foreground);
+}
+.de-subrow[data-clickable]:has(> button.de-subrow-tag:focus-visible) {
+  outline: 2px solid color-mix(in oklab, var(--color-primary) 55%, transparent);
+  outline-offset: 4px;
+  border-radius: 6px;
+}
+.de-subrow[data-clickable] :is(input, textarea),
+.de-select-area[data-clickable] :is(input, textarea) {
+  cursor: text;
 }
 
 .editor-shell .prompt-tool-add {
@@ -10910,12 +10994,12 @@ ol.md-list {
   color: var(--color-editor-foreground);
 }
 
-.editor-shell :is(.prompt-part-text, .prompt-field) {
+.editor-shell .prompt-part-text {
   border-color: var(--color-editor-border);
   background: var(--color-editor-hover);
 }
 
-.editor-shell :is(.prompt-part-text, .prompt-field):focus {
+.editor-shell .prompt-part-text:focus {
   border-color: var(--editor-focus);
 }
 
