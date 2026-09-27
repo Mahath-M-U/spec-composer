@@ -27,13 +27,7 @@ import {
 } from "./types";
 
 export type PreviewType =
-  | "shape"
-  | "eyebrow"
-  | "image"
-  | "headline"
-  | "body"
-  | "cta"
-  | "generic";
+  "shape" | "eyebrow" | "image" | "headline" | "body" | "cta" | "generic";
 
 export type CompToken = {
   label: string;
@@ -105,7 +99,10 @@ type TypeStyle = {
 };
 
 const normalizeRole = (role: string) =>
-  role.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+  role
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
 
 /** Parses the Typography (`skill:type`) part's "Type Scale" table the same
  * way `TypographyTokensCard` does, into a lookup from normalized role to its
@@ -184,10 +181,7 @@ function typeOverrides(
 
   const lineHeight = parseFloat(lh(s.lineHeight));
   const tLineHeight = parseFloat(t.lineHeight);
-  if (
-    !Number.isNaN(tLineHeight) &&
-    Math.abs(tLineHeight - lineHeight) > 0.005
-  )
+  if (!Number.isNaN(tLineHeight) && Math.abs(tLineHeight - lineHeight) > 0.005)
     tokens.push({
       label: "Line height",
       value: `Line height ${lh(s.lineHeight)} override`,
@@ -463,8 +457,7 @@ export function buildComposition(i: {
       .filter(isPara)
       .map((b) => boldField(b.text))
       .find(
-        (f): f is { label: string; value: string } =>
-          !!f && f.label === "Role",
+        (f): f is { label: string; value: string } => !!f && f.label === "Role",
       );
     const prose = g.blocks
       .filter(isPara)

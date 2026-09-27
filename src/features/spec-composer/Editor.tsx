@@ -2053,16 +2053,14 @@ function StyleDock() {
                                   aria-hidden="true"
                                 >
                                   {kit.colors.length ? (
-                                    kit.colors
-                                      .slice(0, 5)
-                                      .map((c) => (
-                                        <i
-                                          key={c.id}
-                                          style={{
-                                            background: brandKitPaint(c),
-                                          }}
-                                        />
-                                      ))
+                                    kit.colors.slice(0, 5).map((c) => (
+                                      <i
+                                        key={c.id}
+                                        style={{
+                                          background: brandKitPaint(c),
+                                        }}
+                                      />
+                                    ))
                                   ) : (
                                     <i className="brandkit-swatch-empty" />
                                   )}
