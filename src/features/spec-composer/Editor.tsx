@@ -112,6 +112,7 @@ import {
   segText,
   validateExternalToolRequirement,
   type PromptLine,
+  type PromptSeg,
 } from "./compiler";
 import {
   compileDesignSkill,
@@ -2767,7 +2768,23 @@ function PromptPanel({
         </Hint>
       </span>
     );
-    const body = (
+    const fieldInput = (seg: Exclude<PromptSeg, string>, key: number) => (
+      <input
+        key={key}
+        className="prompt-field"
+        value={seg.value}
+        placeholder={seg.fallback || "Text"}
+        spellCheck={false}
+        onChange={(e) =>
+          seg.field === "content"
+            ? s.setElementText(seg.id, e.target.value)
+            : s.updateElement(seg.id, {
+                [seg.field]: e.target.value,
+              })
+        }
+      />
+    );
+    const withChrome = (content: ReactNode) => (
       <>
         {controls}
         {isEditing && textMode ? (
@@ -2803,35 +2820,25 @@ function PromptPanel({
             custom={line.custom}
             bare={!!controls}
           >
-            <p className="md-prose">
-              {line.segs.map((seg, j) =>
-                typeof seg === "string" ? (
-                  <ProseText
-                    key={j}
-                    // Slot bullets read as rows here, not a list.
-                    text={isSkill && j === 0 ? seg.replace(/^- /, "") : seg}
-                  />
-                ) : (
-                  <input
-                    key={j}
-                    className="prompt-field"
-                    value={seg.value}
-                    placeholder={seg.fallback || "Text"}
-                    spellCheck={false}
-                    onChange={(e) =>
-                      seg.field === "content"
-                        ? s.setElementText(seg.id, e.target.value)
-                        : s.updateElement(seg.id, {
-                            [seg.field]: e.target.value,
-                          })
-                    }
-                  />
-                ),
-              )}
-            </p>
+            {content}
           </PromptPart>
         )}
       </>
+    );
+    const body = withChrome(
+      <p className="md-prose">
+        {line.segs.map((seg, j) =>
+          typeof seg === "string" ? (
+            <ProseText
+              key={j}
+              // Slot bullets read as rows here, not a list.
+              text={isSkill && j === 0 ? seg.replace(/^- /, "") : seg}
+            />
+          ) : (
+            fieldInput(seg, j)
+          ),
+        )}
+      </p>,
     );
     return {
       key: line.key,

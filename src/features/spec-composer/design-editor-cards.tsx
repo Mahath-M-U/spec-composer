@@ -9,8 +9,10 @@ import {
 import {
   Box,
   Check,
+  ChevronDown,
   Copy,
   FileText,
+  Frame,
   Image as ImageIcon,
   Layers,
   Layers3,
@@ -83,33 +85,71 @@ export function TokenCard({
   title,
   actions,
   meta,
+  summary,
+  preview,
+  forceOpen,
   children,
 }: {
   icon: LucideIcon;
   title: string;
   actions?: ReactNode;
   meta?: ReactNode;
+  summary?: ReactNode | undefined;
+  preview?: ReactNode | undefined;
+  forceOpen?: boolean | undefined;
   children: ReactNode;
 }) {
   const headingId = useId();
-  const heading = (
-    <h3 id={headingId} className="de-card-title">
-      <Icon className="de-card-icon" size={15} aria-hidden="true" />
-      <span>{title}</span>
-      {actions && <span className="de-card-actions">{actions}</span>}
-    </h3>
-  );
+  const bodyId = useId();
+  const [open, setOpen] = useState(false);
+  const expanded = open || !!forceOpen;
+  useEffect(() => {
+    if (forceOpen) setOpen(true);
+  }, [forceOpen]);
   return (
-    <section className="de-card" aria-labelledby={headingId}>
-      {meta ? (
-        <div className="de-card-head">
-          {heading}
-          <div className="de-card-meta">{meta}</div>
-        </div>
-      ) : (
-        heading
-      )}
-      {children}
+    <section
+      className="de-card"
+      aria-labelledby={headingId}
+      data-open={expanded ? "" : undefined}
+    >
+      <div
+        className="de-card-head"
+        onClick={(e) => {
+          const target = e.target;
+          if (!e.currentTarget.contains(target as Node)) return;
+          if (target instanceof Element && target.closest(".de-card-actions"))
+            return;
+          setOpen((o) => !o);
+        }}
+      >
+        <h3 id={headingId} className="de-card-title">
+          <button
+            type="button"
+            className="de-card-toggle"
+            aria-expanded={expanded}
+            aria-controls={bodyId}
+          >
+            <span className="de-card-icon-tile">
+              <Icon size={18} aria-hidden="true" />
+            </span>
+            <span className="de-card-text">
+              <span className="de-card-name">{title}</span>
+              {summary && <span className="de-card-summary">{summary}</span>}
+            </span>
+            {preview && (
+              <span className="de-card-preview" aria-hidden="true">
+                {preview}
+              </span>
+            )}
+          </button>
+        </h3>
+        {actions && <span className="de-card-actions">{actions}</span>}
+        <ChevronDown className="de-card-chevron" size={16} aria-hidden="true" />
+      </div>
+      <div id={bodyId} className="de-card-body" hidden={!expanded}>
+        {meta && <div className="de-card-meta">{meta}</div>}
+        {children}
+      </div>
     </section>
   );
 }
@@ -494,9 +534,29 @@ function ColorSwatchBlock({
   );
 }
 
+/** A compact strip of up to 6 color swatches for the collapsed Colors card
+ * header, with a "+N" overflow count when there are more. */
+function ColorsPreview({ hexes }: { hexes: string[] }) {
+  const shown = hexes.slice(0, 6);
+  const extra = hexes.length - shown.length;
+  return (
+    <>
+      {shown.map((hex, i) => (
+        <i key={i} className="de-pv-swatch" style={{ background: hex }} />
+      ))}
+      {extra > 0 && `+${extra}`}
+    </>
+  );
+}
+
 export function ColorTokensCard({ part }: { part: DesignPart }) {
   const fallback = (
-    <TokenCard icon={Palette} title="Colors" actions={part.actions}>
+    <TokenCard
+      icon={Palette}
+      title="Colors"
+      actions={part.actions}
+      forceOpen={part.editing}
+    >
       {part.body}
     </TokenCard>
   );
@@ -516,7 +576,14 @@ export function ColorTokensCard({ part }: { part: DesignPart }) {
   if (!swatches.length || swatches.some((s) => !HEX_RE.test(s.hex)))
     return fallback;
   return (
-    <TokenCard icon={Palette} title="Colors" actions={part.actions}>
+    <TokenCard
+      icon={Palette}
+      title="Colors"
+      actions={part.actions}
+      forceOpen={part.editing}
+      summary={`${swatches.length} color${swatches.length === 1 ? "" : "s"}`}
+      preview={<ColorsPreview hexes={swatches.map((s) => s.hex)} />}
+    >
       <ul className="de-palette" aria-label="Color palette">
         {swatches.map((s, i) => (
           <ColorSwatchBlock key={i} name={s.name} hex={s.hex} roles={s.roles} />
@@ -618,9 +685,35 @@ function TypeScaleTable({ table }: { table: TableBlock }) {
   );
 }
 
+/** Up to 3 "Aa" font samples for the collapsed Typography card header, each
+ * set in its own family with the family name underneath. */
+function TypePreview({ families }: { families: string[] }) {
+  return (
+    <>
+      {families.slice(0, 3).map((f, i) => (
+        <span key={i} className="de-pv-font">
+          <b
+            style={{
+              fontFamily: `"${f}", ui-sans-serif, system-ui, sans-serif`,
+            }}
+          >
+            Aa
+          </b>
+          <small>{f}</small>
+        </span>
+      ))}
+    </>
+  );
+}
+
 export function TypographyTokensCard({ part }: { part: DesignPart }) {
   const fallback = (
-    <TokenCard icon={Type} title="Typography" actions={part.actions}>
+    <TokenCard
+      icon={Type}
+      title="Typography"
+      actions={part.actions}
+      forceOpen={part.editing}
+    >
       {part.body}
     </TokenCard>
   );
@@ -632,8 +725,39 @@ export function TypographyTokensCard({ part }: { part: DesignPart }) {
   );
   const scaleTable = scaleGroup?.blocks.find(isTable);
   if (!familyGroups.length && !scaleTable) return fallback;
+  const fonts =
+    familyGroups.length > 0
+      ? [
+          ...new Set(
+            familyGroups
+              .map((g) => g.title?.split(" — ")[0]?.trim())
+              .filter((f): f is string => !!f),
+          ),
+        ]
+      : scaleTable
+        ? [
+            ...new Set(
+              scaleTable.rows
+                .map((r) => r[scaleTable.head.indexOf("Family")]?.trim())
+                .filter((f): f is string => !!f),
+            ),
+          ]
+        : [];
+  const summary = [
+    fonts.length ? `${fonts.length} fonts` : "",
+    scaleTable ? `${scaleTable.rows.length} text styles` : "",
+  ]
+    .filter(Boolean)
+    .join(" • ");
   return (
-    <TokenCard icon={Type} title="Typography" actions={part.actions}>
+    <TokenCard
+      icon={Type}
+      title="Typography"
+      actions={part.actions}
+      forceOpen={part.editing}
+      summary={summary}
+      preview={<TypePreview families={fonts} />}
+    >
       <div
         className="de-typography"
         data-split={familyGroups.length > 0 && scaleTable ? "" : undefined}
@@ -794,12 +918,47 @@ function layoutDiagram(label: string, value: string): ReactNode {
 
 const CANVAS_VALUE_NOTE_RE = /^(.*?)\s*\(([^)]+)\)\s*$/;
 
+const LAYOUT_PREVIEW_FIELDS: { match: string; short: string }[] = [
+  { match: "safe margin", short: "Margin" },
+  { match: "element gap", short: "Gap" },
+  { match: "text alignment", short: "Align" },
+];
+
+/** Compact "Margin / Gap / Align" tiles for the collapsed Layout card
+ * header, built from whichever of those fields the section has. */
+function LayoutPreview({
+  fields,
+}: {
+  fields: { label: string; value: string }[];
+}) {
+  const tiles = LAYOUT_PREVIEW_FIELDS.map(({ match, short }) => {
+    const field = fields.find((f) => f.label.toLowerCase() === match);
+    return field && { short, value: field.value };
+  }).filter((t): t is { short: string; value: string } => !!t);
+  return (
+    <>
+      {tiles.map((t, i) => (
+        <span key={i} className="de-pv-tile">
+          <small>{t.short}</small>
+          <span>{t.value}</span>
+        </span>
+      ))}
+    </>
+  );
+}
+
 function LayoutTokensCard({ items }: { items: string[] }) {
   const fields = items
     .map((item) => boldField(item))
     .filter((f): f is { label: string; value: string } => !!f);
+  const canvas = fields.find((f) => f.label.toLowerCase() === "canvas");
   return (
-    <TokenCard icon={LayoutGrid} title="Layout">
+    <TokenCard
+      icon={LayoutGrid}
+      title="Layout"
+      summary={canvas?.value}
+      preview={<LayoutPreview fields={fields} />}
+    >
       <div className="de-dtiles de-dtiles--layout">
         {fields.map((f, i) => {
           const canvasSplit =
@@ -820,11 +979,48 @@ function LayoutTokensCard({ items }: { items: string[] }) {
   );
 }
 
+/** Up to 4 spacing bars (scaled to the largest value) and up to 4 radius
+ * corners for the collapsed Spacing & Shapes card header. */
+function SpacingPreview({
+  spacing,
+  radii,
+}: {
+  spacing: number[];
+  radii: number[];
+}) {
+  const max = Math.max(...spacing, 1);
+  return (
+    <>
+      {spacing.slice(0, 4).map((v, i) => (
+        <i
+          key={`bar-${i}`}
+          className="de-pv-bar"
+          style={{ "--de-pv-w": Math.max(0.15, v / max) } as CSSProperties}
+        />
+      ))}
+      {radii.slice(0, 4).map((v, i) => (
+        <i
+          key={`radius-${i}`}
+          className="de-pv-radius"
+          style={{ borderTopLeftRadius: Math.min(v, 10) }}
+        />
+      ))}
+    </>
+  );
+}
+
 export function SpacingAndLayoutCards({ part }: { part: DesignPart }) {
   const fallback = (
-    <TokenCard icon={Box} title="Spacing & Shapes" actions={part.actions}>
-      {part.body}
-    </TokenCard>
+    <>
+      <TokenCard
+        icon={Box}
+        title="Spacing & Shapes"
+        actions={part.actions}
+        forceOpen={part.editing}
+      >
+        {part.body}
+      </TokenCard>
+    </>
   );
   if (part.editing) return fallback;
   const groups = sectionsByH3(parseDesignMarkdown(part.text));
@@ -841,6 +1037,18 @@ export function SpacingAndLayoutCards({ part }: { part: DesignPart }) {
   const layoutList = layoutGroup?.blocks.find(isList);
 
   if (!baseUnit && !density && !scaleTable && !radiusTable) return fallback;
+
+  const summary = [baseUnit && `Base ${baseUnit.value}`, density?.value]
+    .filter(Boolean)
+    .join(" • ");
+  const scaleValueIdx = scaleTable?.head.indexOf("Value") ?? -1;
+  const spacingValues = (scaleTable?.rows ?? [])
+    .map((r) => parseFloat(r[scaleValueIdx] ?? ""))
+    .filter((v) => !Number.isNaN(v));
+  const radiusValueIdx = radiusTable?.head.indexOf("Value") ?? -1;
+  const radiusValues = (radiusTable?.rows ?? [])
+    .map((r) => parseFloat(r[radiusValueIdx] ?? ""))
+    .filter((v) => !Number.isNaN(v));
 
   const meta = (baseUnit || density) && (
     <>
@@ -868,6 +1076,11 @@ export function SpacingAndLayoutCards({ part }: { part: DesignPart }) {
         title="Spacing & Shapes"
         actions={part.actions}
         meta={meta}
+        forceOpen={part.editing}
+        summary={summary}
+        preview={
+          <SpacingPreview spacing={spacingValues} radii={radiusValues} />
+        }
       >
         <div className="de-spacing">
           {scaleTable && (
@@ -921,10 +1134,11 @@ function CompThumb({
   );
 }
 
-/** One layout slot under a Composition item: its placement facts are always
- * visible; its editable body (canvas map, copy/imagery inputs, or the full
- * SectionEditor while editing) sits behind a collapsed disclosure so the
- * list stays scannable but every slot is still reachable and editable. */
+/** One layout slot under a Composition item: its placement facts (name,
+ * zone, position and W/H/Covers/Copy-budget/imagery meta) are always
+ * visible. The slot's editor body (`part.body`) shows only while that slot
+ * is actively being edited via its pencil action; there is no persistent
+ * "Content" disclosure. */
 function CompSlotRow({
   slot,
   itemImagery,
@@ -950,11 +1164,89 @@ function CompSlotRow({
         {showImagery && <span>{slot.imagery}</span>}
       </span>
       <span className="de-comp-slot-actions">{part.actions}</span>
-      <details className="de-comp-disclosure" open={part.editing}>
-        <summary className="de-comp-disclosure-summary">Content</summary>
-        <div className="de-comp-slot-body">{part.body}</div>
-      </details>
+      {part.editing && <div className="de-comp-slot-body">{part.body}</div>}
     </li>
+  );
+}
+
+/** Up to 6 element-name chips for the collapsed Composition card header,
+ * with a "+N" overflow count when there are more. */
+function ChipsPreview({ names }: { names: string[] }) {
+  const shown = names.slice(0, 6);
+  const extra = names.length - shown.length;
+  return (
+    <>
+      {shown.map((name, i) => (
+        <span key={i} className="de-pill de-pv-chip">
+          {name}
+        </span>
+      ))}
+      {extra > 0 && `+${extra}`}
+    </>
+  );
+}
+
+/** The standalone Layout card: the `skill:layout` part's own canvas/ratio/
+ * density/safe margin/coverage stats (parsed once by `buildComposition` into
+ * `CompositionModel.meta`), plus the part's editing body and hand-edited
+ * note body when applicable. Split out of `CompositionCard` so these canvas-
+ * level facts read as their own card rather than crowding the per-element
+ * Composition list. */
+function CanvasLayoutCard({
+  part,
+  meta,
+  custom,
+}: {
+  part: DesignPart;
+  meta: CompositionModel["meta"];
+  custom: boolean;
+}) {
+  const stats = (
+    <>
+      <span className="de-stat">
+        <LayoutTemplate size={13} aria-hidden="true" />
+        <span className="de-stat-label">Canvas</span>
+        <b className="de-stat-value">{meta.canvas}</b>
+      </span>
+      <span className="de-stat">
+        <LayoutTemplate size={13} aria-hidden="true" />
+        <span className="de-stat-label">Ratio</span>
+        <b className="de-stat-value">{meta.ratio}</b>
+      </span>
+      {meta.density && (
+        <span className="de-stat">
+          <SlidersHorizontal size={13} aria-hidden="true" />
+          <span className="de-stat-label">Density</span>
+          <b className="de-stat-value">{meta.density}</b>
+        </span>
+      )}
+      {meta.safeMargin && (
+        <span className="de-stat">
+          <Box size={13} aria-hidden="true" />
+          <span className="de-stat-label">Safe margin</span>
+          <b className="de-stat-value">{meta.safeMargin}</b>
+        </span>
+      )}
+      {meta.coverage && (
+        <span className="de-stat">
+          <Layers size={13} aria-hidden="true" />
+          <span className="de-stat-label">Coverage</span>
+          <b className="de-stat-value">{meta.coverage}</b>
+        </span>
+      )}
+    </>
+  );
+  return (
+    <TokenCard
+      icon={Frame}
+      title={part.tag}
+      actions={part.actions}
+      forceOpen={part.editing}
+      meta={stats}
+      summary={`${meta.canvas} · ${meta.ratio}`}
+    >
+      {(part.editing || custom) && part.body}
+    </TokenCard>
   );
 }
 
@@ -964,7 +1256,7 @@ function CompSlotRow({
  * and every slot's own `actions`/`body` are rendered verbatim, so editing
  * and deleting work exactly as they did across the three separate cards. */
 function CompositionCard({ model }: { model: CompositionModel }) {
-  const actions = (
+  const sources = (
     <>
       {model.sections.map((p) => (
         <span key={p.key} className="de-comp-src">
@@ -974,49 +1266,22 @@ function CompositionCard({ model }: { model: CompositionModel }) {
       ))}
     </>
   );
-  const meta = (
-    <>
-      <span className="de-stat">
-        <LayoutTemplate size={13} aria-hidden="true" />
-        <span className="de-stat-label">Canvas</span>
-        <b className="de-stat-value">{model.meta.canvas}</b>
-      </span>
-      <span className="de-stat">
-        <LayoutTemplate size={13} aria-hidden="true" />
-        <span className="de-stat-label">Ratio</span>
-        <b className="de-stat-value">{model.meta.ratio}</b>
-      </span>
-      {model.meta.density && (
-        <span className="de-stat">
-          <SlidersHorizontal size={13} aria-hidden="true" />
-          <span className="de-stat-label">Density</span>
-          <b className="de-stat-value">{model.meta.density}</b>
-        </span>
-      )}
-      {model.meta.safeMargin && (
-        <span className="de-stat">
-          <Box size={13} aria-hidden="true" />
-          <span className="de-stat-label">Safe margin</span>
-          <b className="de-stat-value">{model.meta.safeMargin}</b>
-        </span>
-      )}
-      {model.meta.coverage && (
-        <span className="de-stat">
-          <Layers size={13} aria-hidden="true" />
-          <span className="de-stat-label">Coverage</span>
-          <b className="de-stat-value">{model.meta.coverage}</b>
-        </span>
-      )}
-    </>
-  );
   const editingKeys = new Set(model.editing.map((p) => p.key));
+  const forceOpen =
+    model.editing.length > 0 ||
+    model.items.some((item) => item.slots.some((s) => s.part.editing)) ||
+    model.orphans.some((p) => p.editing);
   return (
     <TokenCard
       icon={LayoutTemplate}
       title="Composition"
-      actions={actions}
-      meta={meta}
+      forceOpen={forceOpen}
+      summary={`${model.items.length} element${model.items.length === 1 ? "" : "s"}`}
+      preview={<ChipsPreview names={model.items.map((i) => i.name)} />}
     >
+      {model.sections.length > 0 && (
+        <div className="de-comp-sources">{sources}</div>
+      )}
       {model.editing.map((p) => (
         <section
           key={p.key}
@@ -1048,6 +1313,7 @@ function CompositionCard({ model }: { model: CompositionModel }) {
                         key={ti}
                         className="de-comp-token"
                         data-emphasis={t.emphasis ? "" : undefined}
+                        data-variant={t.variant}
                       >
                         {t.swatch && (
                           <i
@@ -1168,12 +1434,14 @@ export function DesignEditorSections({
   const layoutPart = parts.find((p) => p.key === "skill:layout");
   const imageryPart = parts.find((p) => p.key === "skill:imagery");
   const slotParts = parts.filter((p) => p.key.startsWith("skill:el:"));
+  const typePart = parts.find((p) => p.key === "skill:type");
   const compositionModel =
     componentsPart || layoutPart || imageryPart || slotParts.length
       ? buildComposition({
           components: componentsPart,
           layout: layoutPart,
           imagery: imageryPart,
+          type: typePart,
           slots: slotParts,
           doc,
         })
@@ -1206,6 +1474,15 @@ export function DesignEditorSections({
       part.key.startsWith("skill:el:")
     ) {
       if (!composed && compositionModel) {
+        if (layoutPart)
+          cards.push(
+            <CanvasLayoutCard
+              key="canvas-layout"
+              part={layoutPart}
+              meta={compositionModel.meta}
+              custom={doc.promptParts?.["skill:layout"] != null}
+            />,
+          );
         cards.push(
           <CompositionCard key="composition" model={compositionModel} />,
         );
@@ -1219,6 +1496,7 @@ export function DesignEditorSections({
         icon={iconFor(part.key)}
         title={part.tag}
         actions={part.actions}
+        forceOpen={part.editing}
       >
         {part.body}
       </TokenCard>,

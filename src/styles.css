@@ -9408,9 +9408,20 @@ ol.md-list {
   .editor-shell .segmented .segmented-chat {
     padding-inline: 0.55rem;
   }
+  .de-card-toggle {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .de-card-preview {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    padding-left: 48px;
+  }
 }
 @container right-panel (max-width: 310px) {
   .editor-shell .segmented [role="tab"] svg {
+    display: none;
+  }
+  .de-card-preview {
     display: none;
   }
 }
@@ -9462,7 +9473,6 @@ ol.md-list {
   display: grid;
   gap: 0.75rem;
   min-width: 0;
-  border: 1px solid var(--color-editor-border);
   border-radius: 14px;
   background: var(--color-editor-surface);
   box-shadow: 0 1px 2px
@@ -9471,39 +9481,166 @@ ol.md-list {
   overflow-wrap: anywhere;
 }
 .de-card-title {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
   margin: 0;
+  min-width: 0;
   color: var(--color-editor-foreground);
   font-size: 14px;
   font-weight: 600;
-}
-.de-card-icon {
-  flex-shrink: 0;
-  color: var(--editor-action);
 }
 .de-card-actions {
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  margin-left: auto;
 }
 .de-card-head {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 8px 12px;
-}
-.de-card-head > .de-card-title {
-  flex: 1 1 auto;
-  min-width: 0;
+  gap: 12px;
+  cursor: pointer;
 }
 .de-card-meta {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
+.de-card-toggle {
+  display: grid;
+  grid-template-columns: auto minmax(0, max-content) minmax(0, 1fr);
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  appearance: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.de-card-toggle:focus-visible {
+  border-radius: 8px;
+  outline: 2px solid var(--editor-focus);
+  outline-offset: 4px;
+}
+.de-card-icon-tile {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  color: var(--editor-action);
+  background: color-mix(in oklab, var(--editor-action) 12%, transparent);
+}
+.de-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.de-card-name {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.de-card-summary {
+  overflow: hidden;
+  color: var(--color-editor-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.de-card-preview {
+  display: flex;
+  align-items: center;
+  justify-content: safe flex-end;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+}
+.de-card-chevron {
+  flex-shrink: 0;
+  color: var(--color-editor-muted);
+  transition: transform 0.2s ease;
+}
+.de-card[data-open] .de-card-chevron {
+  transform: rotate(180deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .de-card-chevron {
+    transition: none;
+  }
+}
+.de-card-body {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+.de-card-body[hidden] {
+  display: none;
+}
+
+/* Compact previews shown in a collapsed card's header (design-editor-cards.tsx
+   ColorsPreview/TypePreview/SpacingPreview/LayoutPreview/ChipsPreview). */
+.de-pv-swatch {
+  flex-shrink: 0;
+  width: 22px;
+  height: 16px;
+  border: 1px solid var(--color-editor-border);
+  border-radius: 5px;
+}
+.de-pv-font {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 0 8px;
+  font-size: 10px;
+}
+.de-pv-font + .de-pv-font {
+  border-left: 1px solid var(--color-editor-border);
+}
+.de-pv-font b {
+  font-size: 16px;
+  font-weight: normal;
+}
+.de-pv-bar {
+  display: inline-block;
+  width: calc(var(--de-pv-w, 0.5) * 40px);
+  height: 4px;
+  border-radius: 2px;
+  background: var(--editor-action);
+}
+.de-pv-radius {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--editor-action);
+}
+.de-pv-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  font-size: 10px;
+}
+.de-pv-tile small {
+  color: var(--color-editor-muted);
+}
+.de-pv-chip {
+  padding: 2px 8px;
+  font-size: 11px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .de-subhead {
   margin: 0 0 6px;
   color: var(--color-editor-muted);
@@ -10108,6 +10245,13 @@ ol.md-list {
    slots nested underneath. `.de-comp-list` is its own named container so the
    two-column split at `min-width: 560px` responds to the item's own width,
    not the whole card's. */
+.de-comp-sources {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  min-width: 0;
+}
 .de-comp-src {
   display: inline-flex;
   align-items: center;
@@ -10134,9 +10278,7 @@ ol.md-list {
   grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   min-width: 0;
-  border: 1px solid var(--color-editor-border);
   border-radius: 10px;
-  background: var(--color-editor-hover);
   padding: 10px 12px;
 }
 .de-comp-main {
@@ -10156,8 +10298,13 @@ ol.md-list {
   width: 36px;
   height: 36px;
   border-radius: 9px;
-  background: color-mix(in oklab, var(--editor-action) 16%, var(--color-editor-surface));
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--editor-action) 40%, var(--color-editor-border));
+  background: color-mix(
+    in oklab,
+    var(--editor-action) 16%,
+    var(--color-editor-surface)
+  );
+  box-shadow: inset 0 0 0 1px
+    color-mix(in oklab, var(--editor-action) 40%, var(--color-editor-border));
   color: var(--de-comp-fill, var(--editor-action));
   font-size: 13px;
   font-weight: 700;
@@ -10243,11 +10390,18 @@ ol.md-list {
   color: var(--editor-action);
   font-weight: 600;
 }
+.de-comp-token[data-variant="override"] {
+  border-style: dashed;
+}
+.de-comp-token[data-variant="typeStyle"] {
+  font-weight: 500;
+}
 .de-comp-swatch {
   width: 10px;
   height: 10px;
   border-radius: 999px;
-  border: 1px solid color-mix(in oklab, var(--color-editor-foreground) 18%, transparent);
+  border: 1px solid
+    color-mix(in oklab, var(--color-editor-foreground) 18%, transparent);
 }
 .de-comp-desc {
   grid-column: 2;
@@ -10332,30 +10486,8 @@ ol.md-list {
   flex-shrink: 0;
   margin-left: auto;
 }
-.de-comp-disclosure {
-  flex-basis: 100%;
-  min-width: 0;
-}
-.de-comp-disclosure-summary {
-  list-style: none;
-  color: var(--editor-action);
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.de-comp-disclosure-summary::-webkit-details-marker {
-  display: none;
-}
-.de-comp-disclosure-summary::before {
-  content: "▸";
-  display: inline-block;
-  margin-right: 4px;
-  transition: transform 0.15s ease;
-}
-.de-comp-disclosure[open] > .de-comp-disclosure-summary::before {
-  transform: rotate(90deg);
-}
 .de-comp-slot-body {
+  flex-basis: 100%;
   min-width: 0;
   padding-top: 6px;
 }

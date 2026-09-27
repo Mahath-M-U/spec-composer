@@ -3,7 +3,11 @@
  * the live `doc.elements` so the card can render one item row per element
  * kind (thumbnail, tokens, placement) instead of three separate cards. This
  * is presentation only — DESIGN.md generation, parsing, the store and every
- * edit/delete action are untouched; `buildComposition` only reads. */
+ * edit/delete action are untouched; `buildComposition` only reads. Font
+ * values (family/size/weight/line height/letter spacing) are resolved
+ * against the Typography section's Type Scale table rather than repeated
+ * here — only per-element overrides that diverge from that table are
+ * shown. */
 
 import type { DesignPart } from "./design-editor-cards";
 import {
@@ -36,6 +40,7 @@ export type CompToken = {
   value?: string | undefined;
   swatch?: string | undefined;
   emphasis?: boolean | undefined;
+  variant?: "typeStyle" | "override" | undefined;
 };
 
 export type CompSlot = {
@@ -82,8 +87,130 @@ export type CompositionModel = {
 
 type ParaBlock = Extract<MdBlock, { type: "para" }>;
 const isPara = (b: MdBlock): b is ParaBlock => b.type === "para";
+type TableBlock = Extract<MdBlock, { type: "table" }>;
+const isTable = (b: MdBlock): b is TableBlock => b.type === "table";
 const uniq = <T>(xs: T[]) => [...new Set(xs)];
 const lh = (v: number | undefined) => (v ?? 1.2).toFixed(2);
+
+/** One row of the Typography section's "Type Scale" table, keyed by a
+ * normalized `ElementKind`-shaped role so text tokens can look up the
+ * family/size/weight/line-height/letter-spacing that role already owns. */
+type TypeStyle = {
+  role: string;
+  family: string;
+  size: string;
+  weight: string;
+  lineHeight: string;
+  letterSpacing: string;
+};
+
+const normalizeRole = (role: string) =>
+  role.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/** Parses the Typography (`skill:type`) part's "Type Scale" table the same
+ * way `TypographyTokensCard` does, into a lookup from normalized role to its
+ * type style row. Returns an empty map if there's no part, no "Type Scale"
+ * group, no table, or no `Role` column. */
+function parseTypeScale(part?: DesignPart): Map<string, TypeStyle> {
+  const map = new Map<string, TypeStyle>();
+  if (!part) return map;
+  const groups = sectionsByH3(parseDesignMarkdown(part.text));
+  const scaleGroup = groups.find((g) => g.title === "Type Scale");
+  const table = scaleGroup?.blocks.find(isTable);
+  if (!table) return map;
+  const col = (name: string) => table.head.indexOf(name);
+  const roleCol = col("Role");
+  if (roleCol < 0) return map;
+  const familyCol = col("Family");
+  const weightCol = col("Weight");
+  const sizeCol = col("Size");
+  const lineHeightCol = col("Line Height");
+  const letterSpacingCol = col("Letter Spacing");
+  for (const row of table.rows) {
+    const rawRole = (row[roleCol] ?? "").trim();
+    if (!rawRole) continue;
+    const key = normalizeRole(rawRole);
+    if (map.has(key)) continue;
+    map.set(key, {
+      role: rawRole,
+      family: (row[familyCol] ?? "").trim(),
+      size: (row[sizeCol] ?? "").trim(),
+      weight: (row[weightCol] ?? "").trim(),
+      lineHeight: (row[lineHeightCol] ?? "").trim(),
+      letterSpacing: (row[letterSpacingCol] ?? "").trim(),
+    });
+  }
+  return map;
+}
+
+/** Compares an element's computed style against its matched Type Scale row
+ * and emits one override chip per field that actually differs — the Type
+ * Scale table (owned by the Typography card) stays the single source of
+ * truth for the shared values. */
+function typeOverrides(
+  el: SpecElement,
+  doc: SpecDocument,
+  t: TypeStyle,
+): CompToken[] {
+  const s = el.style;
+  const tokens: CompToken[] = [];
+
+  const family = s.fontFamily ?? doc.creativeDirection.typography;
+  if (family.trim().toLowerCase() !== t.family.trim().toLowerCase())
+    tokens.push({
+      label: "Family",
+      value: `Family ${family} override`,
+      variant: "override",
+    });
+
+  if (s.fontSize != null) {
+    const tSize = parseFloat(t.size);
+    if (!Number.isNaN(tSize) && tSize !== s.fontSize)
+      tokens.push({
+        label: "Size",
+        value: `Size ${s.fontSize}px override`,
+        variant: "override",
+      });
+  }
+
+  const weight = s.fontWeight ?? 400;
+  const tWeight = parseFloat(t.weight);
+  if (!Number.isNaN(tWeight) && tWeight !== weight)
+    tokens.push({
+      label: "Weight",
+      value: `Weight ${weight} override`,
+      variant: "override",
+    });
+
+  const lineHeight = parseFloat(lh(s.lineHeight));
+  const tLineHeight = parseFloat(t.lineHeight);
+  if (
+    !Number.isNaN(tLineHeight) &&
+    Math.abs(tLineHeight - lineHeight) > 0.005
+  )
+    tokens.push({
+      label: "Line height",
+      value: `Line height ${lh(s.lineHeight)} override`,
+      variant: "override",
+    });
+
+  const letterSpacing = s.letterSpacing ?? 0;
+  const parsedTLetterSpacing = parseFloat(t.letterSpacing);
+  const tLetterSpacing =
+    t.letterSpacing === "" ||
+    t.letterSpacing === "—" ||
+    Number.isNaN(parsedTLetterSpacing)
+      ? 0
+      : parsedTLetterSpacing;
+  if (tLetterSpacing !== letterSpacing)
+    tokens.push({
+      label: "Letter spacing",
+      value: `Letter spacing ${letterSpacing}px override`,
+      variant: "override",
+    });
+
+  return tokens;
+}
 
 /** "top-far left" -> "Top · far left"; "center-center" -> "Center". */
 function humanizeZone(zone: string): string {
@@ -156,22 +283,39 @@ function previewFor(kind?: ElementKind): PreviewType {
 
 /** Style tokens for one element kind, read straight off its first slot
  * element — the same facts `describeComponent` in design-md.ts turns into
- * prose, but as chips. */
+ * prose, but as chips. For text kinds, font values are looked up from the
+ * Typography section's Type Scale (`typeScale`) instead of restated: a
+ * matched role collapses to a single "Type style" chip plus any per-element
+ * overrides; an unmatched role falls back to the original per-field chips. */
 function buildTokens(
   kind: ElementKind,
   el: SpecElement,
   doc: SpecDocument,
+  typeScale: Map<string, TypeStyle>,
 ): CompToken[] {
   const s = el.style;
   const tokens: CompToken[] = [];
   if (isTextKind(kind)) {
-    const family = s.fontFamily ?? doc.creativeDirection.typography;
-    tokens.push({ label: "Family", value: family });
-    if (s.fontSize) tokens.push({ label: "Size", value: `${s.fontSize}px` });
-    tokens.push({ label: "Weight", value: `${s.fontWeight ?? 400}` });
-    tokens.push({ label: "Line height", value: lh(s.lineHeight) });
-    if (s.letterSpacing)
-      tokens.push({ label: "Letter spacing", value: `${s.letterSpacing}px` });
+    const t = typeScale.get(kind.toLowerCase());
+    if (t) {
+      tokens.push({
+        label: "Type style",
+        value: `Type style: ${t.role}`,
+        variant: "typeStyle",
+      });
+      tokens.push(...typeOverrides(el, doc, t));
+    } else {
+      const family = s.fontFamily ?? doc.creativeDirection.typography;
+      tokens.push({ label: "Family", value: family });
+      if (s.fontSize) tokens.push({ label: "Size", value: `${s.fontSize}px` });
+      tokens.push({ label: "Weight", value: `${s.fontWeight ?? 400}` });
+      tokens.push({ label: "Line height", value: lh(s.lineHeight) });
+      if (s.letterSpacing)
+        tokens.push({
+          label: "Letter spacing",
+          value: `${s.letterSpacing}px`,
+        });
+    }
     if (s.fontStyle === "italic")
       tokens.push({ label: "Style", value: "Italic" });
     tokens.push({ label: "Align", value: s.alignment ?? "left" });
@@ -221,24 +365,28 @@ function buildTokens(
   return tokens;
 }
 
-/** Joins the Components/Layout/Imagery sections' own compiled text with the
- * live element data behind each `skill:el:*` slot into one item per element
- * kind. Markdown text stays the source of truth for anything interpreted
- * (role, density, safe margin, coverage) or hand-edited (`doc.promptParts`);
+/** Joins the Components/Imagery sections' own compiled text with the live
+ * element data behind each `skill:el:*` slot into one item per element kind.
+ * Markdown text stays the source of truth for anything interpreted (role,
+ * density, safe margin, coverage) or hand-edited (`doc.promptParts`);
  * everything measurable (placement, tokens, thumbnails) comes from the
  * elements themselves. No part's `actions`/`body` is ever dropped: every
- * components/layout/imagery/el part ends up in `sections`, an item's
- * `slots`, or `orphans`. */
+ * components/imagery/el part ends up in `sections`, an item's `slots`, or
+ * `orphans`. The `skill:layout` part itself is rendered by a separate Layout
+ * card, not by this one — only its parsed stats (canvas/ratio/density/safe
+ * margin/coverage) stay in `CompositionModel.meta`. */
 export function buildComposition(i: {
   components?: DesignPart | undefined;
   layout?: DesignPart | undefined;
   imagery?: DesignPart | undefined;
+  type?: DesignPart | undefined;
   slots: DesignPart[];
   doc: SpecDocument;
 }): CompositionModel {
   const { doc } = i;
   const { width: W, height: H } = doc.format;
   const round = (v: number) => Math.round(v);
+  const typeScale = parseTypeScale(i.type);
 
   const layoutText = i.layout?.text ?? "";
   const density = /with (\w+) density/.exec(layoutText)?.[1];
@@ -326,7 +474,9 @@ export function buildComposition(i: {
     const slots = kind ? (slotsByKind.get(kind) ?? []) : [];
     const el = kind ? elByKind.get(kind) : undefined;
     const useTokens = !componentsCustom && slots.length > 0 && !!el;
-    const tokens: CompToken[] = useTokens ? buildTokens(kind!, el!, doc) : [];
+    const tokens: CompToken[] = useTokens
+      ? buildTokens(kind!, el!, doc, typeScale)
+      : [];
     const primary = !!(kind && largestImage && kind === largestImage.kind);
     if (primary && useTokens)
       tokens.unshift({ label: "Primary focus", emphasis: true });
@@ -355,7 +505,7 @@ export function buildComposition(i: {
     if (usedKinds.has(kind)) continue;
     const slots = slotsByKind.get(kind)!;
     const el = elByKind.get(kind)!;
-    const tokens = buildTokens(kind, el, doc);
+    const tokens = buildTokens(kind, el, doc, typeScale);
     const primary = !!(largestImage && kind === largestImage.kind);
     if (primary) tokens.unshift({ label: "Primary focus", emphasis: true });
     const distinctImagery = uniq(
@@ -377,16 +527,14 @@ export function buildComposition(i: {
     });
   }
 
-  const layoutCustom = doc.promptParts?.["skill:layout"] != null;
   const imageryCustom = doc.promptParts?.["skill:imagery"] != null;
   const noImageItems = !items.some((it) => it.kind && isImageKind(it.kind));
   const notes: DesignPart[] = [];
-  if (i.layout && layoutCustom) notes.push(i.layout);
   if (i.imagery && (imageryCustom || noImageItems)) notes.push(i.imagery);
   if (i.components && componentsCustom && groups.length === 0)
     notes.push(i.components);
 
-  const sections = [i.components, i.layout, i.imagery].filter(
+  const sections = [i.components, i.imagery].filter(
     (p): p is DesignPart => !!p,
   );
   const editing = sections.filter((p) => p.editing);
