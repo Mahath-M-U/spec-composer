@@ -33,7 +33,7 @@ const ThemeContext = createContext<{
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   // Always starts at "light" so server and first client render match — the
-  // blocking head script (themeInitScript) has already set the real class
+  // blocking /theme-init.js script has already set the real class
   // on <html> before this ever mounts, so page colors are correct from the
   // first paint regardless of what this state says.
   const [theme, setTheme] = useState<Theme>("light");
@@ -79,7 +79,3 @@ export function useTheme() {
   if (!ctx) throw new Error("useTheme must be used within a ThemeProvider");
   return ctx;
 }
-
-/** Inline, blocking script string: sets the `.dark` class before first
- * paint so switching themes never flashes the wrong palette. */
-export const themeInitScript = `(function(){try{var k=${JSON.stringify(STORAGE_KEY)};var t=localStorage.getItem(k);if(t!=='light'&&t!=='dark'){t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}document.documentElement.classList.toggle('dark',t==='dark')}catch(e){}})();`;

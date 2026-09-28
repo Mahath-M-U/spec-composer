@@ -28,7 +28,9 @@ export function StorageBootstrap() {
       else if (result.status === "fallback")
         toast.warning("Limited storage in this browser", {
           description:
-            "Designs are saved unencrypted with less space (e.g. in private windows).",
+            navigator.locks
+              ? "Designs are saved unencrypted with less space (e.g. in private windows)."
+              : "Designs are saved unencrypted. This browser cannot protect edits made in multiple tabs; use one tab at a time.",
         });
       else if (result.skipped)
         toast.warning(`${result.skipped} damaged item(s) couldn't be restored`);
@@ -43,6 +45,7 @@ export function StorageBootstrap() {
     const unsubscribe = subscribeStorageChanges((scope, remote) => {
       if (scope === "projects") {
         void queryClient.invalidateQueries({ queryKey: projectKeys.all });
+        if (remote) void useEditorStore.getState().checkRemoteChange();
         return;
       }
       // Local kit writes already updated the store; only reload remote ones.

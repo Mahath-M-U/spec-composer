@@ -353,3 +353,57 @@ export function parseSpecDocument(value: unknown): SpecDocument | undefined {
   const result = specDocumentSchema.safeParse(value);
   return result.success ? result.data : undefined;
 }
+
+/** Limits for new writes and imports. Historical records remain readable so
+ * users can export or repair them instead of losing access on upgrade. */
+export function validateWritableDocument(value: unknown): SpecDocument {
+  const doc = specDocumentSchema.parse(value);
+  const { width, height } = doc.format;
+  if (
+    !Number.isInteger(width) ||
+    !Number.isInteger(height) ||
+    width < 64 ||
+    height < 64 ||
+    width > 8192 ||
+    height > 8192 ||
+    width * height > 32_000_000
+  )
+    throw new Error(
+      "Canvas must be 64–8192 px per side and at most 32 megapixels.",
+    );
+  if (doc.elements.length > 500)
+    throw new Error("A design can contain at most 500 elements.");
+  if (
+    doc.elements.filter((element) => element.src?.startsWith("data:")).length >
+    40
+  )
+    throw new Error("A design can contain at most 40 embedded images.");
+  const finite = (value: number) =>
+    Number.isFinite(value) && Math.abs(value) <= 100_000;
+  for (const element of doc.elements) {
+    if (
+      ![
+        element.x,
+        element.y,
+        element.width,
+        element.height,
+        element.rotation,
+        element.zIndex,
+      ].every(finite) ||
+      element.width < 1 ||
+      element.height < 1
+    )
+      throw new Error("An element has invalid geometry.");
+    if (
+      (element.content?.length ?? 0) > 20_000 ||
+      (element.aiDescription?.length ?? 0) > 20_000
+    )
+      throw new Error("An element's text is too long.");
+    if (element.src?.startsWith("data:") && element.src.length > 7_000_000)
+      throw new Error("An embedded image is too large.");
+  }
+  const serialized = JSON.stringify(doc);
+  if (serialized.length > 24_000_000)
+    throw new Error("Design exceeds the 24 MB project limit.");
+  return doc;
+}

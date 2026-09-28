@@ -6,7 +6,7 @@ import {
 import { done, openDb, promisify, STORES } from "@/lib/storage/idb";
 import { readJson, writeJson } from "@/lib/storage/local";
 import { reportLovableError } from "@/lib/lovable-error-reporting";
-import { KV_KEYS, LS_KEYS, MAX_PROJECTS, type KvKey } from "./keys";
+import { KV_KEYS, LS_KEYS, type KvKey } from "./keys";
 
 export interface ProjectRecord {
   id: string;
@@ -19,9 +19,17 @@ export interface ProjectRecord {
 export interface StorageAdapter {
   kind: "indexeddb" | "localStorage";
   listProjects(): Promise<unknown[]>;
+  countProjects(): Promise<number>;
   getProject(id: string): Promise<unknown>;
+  getProjectVersion(
+    id: string,
+  ): Promise<{ project: unknown; token: string | null } | undefined>;
   /** Upserts one project and moves it to the front of the list. */
   putProject(project: ProjectRecord): Promise<void>;
+  putProjectConditional(
+    project: ProjectRecord,
+    expected: string | null,
+  ): Promise<string>;
   /** Upserts many projects, keeping their current position in the list. */
   putProjects(projects: ProjectRecord[]): Promise<void>;
   deleteProject(id: string): Promise<void>;
@@ -33,6 +41,14 @@ export interface StorageAdapter {
 export interface StoredProject extends EncryptedPayload {
   id: string;
   savedAt: number;
+  writeToken?: string;
+}
+
+export class ProjectConflictError extends Error {
+  override name = "ProjectConflictError";
+  constructor() {
+    super("This design was changed in another tab.");
+  }
 }
 
 let lastSavedAt = 0;
@@ -47,24 +63,11 @@ export async function encryptProject(
   project: ProjectRecord,
   savedAt: number,
 ): Promise<StoredProject> {
-  return { id: project.id, savedAt, ...(await encryptJson(project)) };
-}
-
-/** Deletes the oldest projects beyond {@link MAX_PROJECTS} inside `tx`. */
-function pruneInTx(tx: IDBTransaction) {
-  const store = tx.objectStore(STORES.projects);
-  const count = store.count();
-  count.onsuccess = () => {
-    let excess = count.result - MAX_PROJECTS;
-    if (excess <= 0) return;
-    const cursor = store.index("savedAt").openCursor();
-    cursor.onsuccess = () => {
-      const current = cursor.result;
-      if (!current || excess <= 0) return;
-      current.delete();
-      excess -= 1;
-      current.continue();
-    };
+  return {
+    id: project.id,
+    savedAt,
+    writeToken: crypto.randomUUID(),
+    ...(await encryptJson(project)),
   };
 }
 
@@ -90,17 +93,34 @@ export const idbAdapter: StorageAdapter = {
     const records = await promisify<StoredProject[]>(
       tx.objectStore(STORES.projects).index("savedAt").getAll(),
     );
-    const docs = await Promise.all(records.reverse().map(decryptProject));
+    const docs = [];
+    for (const record of records.reverse())
+      docs.push(await decryptProject(record));
     return docs.filter((doc) => doc !== undefined);
   },
 
+  async countProjects() {
+    const db = await openDb();
+    const tx = db.transaction(STORES.projects, "readonly");
+    return promisify<number>(tx.objectStore(STORES.projects).count());
+  },
+
   async getProject(id) {
+    return (await this.getProjectVersion(id))?.project;
+  },
+
+  async getProjectVersion(id) {
     const db = await openDb();
     const tx = db.transaction(STORES.projects, "readonly");
     const record = await promisify<StoredProject | undefined>(
       tx.objectStore(STORES.projects).get(id),
     );
-    return record ? decryptProject(record) : undefined;
+    return record
+      ? {
+          project: await decryptProject(record),
+          token: record.writeToken ?? null,
+        }
+      : undefined;
   },
 
   async putProject(project) {
@@ -108,8 +128,31 @@ export const idbAdapter: StorageAdapter = {
     const db = await openDb();
     const tx = db.transaction(STORES.projects, "readwrite");
     tx.objectStore(STORES.projects).put(record);
-    pruneInTx(tx);
     await done(tx);
+  },
+
+  async putProjectConditional(project, expected) {
+    const record = await encryptProject(project, nextSavedAt());
+    const db = await openDb();
+    const tx = db.transaction(STORES.projects, "readwrite");
+    const store = tx.objectStore(STORES.projects);
+    let conflict = false;
+    const request = store.get(project.id) as IDBRequest<
+      StoredProject | undefined
+    >;
+    request.onsuccess = () => {
+      if (!request.result || (request.result.writeToken ?? null) !== expected) {
+        conflict = true;
+        tx.abort();
+      } else store.put(record);
+    };
+    try {
+      await done(tx);
+    } catch (error) {
+      if (conflict) throw new ProjectConflictError();
+      throw error;
+    }
+    return record.writeToken!;
   },
 
   async putProjects(projects) {
@@ -131,7 +174,6 @@ export const idbAdapter: StorageAdapter = {
     const tx = db.transaction(STORES.projects, "readwrite");
     const store = tx.objectStore(STORES.projects);
     records.forEach((record) => store.put(record));
-    pruneInTx(tx);
     await done(tx);
   },
 
@@ -184,13 +226,55 @@ export const localStorageAdapter: StorageAdapter = {
     return readLsProjects();
   },
 
+  async countProjects() {
+    return readLsProjects().length;
+  },
+
   async getProject(id) {
     return readLsProjects().find((p) => p?.id === id);
   },
 
+  async getProjectVersion(id) {
+    const project = await this.getProject(id);
+    return project
+      ? {
+          project,
+          token:
+            (project as ProjectRecord & { writeToken?: string }).writeToken ??
+            null,
+        }
+      : undefined;
+  },
+
   async putProject(project) {
     const rest = readLsProjects().filter((p) => p?.id !== project.id);
-    writeJson(LS_KEYS.projects, [project, ...rest].slice(0, MAX_PROJECTS));
+    writeJson(LS_KEYS.projects, [
+      { ...project, writeToken: crypto.randomUUID() },
+      ...rest,
+    ]);
+  },
+
+  async putProjectConditional(project, expected) {
+    const write = async () => {
+      const current = readLsProjects();
+      const old = current.find((p) => p?.id === project.id) as
+        (ProjectRecord & { writeToken?: string }) | undefined;
+      if (!old || (old.writeToken ?? null) !== expected)
+        throw new ProjectConflictError();
+      const token = crypto.randomUUID();
+      writeJson(LS_KEYS.projects, [
+        { ...project, writeToken: token },
+        ...current.filter((p) => p?.id !== project.id),
+      ]);
+      return token;
+    };
+    if (typeof navigator !== "undefined" && navigator.locks?.request)
+      return navigator.locks.request(
+        `spec-composer-project-${project.id}`,
+        write,
+      );
+    // Older browsers cannot make a localStorage compare/write atomic across tabs.
+    return write();
   },
 
   async putProjects(projects) {
@@ -199,7 +283,7 @@ export const localStorageAdapter: StorageAdapter = {
     const merged = current.map((p) => byId.get(p?.id) ?? p);
     const known = new Set(current.map((p) => p?.id));
     const added = projects.filter((p) => !known.has(p.id));
-    writeJson(LS_KEYS.projects, [...added, ...merged].slice(0, MAX_PROJECTS));
+    writeJson(LS_KEYS.projects, [...added, ...merged]);
   },
 
   async deleteProject(id) {

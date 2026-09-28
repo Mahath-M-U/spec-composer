@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { StorageBootstrap } from "@/features/spec-composer/storage-bootstrap";
-import { ThemeProvider, themeInitScript } from "@/hooks/use-theme";
+import { ThemeProvider } from "@/hooks/use-theme";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -126,7 +126,7 @@ function RootShell({ children }: { children: ReactNode }) {
       <head>
         <HeadContent />
         {/* Runs before paint so the light/dark class is correct on first frame. */}
-        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <script src="/theme-init.js" />
       </head>
       <body>
         {children}

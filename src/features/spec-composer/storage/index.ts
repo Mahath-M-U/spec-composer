@@ -31,5 +31,5 @@ export async function requestPersistentStorage() {
   }
 }
 
-export { KV_KEYS, LS_KEYS, MAX_PROJECTS } from "./keys";
+export { KV_KEYS, LS_KEYS } from "./keys";
 export type { MigrationResult } from "./migrate";

@@ -1,11 +1,10 @@
 /**
  * At-rest encryption for IndexedDB payloads (AES-GCM 256, WebCrypto).
  *
- * The key is generated once as NON-EXTRACTABLE and stored as a CryptoKey in
- * the `meta` store, so its raw bytes never exist in JS or on disk in a readable
- * form. This defends against someone reading the profile's IndexedDB files or
- * browsing it in devtools; it does NOT defend against script running on this
- * origin, which can use the key just as the app does.
+ * The key is generated as non-extractable and stored as a CryptoKey in the
+ * `meta` store. This prevents exporting it through WebCrypto, but browsers do
+ * not guarantee protection of key material on disk. Same-origin scripts can
+ * still use the key to decrypt projects.
  */
 import { done, openDb, promisify, STORES } from "./idb";
 
