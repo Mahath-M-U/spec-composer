@@ -21,7 +21,14 @@ import {
 import { defaultExternalToolRequirement } from "./compiler";
 import { applyElementText } from "./text-edit";
 import { createElement } from "./registry";
-import { loadProjects, saveProject, saveProjects } from "./persistence";
+import {
+  loadProjects,
+  loadProjectVersion,
+  saveProject,
+  saveProjectConditional,
+} from "./persistence";
+import { ProjectConflictError } from "./storage/adapter";
+import { toast } from "sonner";
 import { reportStorageError } from "./storage/errors";
 import { replaceDocumentContents, resizeDocument } from "./resize";
 import {
@@ -77,6 +84,8 @@ interface EditorState {
   past: SpecDocument[];
   future: SpecDocument[];
   saveStatus: "saved" | "saving" | "error";
+  externallyModified: boolean;
+  checkRemoteChange: () => Promise<void>;
   guides: Guide[];
   brandKits: BrandKit[];
   defaultBrandKitId?: string | undefined;
@@ -84,7 +93,8 @@ interface EditorState {
   /** True once kits have been loaded from storage. */
   hydrated: boolean;
   hydrate: () => Promise<void>;
-  setDocument: (doc: SpecDocument) => void;
+  setDocument: (doc: SpecDocument, token?: string | null) => void;
+  applyTemplate: (template: SpecDocument, name: string) => void;
   /** Flushes a pending autosave and clears the open document. */
   closeDocument: () => void;
   mutate: (fn: (d: SpecDocument) => void, history?: boolean) => void;
@@ -152,9 +162,18 @@ interface EditorState {
 }
 
 const clone = (d: SpecDocument): SpecDocument => structuredClone(d);
+const historyLimit = (doc: SpecDocument) =>
+  JSON.stringify(doc).length > 1_000_000 ? 10 : 75;
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
 /** Serializes project writes so an older revision can never land last. */
 let writeQueue: Promise<unknown> = Promise.resolve();
+let activeVersion:
+  | {
+      id: string;
+      token: string | null;
+      conflictCopy?: { id: string; token: string | null };
+    }
+  | undefined;
 
 function enqueueWrite(write: () => Promise<void>) {
   const next = writeQueue.then(write);
@@ -171,12 +190,23 @@ function rewriteStoredProjects(
   update: (project: SpecDocument) => SpecDocument | undefined,
 ) {
   enqueueWrite(async () => {
-    const changed = (await loadProjects()).flatMap((project) => {
-      if (project.id === openId) return [];
-      const next = update(project);
-      return next ? [next] : [];
-    });
-    await saveProjects(changed);
+    for (const project of await loadProjects()) {
+      if (project.id === openId) continue;
+      // Recompute on the latest saved version if another tab wins the race.
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const current = await loadProjectVersion(project.id);
+        if (!current) break;
+        const next = update(current.doc);
+        if (!next) break;
+        try {
+          await saveProjectConditional(next, current.token);
+          break;
+        } catch (error) {
+          if (!(error instanceof ProjectConflictError) || attempt === 1)
+            throw error;
+        }
+      }
+    }
   }).catch((error: unknown) => reportStorageError(error, "rewrite-projects"));
 }
 
@@ -227,6 +257,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   past: [],
   future: [],
   saveStatus: "saved",
+  externallyModified: false,
   guides: [],
   brandKits: [],
   defaultBrandKitId: undefined,
@@ -248,7 +279,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   // A saved poster keeps its own brand kit and colors; the default kit only
   // applies when a document is created (see applyDefaultBrandKit).
-  setDocument: (doc) => {
+  setDocument: (doc, token) => {
+    activeVersion = { id: doc.id, token: token ?? null };
     set({
       doc: clone(doc),
       past: [],
@@ -256,12 +288,32 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       selectedIds: [],
       backgroundSelected: false,
       saveStatus: "saved",
+      externallyModified: false,
       composeOrigin: undefined,
     });
   },
 
+  applyTemplate: (template, name) => {
+    const current = get().doc;
+    if (!current) return;
+    const next = {
+      ...clone(template),
+      id: current.id,
+      name,
+      createdAt: current.createdAt,
+      revision: current.revision,
+    };
+    const kit = get().brandKits.find(
+      (value) => value.id === current.creativeDirection.brandKitId,
+    );
+    if (kit) applyBrandKitToDocument(next, kit);
+    else delete next.creativeDirection.brandKitId;
+    get().mutate((doc) => Object.assign(doc, next));
+  },
+
   closeDocument: () => {
     if (saveTimer) void get().saveNow();
+    activeVersion = undefined;
     set({
       doc: undefined,
       past: [],
@@ -269,6 +321,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       selectedIds: [],
       backgroundSelected: false,
       saveStatus: "saved",
+      externallyModified: false,
       composeOrigin: undefined,
     });
   },
@@ -281,12 +334,31 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     withRevision(next);
     set((s) => ({
       doc: next,
-      past: history ? [...s.past.slice(-74), clone(current)] : s.past,
+      past: history
+        ? [...s.past.slice(1 - historyLimit(current)), clone(current)]
+        : s.past,
       future: history ? [] : s.future,
       saveStatus: "saving",
     }));
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => void get().saveNow(), 500);
+  },
+
+  checkRemoteChange: async () => {
+    const current = get().doc;
+    const version = activeVersion;
+    if (!current || version?.id !== current.id) return;
+    const { loadProjectVersion } = await import("./persistence");
+    const remote = await loadProjectVersion(current.id);
+    if (get().doc?.id !== current.id) return;
+    if (!remote || remote.token !== version.token) {
+      set({ externallyModified: true });
+      toast.warning("This design changed in another tab", {
+        id: "remote-design-change",
+        description:
+          "If you save now, your edits will be kept as a separate copy.",
+      });
+    }
   },
 
   resizeCurrent: (format) => {
@@ -508,7 +580,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set((s) => ({
       doc: clone(prev),
       past: s.past.slice(0, -1),
-      future: [clone(doc), ...s.future],
+      future: [clone(doc), ...s.future].slice(0, historyLimit(doc)),
       selectedIds: [],
       saveStatus: "saving",
     }));
@@ -522,7 +594,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const next = future[0]!;
     set((s) => ({
       doc: clone(next),
-      past: [...s.past, clone(doc)].slice(-75),
+      past: [...s.past, clone(doc)].slice(-historyLimit(doc)),
       future: s.future.slice(1),
       selectedIds: [],
       saveStatus: "saving",
@@ -883,15 +955,63 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     saveTimer = undefined;
     const d = get().doc;
     if (!d) return;
+    // Queued saves share this document session's token after navigation closes it.
+    const version = activeVersion;
     // Only the write for the revision still on screen may settle the status.
     const isCurrent = () =>
       get().doc?.id === d.id && get().doc?.revision === d.revision;
     try {
-      await enqueueWrite(() => saveProject(d));
+      await enqueueWrite(async () => {
+        if (!version || version.id !== d.id)
+          throw new Error("Editor version is unavailable");
+        if (version.conflictCopy) {
+          const copy = {
+            ...d,
+            id: version.conflictCopy.id,
+            name: `${d.name} (conflict copy)`,
+          };
+          version.conflictCopy.token = await saveProjectConditional(
+            copy,
+            version.conflictCopy.token,
+          );
+          return;
+        }
+        try {
+          const nextToken = await saveProjectConditional(d, version.token);
+          version.token = nextToken;
+          if (get().doc?.id === d.id && activeVersion === version)
+            set({ externallyModified: false });
+        } catch (error) {
+          if (!(error instanceof ProjectConflictError)) throw error;
+          const copy = {
+            ...d,
+            id: crypto.randomUUID(),
+            name: `${d.name} (conflict copy)`,
+            createdAt: new Date().toISOString(),
+          };
+          await saveProject(copy);
+          version.conflictCopy = {
+            id: copy.id,
+            token: (await (
+              await import("./persistence")
+            ).loadProjectVersion(copy.id))!.token,
+          };
+          toast.warning("Another tab changed this design", {
+            description:
+              "Your changes were saved as a separate conflict copy in My designs.",
+            duration: 12000,
+            action: {
+              label: "Open copy",
+              onClick: () => window.location.assign(`/design/${copy.id}`),
+            },
+          });
+        }
+      });
       if (isCurrent()) set({ saveStatus: "saved" });
     } catch (error) {
       if (isCurrent()) set({ saveStatus: "error" });
-      reportStorageError(error, "save-project");
+      if (!(error instanceof ProjectConflictError))
+        reportStorageError(error, "save-project");
     }
   },
 

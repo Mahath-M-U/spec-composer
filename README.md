@@ -46,7 +46,7 @@ document format may change between 0.x releases.
 ### Requirements
 
 - [Node.js](https://nodejs.org) **22.12 or newer**
-- npm (included with Node.js); use the committed `package-lock.json`
+- npm 11.9.0 (see `packageManager`); use the committed `package-lock.json`
 
 ### Install and run
 
@@ -69,11 +69,11 @@ Open the URL printed in the terminal.
 | `npm run preview`      | Preview the production build locally     |
 | `npm run typecheck`    | Type-check the project with TypeScript   |
 | `npm run lint`         | Lint the project with ESLint             |
+| `npm test`             | Run release-safety regression tests      |
 | `npm run format`       | Format the project with Prettier         |
 | `npm run format:check` | Check formatting without rewriting files |
 
-There is no automated test suite yet; `typecheck`, `lint` and `build` are the
-current checks.
+CI runs a clean install, tests, typecheck, lint and build.
 
 ## Usage
 
@@ -112,6 +112,13 @@ Press **Tour** in the app for a guided walkthrough.
 - Images you place in an image element are read locally, saved with the project
   in your browser and never sent to a server. They are also embedded in JSON
   exports.
+- In **My designs**, use **Back up designs** to download all readable projects
+  and **Restore backup** to import a backup or an individual JSON design export.
+  Imports keep existing designs and rename duplicate IDs. Damaged records stay
+  in browser storage and are counted in the backup warning, but cannot be
+  restored from that backup.
+- Browser storage is not a substitute for a backup. Export regularly, especially
+  before clearing site data or moving browsers.
 - Typefaces load from Google Fonts (`fonts.googleapis.com`,
   `fonts.gstatic.com`). Self-host them if you need to avoid those requests.
 

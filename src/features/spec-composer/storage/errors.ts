@@ -8,7 +8,9 @@ export function reportStorageError(error: unknown, op: string) {
   if (isQuotaError(error))
     toast.error("Browser storage is full", {
       id: "storage-quota",
-      description: "Delete old designs to keep saving changes.",
+      description:
+        "Your open design is still in memory. Use Export → JSON before closing this tab.",
+      duration: 20000,
     });
   else
     toast.error("Couldn't save your changes", {

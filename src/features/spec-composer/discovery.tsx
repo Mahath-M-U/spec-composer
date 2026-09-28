@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -9,6 +9,8 @@ import {
   Check,
   Compass,
   Copy,
+  Download,
+  Upload,
   FilePlus2,
   Folder,
   Gem,
@@ -51,6 +53,7 @@ import {
   type TemplateCategory,
 } from "./templates";
 import { getNextProjectName, saveProject } from "./persistence";
+import { createProjectBackup, importProjectBackup } from "./project-backup";
 import { projectsQueryOptions, useRemoveProject } from "./queries";
 import { reportStorageError } from "./storage/errors";
 import type { Format, SpecDocument } from "./types";
@@ -1381,6 +1384,8 @@ export function TemplatesPage() {
 
 export function ProjectsPage() {
   const { data: projects = [], isPending } = useQuery(projectsQueryOptions());
+  const queryClient = useQueryClient();
+  const backupInput = useRef<HTMLInputElement>(null);
   const ready = !isPending;
   const removeProject = useRemoveProject();
   const [query, setQuery] = useState("");
@@ -1457,6 +1462,70 @@ export function ProjectsPage() {
           </div>
 
           <div className="projects-toolbar">
+            <Button
+              variant="outline"
+              type="button"
+              onClick={async () => {
+                try {
+                  const content = await createProjectBackup();
+                  const skipped = (
+                    JSON.parse(content) as { skippedDamagedRecords: number }
+                  ).skippedDamagedRecords;
+                  if (skipped)
+                    toast.warning(
+                      `${skipped} damaged design(s) could not be included in this backup. They remain in browser storage.`,
+                    );
+                  const url = URL.createObjectURL(
+                    new Blob([content], { type: "application/json" }),
+                  );
+                  const link = document.createElement("a");
+                  link.href = url;
+                  link.download = `spec-composer-backup-${new Date().toISOString().slice(0, 10)}.json`;
+                  link.click();
+                  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+                } catch (error) {
+                  toast.error(
+                    error instanceof Error ? error.message : "Backup failed",
+                  );
+                }
+              }}
+            >
+              <Download size={16} /> Back up designs
+            </Button>
+            <Button
+              variant="outline"
+              type="button"
+              onClick={() => backupInput.current?.click()}
+            >
+              <Upload size={16} /> Restore backup
+            </Button>
+            <input
+              ref={backupInput}
+              type="file"
+              accept="application/json,.json"
+              hidden
+              aria-label="Restore Spec Composer backup"
+              onChange={async (event) => {
+                const file = event.target.files?.[0];
+                event.target.value = "";
+                if (!file) return;
+                try {
+                  if (file.size > 100_000_000)
+                    throw new Error("Backup exceeds 100 MB.");
+                  const result = await importProjectBackup(await file.text());
+                  await queryClient.invalidateQueries({
+                    queryKey: ["projects"],
+                  });
+                  toast.success(
+                    `Restored ${result.imported} designs${result.renamed ? ` (${result.renamed} renamed to avoid overwriting)` : ""}.`,
+                  );
+                } catch (error) {
+                  toast.error(
+                    error instanceof Error ? error.message : "Restore failed",
+                  );
+                }
+              }}
+            />
             <label className="projects-search">
               <Search aria-hidden="true" />
               <input

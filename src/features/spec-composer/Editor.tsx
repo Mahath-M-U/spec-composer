@@ -9,7 +9,7 @@ import {
   type ReactNode,
   type SetStateAction,
 } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { CanvasWorkspace } from "./canvas-surface";
 import { AssetsPanel } from "./assets-panel/AssetsPanel";
@@ -91,9 +91,9 @@ import {
 } from "./use-sidebar-layout";
 import { alignUnits } from "./canvas-geometry";
 import { Sep, Tool } from "./toolbar-controls";
-import { applyBrandKitToDocument } from "./brand-kits";
-import { loadProject, saveProject } from "./persistence";
+import { loadProjectVersion } from "./persistence";
 import { reportStorageError } from "./storage/errors";
+import { validateImageUpload } from "./image-validation";
 import {
   createDocument,
   matchesTemplateQuery,
@@ -259,9 +259,9 @@ function openStyleEditor(sidebars: SidebarLayout) {
 
 export function Editor({ projectId }: { projectId: string }) {
   const store = useEditorStore();
-  const navigate = useNavigate();
   const [preview, setPreview] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [notFound, setNotFound] = useState(false);
   const [leftPanelWidth, setLeftPanelWidth] = useState(
     LEFT_PANEL_DEFAULT_WIDTH,
   );
@@ -305,20 +305,14 @@ export function Editor({ projectId }: { projectId: string }) {
         // Load kits first so the default kit applies to a new document.
         if (!useEditorStore.getState().hydrated)
           await useEditorStore.getState().hydrate();
-        const found = await loadProject(projectId);
+        const found = await loadProjectVersion(projectId);
         if (cancelled) return;
         if (found) {
-          store.setDocument(found);
+          setNotFound(false);
+          store.setDocument(found.doc, found.token);
           return;
         }
-        const d = createDocument();
-        await saveProject(d);
-        if (cancelled) return;
-        navigate({
-          to: "/design/$projectId",
-          params: { projectId: d.id },
-          replace: true,
-        });
+        setNotFound(true);
       } catch (error) {
         if (!cancelled) reportStorageError(error, "open-project");
       }
@@ -336,7 +330,17 @@ export function Editor({ projectId }: { projectId: string }) {
 
   const openStyleFromCanvas = () => openStyleEditor(sidebars);
 
-  if (!store.doc) return <EditorSkeleton />;
+  if (notFound)
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4">
+        <h1 className="text-xl font-semibold">Design not found</h1>
+        <p>This design is unavailable in this browser.</p>
+        <Link to="/projects" className="text-primary underline">
+          My designs
+        </Link>
+      </div>
+    );
+  if (!store.doc || store.doc.id !== projectId) return <EditorSkeleton />;
 
   return (
     <div
@@ -1011,18 +1015,14 @@ function TemplatesPanel() {
     matchesTemplateQuery(t.name, t.category, query),
   );
   const apply = (t: (typeof templates)[number]) => {
-    const next = {
-      ...structuredClone(t.document),
-      id: s.doc?.id ?? t.document.id,
-      name: t.name,
-    };
-    // The new layout keeps this poster's design kit.
-    const kit = s.brandKits.find(
-      (k) => k.id === s.doc?.creativeDirection.brandKitId,
-    );
-    if (kit) applyBrandKitToDocument(next, kit);
-    else delete next.creativeDirection.brandKitId;
-    s.setDocument(next);
+    if (
+      s.doc?.elements.length &&
+      !window.confirm(
+        `Replace this design with the ${t.name} template? You can undo this change.`,
+      )
+    )
+      return;
+    s.applyTemplate(t.document, t.name);
   };
   return (
     <>
@@ -1359,10 +1359,21 @@ function StylePanel() {
                         <span>Replace image (regenerate this region)</span>
                         <input
                           type="file"
-                          accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                          onChange={(event) => {
+                          accept="image/png,image/jpeg,image/webp"
+                          onChange={async (event) => {
                             const f = event.target.files?.[0];
-                            if (!f || f.size > 5_000_000) return;
+                            event.target.value = "";
+                            if (!f) return;
+                            try {
+                              await validateImageUpload(f);
+                            } catch (error) {
+                              toast.error(
+                                error instanceof Error
+                                  ? error.message
+                                  : "Image is invalid",
+                              );
+                              return;
+                            }
                             const reader = new FileReader();
                             reader.onload = () => {
                               if (typeof reader.result === "string")
@@ -1372,7 +1383,6 @@ function StylePanel() {
                                 });
                             };
                             reader.readAsDataURL(f);
-                            event.target.value = "";
                           }}
                         />
                       </label>

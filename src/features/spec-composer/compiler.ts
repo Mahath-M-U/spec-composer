@@ -70,11 +70,12 @@ function describeSegs(el: SpecElement, doc: SpecDocument): PromptSeg[] {
   const size = doc.promptOptions.dimensions
     ? `, sized approximately ${el.width} × ${el.height}`
     : "";
+  const rotation = el.rotation ? `, rotated ${el.rotation}°` : "";
   if (isTextKind(el.kind) || el.content !== undefined)
     return [
       `${el.name} (${el.kind})${where}${size}: exact text “`,
       { id: el.id, field: "content", value: el.content ?? "", fallback: "" },
-      `”${doc.promptOptions.typography && el.style.fontSize ? `, ${el.style.fontSize}px ${el.style.fontWeight ?? 400}${el.style.fontStyle === "italic" ? " italic" : ""} ${el.style.fontFamily ?? "sans-serif"}` : ""}${doc.promptOptions.colors && el.style.color ? `, color ${el.style.color}` : ""}.`,
+      `”${rotation}${doc.promptOptions.typography && el.style.fontSize ? `, ${el.style.fontSize}px ${el.style.fontWeight ?? 400}${el.style.fontStyle === "italic" ? " italic" : ""} ${el.style.fontFamily ?? "sans-serif"}` : ""}${doc.promptOptions.colors && el.style.color ? `, color ${el.style.color}` : ""}.`,
     ];
   return [
     `${el.name} (${el.kind})${where}${size}: `,
@@ -84,7 +85,7 @@ function describeSegs(el: SpecElement, doc: SpecDocument): PromptSeg[] {
       value: el.aiDescription || "",
       fallback: "editable visual placeholder",
     },
-    `, ${el.style.objectFit || "contain"} fit.`,
+    `${rotation}, ${el.style.objectFit || "contain"} fit.`,
   ];
 }
 /** Appends anti-slop directives for one element's constraint settings, gated by promptOptions. */
@@ -310,7 +311,7 @@ export function compilePromptEditorOutput(doc: SpecDocument) {
 export function buildJsonExport(doc: SpecDocument) {
   return {
     instruction: `Generate a ${doc.format.width} × ${doc.format.height} image from this specification. Follow "prompt" as the primary creative brief, and use "spec" as the exact source of truth for copy, colors, and layout.`,
-    prompt: compileVisualPrompt(doc),
+    prompt: compilePromptEditorOutput(doc),
     spec: doc,
   };
 }

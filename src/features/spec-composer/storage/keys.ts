@@ -21,5 +21,3 @@ export type KvKey = (typeof KV_KEYS)[keyof typeof KV_KEYS];
 
 /** Storage layout version; 2 = heavy data lives encrypted in IndexedDB. */
 export const STORAGE_VERSION = 2;
-
-export const MAX_PROJECTS = 40;

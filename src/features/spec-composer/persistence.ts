@@ -1,7 +1,11 @@
 import { notifyStorageChange } from "@/lib/storage/events";
 import { readJson, writeJson } from "@/lib/storage/local";
 import { getStorage, LS_KEYS } from "./storage";
-import { parseSpecDocument, type SpecDocument } from "./types";
+import {
+  parseSpecDocument,
+  validateWritableDocument,
+  type SpecDocument,
+} from "./types";
 
 const DEFAULT_PROJECT_NAME = "Untitled design";
 
@@ -30,6 +34,13 @@ export async function loadProject(
   return parseSpecDocument(await storage.getProject(id));
 }
 
+export async function loadProjectVersion(id: string) {
+  if (!isBrowser()) return undefined;
+  const record = await (await getStorage()).getProjectVersion(id);
+  const doc = parseSpecDocument(record?.project);
+  return doc ? { doc, token: record!.token } : undefined;
+}
+
 export function getNextProjectName(projects: SpecDocument[]): string {
   const pattern = /^Untitled design (\d+)$/i;
   const highestNumber = projects.reduce((highest, project) => {
@@ -43,8 +54,20 @@ export function getNextProjectName(projects: SpecDocument[]): string {
 /** Saves one project and moves it to the front of the recent list. */
 export async function saveProject(doc: SpecDocument) {
   if (!isBrowser()) return;
-  await (await getStorage()).putProject(doc);
+  await (await getStorage()).putProject(validateWritableDocument(doc));
   notifyStorageChange("projects");
+}
+
+export async function saveProjectConditional(
+  doc: SpecDocument,
+  expected: string | null,
+) {
+  if (!isBrowser()) throw new Error("Project storage is unavailable");
+  const token = await (
+    await getStorage()
+  ).putProjectConditional(validateWritableDocument(doc), expected);
+  notifyStorageChange("projects");
+  return token;
 }
 
 /** Saves many projects in place, without changing their recency order. */
