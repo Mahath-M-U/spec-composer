@@ -5,7 +5,13 @@ import {
   type SpecElement,
 } from "./types.ts";
 import { imageStyleLine } from "./image-styles.ts";
-import { artDirectionLine } from "./art-direction.ts";
+import {
+  ART_FIELD_KEYS,
+  artLine,
+  isSectionIncluded,
+  materialPhrase,
+  optionalSectionOf,
+} from "./art-direction.ts";
 const priorities: Record<string, number> = {
   title: 1,
   heroImage: 1,
@@ -104,10 +110,20 @@ function describeConstraint(el: SpecElement, doc: SpecDocument): PromptSeg[] {
     );
   return segs;
 }
-const describe = (el: SpecElement, doc: SpecDocument) =>
-  segText([...describeSegs(el, doc), ...describeConstraint(el, doc)]);
+const describe = (el: SpecElement, doc: SpecDocument) => {
+  const mp = materialPhrase(el) ? [materialPhrase(el)] : [];
+  return segText([...describeSegs(el, doc), ...mp, ...describeConstraint(el, doc)]);
+};
 export const an = (word: string) => (/^[aeiou]/i.test(word) ? "an" : "a");
-export type PromptLine = { key: string; segs: PromptSeg[]; custom: boolean };
+export type PromptLine = {
+  key: string;
+  segs: PromptSeg[];
+  custom: boolean;
+  /** Set when this line's section has its "include in output" switch off;
+   * the segs are kept (for the editor's own preview) but compilation drops
+   * the line. */
+  off?: boolean;
+};
 /** The largest visible image layer: what the prompt calls the dominant visual. */
 export const dominantVisual = (doc: SpecDocument) =>
   doc.elements
@@ -125,9 +141,11 @@ export const withOverrides = (
 ) =>
   lines.map(([key, segs]) => {
     const o = doc.promptParts?.[key];
+    const section = optionalSectionOf(key);
+    const off = !!section && !isSectionIncluded(doc, section);
     return o != null
-      ? { key, segs: [o], custom: true }
-      : { key, segs, custom: false };
+      ? { key, segs: [o], custom: true, ...(off ? { off } : {}) }
+      : { key, segs, custom: false, ...(off ? { off } : {}) };
   });
 export function compileVisualSegments(doc: SpecDocument): PromptLine[] {
   const els = doc.elements
@@ -172,6 +190,10 @@ export function compileVisualSegments(doc: SpecDocument): PromptLine[] {
       `Mood: ${doc.creativeDirection.mood.join(", ")}. Typography direction: ${doc.creativeDirection.typography}.`,
     ],
   ]);
+  for (const key of ART_FIELD_KEYS) {
+    const line = artLine(doc, key);
+    lines.push([key, line ? [line] : []]);
+  }
   if (dominant)
     lines.push([
       "dominant",
@@ -186,11 +208,13 @@ export function compileVisualSegments(doc: SpecDocument): PromptLine[] {
         `, positioned ${region(dominant, doc)} and occupying roughly ${Math.round(((dominant.width * dominant.height) / (doc.format.width * doc.format.height)) * 100)}% of the canvas.`,
       ],
     ]);
-  for (const e of els)
+  for (const e of els) {
+    const mp = materialPhrase(e) ? [materialPhrase(e)] : [];
     lines.push([
       `el:${e.id}`,
-      [...describeSegs(e, doc), ...describeConstraint(e, doc)],
+      [...describeSegs(e, doc), ...mp, ...describeConstraint(e, doc)],
     ]);
+  }
   lines.push([
     "layout",
     [
@@ -207,17 +231,15 @@ export function compileVisualSegments(doc: SpecDocument): PromptLine[] {
   return withOverrides(lines, doc);
 }
 export function compileVisualPrompt(doc: SpecDocument) {
-  const lines = compileVisualSegments(doc).map((l) => ({
-    key: l.key,
-    text: segText(l.segs),
-  }));
+  const lines = compileVisualSegments(doc)
+    .filter((l) => !l.off)
+    .map((l) => ({
+      key: l.key,
+      text: segText(l.segs),
+    }));
   // Purpose follows the format line, matching where the panel shows it.
   const at = lines.findIndex((l) => l.key === "format") + 1;
   lines.splice(at, 0, { key: "purpose", text: purposeLine(doc) });
-  lines.splice(at + 1, 0, {
-    key: "artDirection",
-    text: artDirectionLine(doc),
-  });
   return lines
     .map((l) => l.text)
     .filter((t) => t.trim().length > 0)

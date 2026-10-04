@@ -8463,6 +8463,10 @@ ol.md-list {
   background: var(--color-editor-hover);
   color: var(--color-editor-foreground);
 }
+.se-preset:focus-visible {
+  outline: 1px solid var(--color-editor-foreground);
+  outline-offset: 1px;
+}
 .se-note {
   display: flex;
   align-items: flex-start;
@@ -8566,6 +8570,14 @@ ol.md-list {
   font: inherit;
   line-height: 1.6;
   outline: none;
+}
+.prompt-part-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  color: var(--color-editor-muted);
+  font-size: 11.5px;
 }
 .prompt-field {
   field-sizing: content;
@@ -9567,6 +9579,17 @@ ol.md-list {
 .de-card[data-selected] {
   border: 1px solid
     color-mix(in oklab, var(--color-primary) 45%, var(--color-editor-border));
+}
+.de-card[data-off] .de-card-icon-tile,
+.de-card[data-off] .de-card-text,
+.de-card[data-off] .de-card-preview {
+  opacity: 0.55;
+}
+/* Plain outline only — no ring/box-shadow halo around the switch. */
+.section-include-switch:focus-visible {
+  outline: 2px solid var(--editor-focus);
+  outline-offset: 2px;
+  box-shadow: none;
 }
 .de-card-title {
   margin: 0;

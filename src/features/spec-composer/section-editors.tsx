@@ -4,9 +4,13 @@ import { sectionTarget, type Target } from "./section-target";
 import { FEATURED_FONTS, MORE_FONTS } from "./fonts";
 import { useEditorStore } from "./store";
 import {
-  ART_DIRECTION_FIELDS,
+  ART_FIELDS,
   BRAND_TONES,
+  MATERIAL_PRESETS,
+  hasPreset,
+  setArtField,
   togglePreset,
+  type ArtFieldKey,
 } from "./art-direction";
 import {
   isImageKind,
@@ -371,6 +375,37 @@ function TagsControl({
   );
 }
 
+/** Preset chips for a free-text field: toggles `preset` within the field's
+ * comma-separated value. Shared by Scene, Lighting and Material. */
+export function PresetChips({
+  label,
+  presets,
+  value,
+  onChange,
+}: {
+  label: string;
+  presets: readonly string[];
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="se-presets" role="group" aria-label={`${label} presets`}>
+      {presets.map((preset) => (
+        <button
+          key={preset}
+          type="button"
+          className="se-preset"
+          aria-pressed={hasPreset(value, preset)}
+          aria-label={`${label} preset: ${preset}`}
+          onClick={() => onChange(togglePreset(value, preset))}
+        >
+          {preset}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /** Where each design value lives: on the document, or on the poster's brand
  * kit when the kit sets it (mirrors applyBrandKitToDocument). */
 function useBindings(lineKey: string) {
@@ -594,68 +629,51 @@ function MoodControls({ b }: { b: Bindings }) {
   );
 }
 
-/** The creative brief's art-direction fields: free text with preset chips,
- * filtered to the style-level fields when editing a DESIGN.md section
- * (Subject is prompt-only). */
-function ArtDirectionFields({
-  b,
-  scope,
-}: {
-  b: Bindings;
-  scope: "prompt" | "design";
-}) {
-  const ad = b.d.artDirection;
-  const fields = ART_DIRECTION_FIELDS.filter(
-    (f) => scope === "prompt" || f.design,
-  );
-  const set = (key: (typeof fields)[number]["key"], next: string) =>
-    b.edit((doc) => {
-      doc.artDirection = { ...doc.artDirection, [key]: next };
-    });
+/** The Scene / Lighting section's controls: free text plus preset chips.
+ * No debounce, so a chip click's immediate write never races a pending
+ * keystroke commit. */
+function ArtFieldControls({ b, field }: { b: Bindings; field: ArtFieldKey }) {
+  const meta = ART_FIELDS[field];
+  const value = b.d[field] ?? "";
+  const set = (next: string) => b.edit((doc) => setArtField(doc, field, next));
   return (
     <>
-      {fields.map((f) => {
-        const value = ad?.[f.key] ?? "";
-        const selected = value
-          .split(",")
-          .map((p) => p.trim().toLowerCase())
-          .filter((p) => p.length > 0);
-        return (
-          <Fragment key={f.key}>
-            <TextControl
-              label={f.label}
-              value={value}
-              debounce
-              placeholder={f.placeholder}
-              onChange={(next) => set(f.key, next)}
-            />
-            {f.presets.length > 0 && (
-              <div className="se-presets">
-                {f.presets.map((preset) => (
-                  <button
-                    key={preset}
-                    type="button"
-                    className="se-preset"
-                    aria-pressed={selected.includes(preset.toLowerCase())}
-                    onClick={() => set(f.key, togglePreset(value, preset))}
-                  >
-                    {preset}
-                  </button>
-                ))}
-              </div>
-            )}
-          </Fragment>
-        );
-      })}
+      <TextControl
+        label={meta.label}
+        value={value}
+        multiline={field === "scene"}
+        placeholder={meta.placeholder}
+        onChange={set}
+      />
+      <PresetChips label={meta.label} presets={meta.presets} value={value} onChange={set} />
     </>
   );
 }
 
-/** The Art Direction section's controls in the Prompt Editor (every field;
- * Subject is prompt-only, so it's never shown in the design-skill scope). */
-export function ArtDirectionControls() {
-  const b = useBindings("artDirection");
-  return <ArtDirectionFields b={b} scope="prompt" />;
+/** An element's Material and texture field: free text plus preset chips. */
+function MaterialControls({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <>
+      <TextControl
+        label="Material and texture"
+        value={value}
+        placeholder="e.g. Brushed aluminum, soft fabric"
+        onChange={onChange}
+      />
+      <PresetChips
+        label="Material and texture"
+        presets={MATERIAL_PRESETS}
+        value={value}
+        onChange={onChange}
+      />
+    </>
+  );
 }
 
 /** Controls for one layer, or for every layer of a kind at once. */
@@ -750,6 +768,12 @@ function ElementControls({
             />
           )}
         </div>
+        {single && (
+          <MaterialControls
+            value={el.material ?? ""}
+            onChange={(material) => setEl({ material })}
+          />
+        )}
       </>
     );
   }
@@ -782,30 +806,44 @@ function ElementControls({
             onChange={(borderRadius) => setStyle({ borderRadius })}
           />
         </div>
+        {single && (
+          <MaterialControls
+            value={el.material ?? ""}
+            onChange={(material) => setEl({ material })}
+          />
+        )}
       </>
     );
   const fillLinked = !!b.primary;
   return (
-    <div className="se-row se-row-color">
-      <ColorControl
-        label={fillLinked ? "Fill (brand primary)" : "Fill"}
-        value={fillLinked ? b.primary?.hex : st.background}
-        linked={fillLinked}
-        onChange={(hex) =>
-          b.primary
-            ? b.editKitColor(b.primary.id, { hex })
-            : setStyle({ background: hex })
-        }
-      />
-      {el.kind === "shape" && (
-        <NumberControl
-          label="Radius"
-          value={st.borderRadius ?? 0}
-          max={500}
-          onChange={(borderRadius) => setStyle({ borderRadius })}
+    <Fragment>
+      <div className="se-row se-row-color">
+        <ColorControl
+          label={fillLinked ? "Fill (brand primary)" : "Fill"}
+          value={fillLinked ? b.primary?.hex : st.background}
+          linked={fillLinked}
+          onChange={(hex) =>
+            b.primary
+              ? b.editKitColor(b.primary.id, { hex })
+              : setStyle({ background: hex })
+          }
+        />
+        {el.kind === "shape" && (
+          <NumberControl
+            label="Radius"
+            value={st.borderRadius ?? 0}
+            max={500}
+            onChange={(borderRadius) => setStyle({ borderRadius })}
+          />
+        )}
+      </div>
+      {single && (
+        <MaterialControls
+          value={el.material ?? ""}
+          onChange={(material) => setEl({ material })}
         />
       )}
-    </div>
+    </Fragment>
   );
 }
 
@@ -956,7 +994,8 @@ function hasLinked(target: Target, b: Bindings) {
       return false;
     case "components":
       return !!(b.typography.linked || b.text || b.primary);
-    case "artDirection":
+    case "scene":
+    case "lighting":
       return false;
     case "element": {
       const el = b.d.elements.find((e) => e.id === target.id);
@@ -1023,8 +1062,9 @@ export function SectionEditor({
     case "imagery":
       body = <ImageryControls b={b} />;
       break;
-    case "artDirection":
-      body = <ArtDirectionFields b={b} scope="design" />;
+    case "scene":
+    case "lighting":
+      body = <ArtFieldControls b={b} field={target.type} />;
       break;
     case "components": {
       const visible = b.d.elements.filter((e) => e.visible);

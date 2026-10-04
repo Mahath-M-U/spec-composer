@@ -34,4 +34,22 @@ describe("compileCopyText", () => {
     expect(result).toBe(compilePromptEditorOutput(doc));
     expect(result).not.toContain("SHOULD NOT APPEAR");
   });
+
+  it("drops Scene from prompt and design copy while its switch is off, and includes it once on", () => {
+    const off = { ...createDocument(), scene: "Marble countertop" };
+    expect(compileCopyText(off, undefined, "prompt")).not.toContain("Scene:");
+    expect(compileCopyText(off, undefined, "design")).not.toContain(
+      "## Scene",
+    );
+    const on = {
+      ...off,
+      promptOptions: { ...off.promptOptions, scene: true },
+    };
+    expect(compileCopyText(on, undefined, "prompt")).toContain(
+      "Scene: Marble countertop.",
+    );
+    expect(compileCopyText(on, undefined, "design")).toContain(
+      "## Scene\n\nMarble countertop.",
+    );
+  });
 });

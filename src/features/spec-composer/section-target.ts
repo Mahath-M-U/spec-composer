@@ -7,7 +7,7 @@ export type Target =
   | { type: "background" | "colors" | "brand" | "mood" }
   | { type: "palette" | "type" | "components" | "imagery" }
   | { type: "element"; id: string }
-  | { type: "artDirection" };
+  | { type: "scene" | "lighting" };
 
 /** Which editor a section gets, or null when it has nothing visual to edit
  * (layout rules, the overview…) and keeps the plain text editor. */
@@ -28,6 +28,7 @@ export function sectionTarget(key: string, doc: SpecDocument): Target | null {
     case "brand":
       return { type: "brand" };
     case "mood":
+    case "skill:mood":
     case "skill:tagline":
       return { type: "mood" };
     case "skill:theme":
@@ -46,8 +47,12 @@ export function sectionTarget(key: string, doc: SpecDocument): Target | null {
       return visible.some((e) => isImageKind(e.kind))
         ? { type: "imagery" }
         : null;
-    case "skill:art":
-      return { type: "artDirection" };
+    case "scene":
+    case "skill:scene":
+      return { type: "scene" };
+    case "lighting":
+    case "skill:lighting":
+      return { type: "lighting" };
     default:
       return null;
   }

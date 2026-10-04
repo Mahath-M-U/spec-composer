@@ -67,10 +67,10 @@ import {
   Scaling,
   Compass,
   PanelRightClose,
-  Camera,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Hint } from "@/components/ui/tooltip";
+import { Switch } from "@/components/ui/switch";
 import {
   Popover,
   PopoverContent,
@@ -129,13 +129,18 @@ import { DesignMarkdown, PromptProse, ProseText } from "./design-md-view";
 import {
   DesignEditorSections,
   PromptEditorSections,
-  TokenCard,
   type DesignPart,
 } from "./design-editor-cards";
 import { PromptPart } from "./prompt-visuals";
 import { FEATURED_FONTS, MORE_FONTS } from "./fonts";
-import { SectionEditor, ArtDirectionControls } from "./section-editors";
-import { ART_DIRECTION_FIELDS } from "./art-direction";
+import { SectionEditor, PresetChips } from "./section-editors";
+import {
+  isArtFieldKey,
+  ART_FIELDS,
+  MATERIAL_PRESETS,
+  optionalSectionOf,
+  setSectionIncluded,
+} from "./art-direction";
 import {
   destinationLabel,
   ToolAddButton,
@@ -1246,6 +1251,14 @@ function StylePanel() {
     });
   const updateBackground = (patch: Partial<SpecDocument["background"]>) =>
     s.mutate((doc) => Object.assign(doc.background, patch));
+  const updateSelectedMaterial = (value: string) =>
+    s.mutate((doc) => {
+      doc.elements.forEach((element) => {
+        if (!s.selectedIds.includes(element.id)) return;
+        if (value.trim()) element.material = value;
+        else delete element.material;
+      });
+    });
   const updateFirstElement = (patch: Partial<SpecElement>) => {
     if (
       ["x", "y", "width", "height", "rotation"].some((key) => key in patch) &&
@@ -1557,6 +1570,32 @@ function StylePanel() {
                   />
                 </div>
               )}
+
+            {firstElement && !s.backgroundSelected && (
+              <div className="style-dock-section element-details-fields">
+                <h3
+                  className="style-dock-section-title"
+                  id="style-panel-material-title"
+                >
+                  Material and texture
+                </h3>
+                <textarea
+                  aria-labelledby="style-panel-material-title"
+                  rows={2}
+                  placeholder="e.g. Brushed aluminum, soft fabric"
+                  value={firstElement.material ?? ""}
+                  onChange={(event) =>
+                    updateSelectedMaterial(event.target.value)
+                  }
+                />
+                <PresetChips
+                  label="Material and texture"
+                  presets={MATERIAL_PRESETS}
+                  value={firstElement.material ?? ""}
+                  onChange={updateSelectedMaterial}
+                />
+              </div>
+            )}
 
             {firstElement && !s.backgroundSelected && (
               <div className="style-dock-section">
@@ -2484,6 +2523,8 @@ const promptMeta = (key: string, d: SpecDocument) => {
     colors: ["setup", "Colors"],
     brand: ["setup", "Brand"],
     mood: ["setup", "Mood"],
+    scene: ["setup", "Scene"],
+    lighting: ["setup", "Lighting"],
     dominant: ["visual", "Dominant visual"],
     layout: ["rules", "Layout"],
     avoid: ["rules", "Avoid"],
@@ -2504,11 +2545,17 @@ const skillMeta = (key: string, d: SpecDocument) => {
   const header = DESIGN_SKILL_HEADER[key];
   if (header) return { kind: "setup", tag: header };
   const heading = DESIGN_SKILL_SECTIONS[key];
+  const visualSkills = [
+    "skill:components",
+    "skill:imagery",
+    "skill:scene",
+    "skill:lighting",
+  ];
   if (heading)
     return {
       kind: ["skill:rules", "skill:layout"].includes(key)
         ? "rules"
-        : ["skill:components", "skill:imagery", "skill:art"].includes(key)
+        : visualSkills.includes(key)
           ? "visual"
           : "setup",
       tag: heading,
@@ -2719,21 +2766,6 @@ function PromptPanel({
       {briefField}
     </div>
   );
-  const artDirectionCount = ART_DIRECTION_FIELDS.filter((f) =>
-    d.artDirection?.[f.key]?.trim(),
-  ).length;
-  const artSection = !isSkill && (
-    <TokenCard
-      key="artDirection"
-      icon={Camera}
-      title="Art direction"
-      summary={`${artDirectionCount} of ${ART_DIRECTION_FIELDS.length} set`}
-      defaultOpen
-    >
-      <ArtDirectionControls />
-    </TokenCard>
-  );
-
   const doCopy = async () => {
     const current = useEditorStore.getState().doc;
     if (!current || !checkTool(current)) return;
@@ -2793,11 +2825,25 @@ function PromptPanel({
     const target = sectionTarget(line.key, d);
     const targetId = target?.type === "element" ? target.id : undefined;
     const visual = !!target;
+    const section = optionalSectionOf(line.key);
+    const off = !!line.off;
+    // Scene/Lighting behave the same whether the line is "scene"/"lighting"
+    // (prompt.md) or "skill:scene"/"skill:lighting" (design.md).
+    const artField = section && isArtFieldKey(section) ? section : undefined;
     const startTextEdit = () => {
+      // An empty Scene/Lighting field has no "Label: " prefix yet (the
+      // generated line is "" when unset), so seed one — otherwise the raw
+      // text edit would start with nothing to anchor it.
+      const seed = artField && !text.trim() ? `${m.tag}: ` : text;
       s.mutate((x) => {
-        x.promptParts = { ...x.promptParts, [line.key]: text };
+        x.promptParts = { ...x.promptParts, [line.key]: seed };
       }, false);
       setTextMode(true);
+    };
+    const openEditor = () => {
+      setEditingPart(line.key);
+      if (visual) setTextMode(false);
+      else startTextEdit();
     };
     const controls = isEditing && !textMode && (
       <SectionEditor
@@ -2820,53 +2866,75 @@ function PromptPanel({
             </button>
           </Hint>
         )}
-        <Hint label={isEditing ? "Done" : "Edit"}>
-          <button
-            type="button"
-            className="prompt-part-edit"
-            aria-label={isEditing ? "Done" : `Edit ${m.tag}`}
-            onClick={() => {
-              if (!isEditing) {
-                setEditingPart(line.key);
-                if (visual) setTextMode(false);
-                else startTextEdit();
-                return;
-              }
-              if (textMode && base && text === segText(base.segs))
-                s.mutate((x) => {
-                  if (x.promptParts) delete x.promptParts[line.key];
-                }, false);
-              setEditingPart(null);
-            }}
-          >
-            {isEditing ? <Check size={11} /> : <Pencil size={11} />}
-          </button>
-        </Hint>
-        <Hint label="Delete">
-          <button
-            type="button"
-            className="prompt-part-delete"
-            aria-label={`Delete ${m.tag}`}
-            onClick={() => {
-              if (editingPart === line.key) setEditingPart(null);
-              if (elId) {
-                s.deleteElements([elId]);
-                s.mutate((x) => {
-                  if (x.promptParts) delete x.promptParts[line.key];
-                }, false);
-              } else if (line.key === "imageStyle") {
-                s.mutate((x) => setImageStyle(x, IMAGE_STYLE_NONE));
-                styleSelectRef.current?.focus();
-              } else {
-                s.mutate((x) => {
-                  x.promptParts = { ...x.promptParts, [line.key]: "" };
-                });
-              }
-            }}
-          >
-            <Trash2 size={11} />
-          </button>
-        </Hint>
+        {(!section || !off) && (
+          <Hint label={isEditing ? "Done" : "Edit"}>
+            <button
+              type="button"
+              className="prompt-part-edit"
+              aria-label={isEditing ? "Done" : `Edit ${m.tag}`}
+              onClick={() => {
+                if (!isEditing) {
+                  openEditor();
+                  return;
+                }
+                if (textMode && base && text === segText(base.segs))
+                  s.mutate((x) => {
+                    if (x.promptParts) delete x.promptParts[line.key];
+                  }, false);
+                setEditingPart(null);
+              }}
+            >
+              {isEditing ? <Check size={11} /> : <Pencil size={11} />}
+            </button>
+          </Hint>
+        )}
+        {section ? (
+          <Hint label={off ? "Include" : "Exclude"}>
+            <Switch
+              className="section-include-switch focus-visible:ring-0 focus-visible:ring-offset-0"
+              checked={!off}
+              aria-label={`Include ${m.tag} in ${isSkill ? "DESIGN.md" : "the prompt"}`}
+              onCheckedChange={(on) => {
+                s.mutate((x) => setSectionIncluded(x, section, on));
+                if (on) openEditor();
+                else if (editingPart === line.key) setEditingPart(null);
+              }}
+            />
+          </Hint>
+        ) : (
+          (!artField || text.trim()) && (
+            <Hint label={artField ? "Clear" : "Delete"}>
+              <button
+                type="button"
+                className="prompt-part-delete"
+                aria-label={artField ? `Clear ${m.tag}` : `Delete ${m.tag}`}
+                onClick={() => {
+                  if (editingPart === line.key) setEditingPart(null);
+                  if (elId) {
+                    s.deleteElements([elId]);
+                    s.mutate((x) => {
+                      if (x.promptParts) delete x.promptParts[line.key];
+                    }, false);
+                  } else if (line.key === "imageStyle") {
+                    s.mutate((x) => setImageStyle(x, IMAGE_STYLE_NONE));
+                    styleSelectRef.current?.focus();
+                  } else if (artField) {
+                    s.mutate((x) => {
+                      delete x[artField];
+                      if (x.promptParts) delete x.promptParts[artField];
+                    });
+                  } else {
+                    s.mutate((x) => {
+                      x.promptParts = { ...x.promptParts, [line.key]: "" };
+                    });
+                  }
+                }}
+              >
+                <Trash2 size={11} />
+              </button>
+            </Hint>
+          )
+        )}
       </span>
     );
     const fieldInput = (seg: Exclude<PromptSeg, string>, key: number) => (
@@ -2904,6 +2972,11 @@ function PromptPanel({
               }, false)
             }
           />
+        ) : section && (off || (!text.trim() && !isEditing)) ? (
+          // Off, or on but empty and not being edited: show the section's
+          // own placeholder instead of an empty DesignMarkdown render or
+          // PromptPart decoration.
+          content
         ) : isSkill && !elId ? (
           <DesignMarkdown
             text={
@@ -2928,19 +3001,32 @@ function PromptPanel({
       </>
     );
     const body = withChrome(
-      <p className="md-prose">
-        {line.segs.map((seg, j) =>
-          typeof seg === "string" ? (
-            <ProseText
-              key={j}
-              // Slot bullets read as rows here, not a list.
-              text={isSkill && j === 0 ? seg.replace(/^- /, "") : seg}
-            />
-          ) : (
-            fieldInput(seg, j)
-          ),
-        )}
-      </p>,
+      off ? (
+        <p className="prompt-part-empty">
+          Turned off. Switch on to add {m.tag.toLowerCase()} to{" "}
+          {isSkill ? "DESIGN.md" : "the prompt"}.
+        </p>
+      ) : section && !text.trim() && !isEditing ? (
+        <div className="prompt-part-empty">
+          <span>
+            {artField ? ART_FIELDS[artField].placeholder : "No mood tags yet"}
+          </span>
+        </div>
+      ) : (
+        <p className="md-prose">
+          {line.segs.map((seg, j) =>
+            typeof seg === "string" ? (
+              <ProseText
+                key={j}
+                // Slot bullets read as rows here, not a list.
+                text={isSkill && j === 0 ? seg.replace(/^- /, "") : seg}
+              />
+            ) : (
+              fieldInput(seg, j)
+            ),
+          )}
+        </p>
+      ),
     );
     return {
       key: line.key,
@@ -2953,6 +3039,7 @@ function PromptPanel({
       elementId: targetId,
       selected: !!targetId && s.selectedIds.includes(targetId),
       onSelect: targetId ? () => selectFromPrompt(targetId) : undefined,
+      off,
     };
   };
 
@@ -3165,7 +3252,6 @@ function PromptPanel({
               </div>
             )}
             {sectionView && !briefAfterFormat && briefSection}
-            {sectionView && !briefAfterFormat && artSection}
             {edit != null ? (
               handEdited
             ) : isSkill ? (
@@ -3173,7 +3259,8 @@ function PromptPanel({
                 parts={segments
                   .filter(
                     (line) =>
-                      d.promptParts?.[line.key] !== "" &&
+                      (d.promptParts?.[line.key] !== "" ||
+                        !!optionalSectionOf(line.key)) &&
                       line.key !== "skill:overview",
                   )
                   .map(renderPart)}
@@ -3185,11 +3272,14 @@ function PromptPanel({
             ) : (
               <PromptEditorSections
                 parts={segments
-                  .filter((line) => d.promptParts?.[line.key] !== "")
+                  .filter(
+                    (line) =>
+                      d.promptParts?.[line.key] !== "" ||
+                      !!optionalSectionOf(line.key),
+                  )
                   .map(renderPart)}
                 doc={d}
                 brief={briefSection}
-                artDirection={artSection}
               />
             )}
           </div>

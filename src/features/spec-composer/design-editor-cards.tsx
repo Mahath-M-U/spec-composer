@@ -9,7 +9,6 @@ import {
 } from "react";
 import {
   Box,
-  Camera,
   Check,
   ChevronDown,
   Copy,
@@ -20,9 +19,11 @@ import {
   Layers3,
   LayoutGrid,
   LayoutTemplate,
+  Lightbulb,
   ListChecks,
   MapPin,
   Moon,
+  Mountain,
   Palette,
   Pencil,
   SlidersHorizontal,
@@ -75,6 +76,9 @@ export type DesignPart = {
   selected?: boolean | undefined;
   /** Selects the element and opens the Style panel. */
   onSelect?: (() => void) | undefined;
+  /** Set when this is an optional section (Mood/Scene/Lighting) with its
+   * "include in output" switch off. */
+  off?: boolean | undefined;
 };
 
 type TableBlock = Extract<MdBlock, { type: "table" }>;
@@ -126,6 +130,7 @@ export function TokenCard({
   forceOpen,
   defaultOpen,
   selected,
+  off,
   children,
 }: {
   icon: LucideIcon;
@@ -137,6 +142,7 @@ export function TokenCard({
   forceOpen?: boolean | undefined;
   defaultOpen?: boolean | undefined;
   selected?: boolean | undefined;
+  off?: boolean | undefined;
   children: ReactNode;
 }) {
   const headingId = useId();
@@ -152,6 +158,7 @@ export function TokenCard({
       aria-labelledby={headingId}
       data-open={expanded ? "" : undefined}
       data-selected={selected ? "" : undefined}
+      data-off={off ? "" : undefined}
     >
       <div
         className="de-card-head"
@@ -1419,7 +1426,9 @@ function CompositionCard({ model }: { model: CompositionModel }) {
 const GENERIC_ICONS: Record<string, LucideIcon> = {
   "skill:rules": ListChecks,
   "skill:elevation": Layers3,
-  "skill:art": Camera,
+  "skill:mood": Type,
+  "skill:scene": Mountain,
+  "skill:lighting": Lightbulb,
 };
 const iconFor = (key: string): LucideIcon => GENERIC_ICONS[key] ?? FileText;
 
@@ -1538,6 +1547,8 @@ export function DesignEditorSections({
         title={part.tag}
         actions={part.actions}
         forceOpen={part.editing}
+        off={part.off}
+        summary={part.off ? "Not included" : undefined}
       >
         {part.body}
       </TokenCard>,
@@ -1553,6 +1564,8 @@ const PROMPT_ICONS: Record<string, LucideIcon> = {
   colors: Palette,
   brand: Sparkles,
   mood: Type,
+  scene: Mountain,
+  lighting: Lightbulb,
   dominant: ImageIcon,
   layout: LayoutGrid,
   avoid: ListChecks,
@@ -1566,12 +1579,10 @@ export function PromptEditorSections({
   parts,
   doc,
   brief,
-  artDirection,
 }: {
   parts: DesignPart[];
   doc: SpecDocument;
   brief?: ReactNode;
-  artDirection?: ReactNode;
 }) {
   const cards: ReactNode[] = [];
   let elementsPushed = false;
@@ -1622,7 +1633,9 @@ export function PromptEditorSections({
 
     let summary: ReactNode | undefined;
     let preview: ReactNode | undefined;
-    if (part.key === "format") {
+    if (part.off) {
+      summary = "Not included";
+    } else if (part.key === "format") {
       summary = `${doc.format.width} × ${doc.format.height} · ${ratio(doc.format.width, doc.format.height)}`;
     } else if (part.key === "colors") {
       preview = (
@@ -1649,6 +1662,8 @@ export function PromptEditorSections({
       );
     } else if (part.key === "mood") {
       preview = <ChipsPreview names={doc.creativeDirection.mood} />;
+    } else if (part.key === "scene" || part.key === "lighting") {
+      summary = part.text.trim() ? undefined : "Not set";
     }
 
     const selectHandler = selectOnClick(part.onSelect, !!part.editing);
@@ -1668,7 +1683,8 @@ export function PromptEditorSections({
         actions={part.actions}
         forceOpen={part.editing || part.selected}
         selected={part.selected}
-        defaultOpen
+        off={part.off}
+        defaultOpen={!part.off}
         summary={summary}
         preview={preview}
       >
@@ -1676,7 +1692,6 @@ export function PromptEditorSections({
       </TokenCard>,
     );
     if (part.key === "format" && brief) cards.push(brief);
-    if (part.key === "format" && artDirection) cards.push(artDirection);
   }
 
   return <div className="de-sections">{cards}</div>;
