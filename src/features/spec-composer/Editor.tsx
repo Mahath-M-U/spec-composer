@@ -67,6 +67,7 @@ import {
   Scaling,
   Compass,
   PanelRightClose,
+  Camera,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Hint } from "@/components/ui/tooltip";
@@ -128,11 +129,13 @@ import { DesignMarkdown, PromptProse, ProseText } from "./design-md-view";
 import {
   DesignEditorSections,
   PromptEditorSections,
+  TokenCard,
   type DesignPart,
 } from "./design-editor-cards";
 import { PromptPart } from "./prompt-visuals";
 import { FEATURED_FONTS, MORE_FONTS } from "./fonts";
-import { SectionEditor } from "./section-editors";
+import { SectionEditor, ArtDirectionControls } from "./section-editors";
+import { ART_DIRECTION_FIELDS } from "./art-direction";
 import {
   destinationLabel,
   ToolAddButton,
@@ -2505,7 +2508,7 @@ const skillMeta = (key: string, d: SpecDocument) => {
     return {
       kind: ["skill:rules", "skill:layout"].includes(key)
         ? "rules"
-        : ["skill:components", "skill:imagery"].includes(key)
+        : ["skill:components", "skill:imagery", "skill:art"].includes(key)
           ? "visual"
           : "setup",
       tag: heading,
@@ -2715,6 +2718,20 @@ function PromptPanel({
     >
       {briefField}
     </div>
+  );
+  const artDirectionCount = ART_DIRECTION_FIELDS.filter((f) =>
+    d.artDirection?.[f.key]?.trim(),
+  ).length;
+  const artSection = !isSkill && (
+    <TokenCard
+      key="artDirection"
+      icon={Camera}
+      title="Art direction"
+      summary={`${artDirectionCount} of ${ART_DIRECTION_FIELDS.length} set`}
+      defaultOpen
+    >
+      <ArtDirectionControls />
+    </TokenCard>
   );
 
   const doCopy = async () => {
@@ -3148,6 +3165,7 @@ function PromptPanel({
               </div>
             )}
             {sectionView && !briefAfterFormat && briefSection}
+            {sectionView && !briefAfterFormat && artSection}
             {edit != null ? (
               handEdited
             ) : isSkill ? (
@@ -3171,6 +3189,7 @@ function PromptPanel({
                   .map(renderPart)}
                 doc={d}
                 brief={briefSection}
+                artDirection={artSection}
               />
             )}
           </div>

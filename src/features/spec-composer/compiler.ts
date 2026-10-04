@@ -5,6 +5,7 @@ import {
   type SpecElement,
 } from "./types.ts";
 import { imageStyleLine } from "./image-styles.ts";
+import { artDirectionLine } from "./art-direction.ts";
 const priorities: Record<string, number> = {
   title: 1,
   heroImage: 1,
@@ -213,6 +214,10 @@ export function compileVisualPrompt(doc: SpecDocument) {
   // Purpose follows the format line, matching where the panel shows it.
   const at = lines.findIndex((l) => l.key === "format") + 1;
   lines.splice(at, 0, { key: "purpose", text: purposeLine(doc) });
+  lines.splice(at + 1, 0, {
+    key: "artDirection",
+    text: artDirectionLine(doc),
+  });
   return lines
     .map((l) => l.text)
     .filter((t) => t.trim().length > 0)

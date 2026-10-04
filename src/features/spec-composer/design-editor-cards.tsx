@@ -9,6 +9,7 @@ import {
 } from "react";
 import {
   Box,
+  Camera,
   Check,
   ChevronDown,
   Copy,
@@ -1418,6 +1419,7 @@ function CompositionCard({ model }: { model: CompositionModel }) {
 const GENERIC_ICONS: Record<string, LucideIcon> = {
   "skill:rules": ListChecks,
   "skill:elevation": Layers3,
+  "skill:art": Camera,
 };
 const iconFor = (key: string): LucideIcon => GENERIC_ICONS[key] ?? FileText;
 
@@ -1564,10 +1566,12 @@ export function PromptEditorSections({
   parts,
   doc,
   brief,
+  artDirection,
 }: {
   parts: DesignPart[];
   doc: SpecDocument;
   brief?: ReactNode;
+  artDirection?: ReactNode;
 }) {
   const cards: ReactNode[] = [];
   let elementsPushed = false;
@@ -1672,6 +1676,7 @@ export function PromptEditorSections({
       </TokenCard>,
     );
     if (part.key === "format" && brief) cards.push(brief);
+    if (part.key === "format" && artDirection) cards.push(artDirection);
   }
 
   return <div className="de-sections">{cards}</div>;
