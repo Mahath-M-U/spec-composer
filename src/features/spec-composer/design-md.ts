@@ -7,7 +7,12 @@ import {
   type PromptLine,
   type PromptSeg,
 } from "./compiler.ts";
-import { artDirectionDesignSection } from "./art-direction.ts";
+import {
+  ART_FIELD_KEYS,
+  artValue,
+  isSectionIncluded,
+  materialPhrase,
+} from "./art-direction.ts";
 import {
   isImageKind,
   isTextKind,
@@ -35,7 +40,9 @@ export const DESIGN_SKILL_SECTIONS: Record<string, string> = {
   "skill:rules": "Do's and Don'ts",
   "skill:elevation": "Elevation",
   "skill:imagery": "Imagery",
-  "skill:art": "Art Direction",
+  "skill:mood": "Mood",
+  "skill:scene": "Scene",
+  "skill:lighting": "Lighting",
   "skill:layout": "Layout",
 };
 
@@ -388,12 +395,14 @@ function slotSegs(el: SpecElement, doc: SpecDocument): PromptSeg[] {
     ? `, at ${pct(el.x, W)} / ${pct(el.y, H)}, ${pct(el.width, W)} × ${pct(el.height, H)} of the canvas (≈${el.width} × ${el.height} px)`
     : "";
   const head = `- ${el.name} (${el.kind})${where}${size}`;
+  const mp = materialPhrase(el) ? [materialPhrase(el)] : [];
   if (isTextKind(el.kind))
     return [
       head,
       `: copy up to ~${copyBudget(el)} characters, currently “`,
       { id: el.id, field: "content", value: el.content ?? "", fallback: "" },
       "”.",
+      ...mp,
     ];
   if (isImageKind(el.kind))
     return [
@@ -406,8 +415,9 @@ function slotSegs(el: SpecElement, doc: SpecDocument): PromptSeg[] {
         fallback: "on-brand imagery",
       },
       `, ${el.style.objectFit || "cover"} fit.`,
+      ...mp,
     ];
-  return [`${head}.`];
+  return [`${head}.`, ...mp];
 }
 
 const table = (head: string[], rows: string[][]) =>
@@ -427,6 +437,7 @@ export function compileDesignSkillSegments(
   const m = measure(doc, kit);
   const { cd, visible } = m;
   const mood = cd.mood.join(", ");
+  const moodOn = isSectionIncluded(doc, "mood");
   const lead = [...m.text].sort(
     (a, b) => (b.style.fontSize ?? 0) - (a.style.fontSize ?? 0),
   )[0];
@@ -439,12 +450,17 @@ export function compileDesignSkillSegments(
       "skill:title",
       [`${kit?.name ?? `${cd.style} ${f.label}`} — Style Reference`],
     ],
-    ["skill:tagline", [`${mood} ${cd.style.toLowerCase()} on ${bgName}`]],
+    [
+      "skill:tagline",
+      [
+        `${moodOn && mood ? `${mood} ` : ""}${cd.style.toLowerCase()} on ${bgName}`,
+      ],
+    ],
     ["skill:theme", [`**Theme:** ${m.theme}`]],
     [
       "skill:overview",
       [
-        `Measurements come from a ${f.width} × ${f.height} ${f.label} composition (${ratio(f.width, f.height)}) and are exact; roles and recommendations are interpreted. Copy and imagery shown are this composition's current content — swap them freely and keep the palette, type, spacing, components and layout below.\n\n${an(cd.style).replace(/^a/, "A")} ${cd.style.toLowerCase()} ${f.label} with a ${mood} mood${lead ? `, led by ${m.family(lead)} ${label(lead.kind).toLowerCase()} type at ${lead.style.fontSize}px weight ${lead.style.fontWeight ?? 400}` : ""} on a ${bgName} canvas${m.accent ? `, with ${colorName(m.accent).toLowerCase()} (${m.accent}) as the accent` : ""}. ${m.largest ? `The ${label(m.largest.kind).toLowerCase()} anchors the ${region(m.largest, doc)}, covering ~${pct(m.largest.width * m.largest.height, m.W * m.H)} of the canvas` : "The design is type-led, with no photography"}; the layout is ${m.density}, ${m.align}-aligned, with a ${m.safeMargin}px safe margin.${cd.notes.trim() ? ` ${cd.notes.trim()}` : ""}`,
+        `Measurements come from a ${f.width} × ${f.height} ${f.label} composition (${ratio(f.width, f.height)}) and are exact; roles and recommendations are interpreted. Copy and imagery shown are this composition's current content — swap them freely and keep the palette, type, spacing, components and layout below.\n\n${an(cd.style).replace(/^a/, "A")} ${cd.style.toLowerCase()} ${f.label}${moodOn ? ` with a ${mood} mood` : ""}${lead ? `, led by ${m.family(lead)} ${label(lead.kind).toLowerCase()} type at ${lead.style.fontSize}px weight ${lead.style.fontWeight ?? 400}` : ""} on a ${bgName} canvas${m.accent ? `, with ${colorName(m.accent).toLowerCase()} (${m.accent}) as the accent` : ""}. ${m.largest ? `The ${label(m.largest.kind).toLowerCase()} anchors the ${region(m.largest, doc)}, covering ~${pct(m.largest.width * m.largest.height, m.W * m.H)} of the canvas` : "The design is type-led, with no photography"}; the layout is ${m.density}, ${m.align}-aligned, with a ${m.safeMargin}px safe margin.${cd.notes.trim() ? ` ${cd.notes.trim()}` : ""}`,
       ],
     ],
   ];
@@ -562,7 +578,7 @@ export function compileDesignSkillSegments(
         ]
       : []),
     `Keep the ${m.safeMargin}px safe margin and ~${m.gap}px rhythm between stacked slots on a ${m.base}px base unit`,
-    `Keep text ${m.align}-aligned and the mood ${mood}`,
+    `Keep text ${m.align}-aligned${moodOn ? ` and the mood ${mood}` : ""}`,
     ...(o.elementConstraints
       ? visible
           .filter((e) => e.constraint?.positiveConstraint)
@@ -615,8 +631,11 @@ export function compileDesignSkillSegments(
         : "Type-only composition: no photography or illustration. Color blocks and typography carry the design.",
     ],
   ]);
-  const art = artDirectionDesignSection(doc);
-  if (art) lines.push(["skill:art", [art]]);
+  lines.push(["skill:mood", mood ? [`${mood}.`] : []]);
+  for (const key of ART_FIELD_KEYS) {
+    const value = artValue(doc[key]);
+    lines.push([`skill:${key}`, value ? [`${value}.`] : []]);
+  }
   lines.push([
     "skill:layout",
     [
@@ -632,6 +651,7 @@ export function compileDesignSkillSegments(
  * per-part edits in the panel only ever touch section bodies. */
 export function compileDesignSkill(doc: SpecDocument, kit?: BrandKit) {
   const lines = compileDesignSkillSegments(doc, kit)
+    .filter((l) => !l.off)
     .map((l) => ({ key: l.key, text: segText(l.segs).trim() }))
     .filter((l) => l.text.length > 0);
   return (

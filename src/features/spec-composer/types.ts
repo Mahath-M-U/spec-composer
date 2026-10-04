@@ -126,6 +126,8 @@ const specElementSchema = z.object({
   /** Presentation-only motif key shown in an empty image slot; never compiled into prompts. */
   placeholderArt: z.string().optional(),
   aiDescription: z.string().optional(),
+  /** Material and texture, compiled into the element's prompt/slot line (see art-direction.ts). */
+  material: z.string().optional(),
   x: z.number(),
   y: z.number(),
   width: z.number(),
@@ -150,18 +152,6 @@ const creativeDirectionSchema = z.object({
   styleKitId: z.string().optional(),
 });
 
-/** The creative brief's prompt-only and style-level fields beyond Purpose,
- * Mood and Format (see art-direction.ts). All optional and free text. */
-const artDirectionSchema = z.object({
-  subject: z.string().optional(),
-  scene: z.string().optional(),
-  lighting: z.string().optional(),
-  composition: z.string().optional(),
-  material: z.string().optional(),
-  textLayout: z.string().optional(),
-});
-export type ArtDirection = z.infer<typeof artDirectionSchema>;
-
 const promptOptionsSchema = z.object({
   exactText: z.boolean(),
   relativePositioning: z.boolean(),
@@ -171,6 +161,12 @@ const promptOptionsSchema = z.object({
   negativeConstraints: z.boolean(),
   elementConstraints: z.boolean().optional(),
   brandDirectives: z.boolean().optional(),
+  /** Whether the Mood section reaches prompt.md/design.md; see art-direction.ts. */
+  mood: z.boolean().optional(),
+  /** Whether the Scene section reaches prompt.md/design.md; see art-direction.ts. */
+  scene: z.boolean().optional(),
+  /** Whether the Lighting section reaches prompt.md/design.md; see art-direction.ts. */
+  lighting: z.boolean().optional(),
 });
 
 export const externalToolRequirementSchema = z.object({
@@ -231,8 +227,10 @@ const specDocumentShape = z.object({
   externalToolRequirement: externalToolRequirementSchema.optional(),
   /** Prompt Editor image style id (see image-styles.ts); unknown ids add nothing. */
   imageStyle: z.string().optional(),
-  /** Creative-brief fields beyond Purpose, Mood and Format (see art-direction.ts). */
-  artDirection: artDirectionSchema.optional(),
+  /** Prompt Scene section; free text, see art-direction.ts. */
+  scene: z.string().optional(),
+  /** Prompt Lighting section; free text, see art-direction.ts. */
+  lighting: z.string().optional(),
   /** Hand edit for the Design Editor (promptMode "design_skill"). */
   designEdit: z.string().optional(),
   designEditRevision: z.number().optional(),
@@ -314,10 +312,65 @@ function dropRetiredPromptParts(value: unknown) {
   return { ...(value as Record<string, unknown>), promptParts: nextParts };
 }
 
+/** Docs saved before Mood, Scene and Lighting became opt-in sections lack
+ * these flags: legacy docs keep Mood (unless it was explicitly blanked via
+ * `promptParts.mood === ""`) and gain Scene/Lighting only when they already
+ * have a value. New docs set all three explicitly in `createDocument`, so
+ * this never touches them. Also drops any `""` override left behind for
+ * these sections — they'd otherwise force an empty line back into the
+ * compiled output despite the section being off. */
+const OPTIONAL_SECTION_OVERRIDE_KEYS = [
+  "mood",
+  "scene",
+  "lighting",
+  "skill:scene",
+  "skill:lighting",
+];
+function migrateOptionalSections(value: unknown) {
+  if (!value || typeof value !== "object") return value;
+  const v = value as Record<string, unknown>;
+  const options = v["promptOptions"];
+  if (!options || typeof options !== "object") return value;
+  const opts = options as Record<string, unknown>;
+  const parts = v["promptParts"];
+  const partsObj =
+    parts && typeof parts === "object"
+      ? (parts as Record<string, unknown>)
+      : undefined;
+  const needsFlag =
+    typeof opts["mood"] !== "boolean" ||
+    typeof opts["scene"] !== "boolean" ||
+    typeof opts["lighting"] !== "boolean";
+  const needsPartsCleanup =
+    !!partsObj &&
+    OPTIONAL_SECTION_OVERRIDE_KEYS.some((k) => partsObj[k] === "");
+  if (!needsFlag && !needsPartsCleanup) return value;
+  const nextOptions = { ...opts };
+  if (typeof nextOptions["mood"] !== "boolean")
+    nextOptions["mood"] = partsObj?.["mood"] !== "";
+  if (typeof nextOptions["scene"] !== "boolean")
+    nextOptions["scene"] =
+      typeof v["scene"] === "string" && v["scene"].trim() !== "";
+  if (typeof nextOptions["lighting"] !== "boolean")
+    nextOptions["lighting"] =
+      typeof v["lighting"] === "string" && v["lighting"].trim() !== "";
+  const nextParts = partsObj ? { ...partsObj } : undefined;
+  if (nextParts)
+    for (const k of OPTIONAL_SECTION_OVERRIDE_KEYS)
+      if (nextParts[k] === "") delete nextParts[k];
+  return {
+    ...v,
+    promptOptions: nextOptions,
+    ...(nextParts ? { promptParts: nextParts } : {}),
+  };
+}
+
 // Order matters: agent_spec docs already have their edit deleted by
 // migrateLegacyPromptMode, so splitLegacyPromptEdit has nothing left to route.
 const migrateSpecDocument = (v: unknown) =>
-  dropRetiredPromptParts(splitLegacyPromptEdit(migrateLegacyPromptMode(v)));
+  migrateOptionalSections(
+    dropRetiredPromptParts(splitLegacyPromptEdit(migrateLegacyPromptMode(v))),
+  );
 
 export const specDocumentSchema = z.preprocess(
   migrateSpecDocument,
@@ -410,7 +463,8 @@ export function validateWritableDocument(value: unknown): SpecDocument {
       throw new Error("An element has invalid geometry.");
     if (
       (element.content?.length ?? 0) > 20_000 ||
-      (element.aiDescription?.length ?? 0) > 20_000
+      (element.aiDescription?.length ?? 0) > 20_000 ||
+      (element.material?.length ?? 0) > 20_000
     )
       throw new Error("An element's text is too long.");
     if (element.src?.startsWith("data:") && element.src.length > 7_000_000)

@@ -1245,6 +1245,9 @@ export function createDocument(
       negativeConstraints: true,
       elementConstraints: true,
       brandDirectives: true,
+      mood: false,
+      scene: false,
+      lighting: false,
     },
     revision: 0,
   };
