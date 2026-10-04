@@ -399,10 +399,7 @@ export function Editor({ projectId }: { projectId: string }) {
         defaultWidth={LEFT_PANEL_DEFAULT_WIDTH}
         className="panel-resize-handle--left"
       />
-      <Workspace
-        onCanvasSelect={openStyleFromCanvas}
-        showCopy={!sidebars.rightOpen}
-      />
+      <Workspace onCanvasSelect={openStyleFromCanvas} />
       <PanelResizeHandle
         label="Resize right sidebar"
         side="right"
@@ -603,6 +600,7 @@ function TopBar({
           <Eye size={14} aria-hidden="true" />
           <span className="hidden sm:inline">Preview</span>
         </Button>
+        {!sidebars.rightOpen && <TopBarCopyActions />}
         <ThemeToggle className="text-editor-muted hover:bg-editor-hover hover:text-editor-foreground" />
         <RightPanelReopen sidebars={sidebars} openChat={openChat} />
       </div>
@@ -1975,27 +1973,19 @@ function StylePanel() {
   );
 }
 
-function Workspace({
-  onCanvasSelect,
-  showCopy,
-}: {
-  onCanvasSelect: () => void;
-  showCopy: boolean;
-}) {
+function Workspace({ onCanvasSelect }: { onCanvasSelect: () => void }) {
   return (
     <CanvasWorkspace onCanvasSelect={onCanvasSelect}>
       <FloatingControls />
-      {showCopy && <CanvasCopyActions />}
     </CanvasWorkspace>
   );
 }
 
-/** Floating copy buttons over the canvas, mirroring the prompt panel's copy
- * actions so they stay reachable while the right panel is collapsed. They
- * skip the panel's "before you copy" warnings and only block on the hard
+/** Top-bar copy buttons shown while the right panel is collapsed. They skip
+ * the panel's "before you copy" warnings and only block on the hard
  * external-tool requirement, surfaced as a toast instead of opening a
  * dialog. */
-function CanvasCopyActions() {
+function TopBarCopyActions() {
   const [copied, setCopied] = useState<CopyKind | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -2038,35 +2028,36 @@ function CanvasCopyActions() {
 
   return (
     <div
-      className="canvas-copy-actions"
-      data-canvas-ui
+      className="flex items-center gap-1"
       role="group"
       aria-label="Copy output"
     >
-      <button
-        type="button"
-        aria-live="polite"
-        onClick={() => copy("prompt")}
-      >
-        {copied === "prompt" ? (
-          <Check size={14} aria-hidden="true" />
-        ) : (
-          <Clipboard size={14} aria-hidden="true" />
-        )}
-        {copied === "prompt" ? "Copied" : "Copy prompt"}
-      </button>
-      <button
-        type="button"
-        aria-live="polite"
-        onClick={() => copy("design")}
-      >
-        {copied === "design" ? (
-          <Check size={14} aria-hidden="true" />
-        ) : (
-          <Clipboard size={14} aria-hidden="true" />
-        )}
-        {copied === "design" ? "Copied" : "Copy design"}
-      </button>
+      {(
+        [
+          ["prompt", "Copy prompt"],
+          ["design", "Copy design"],
+        ] as const
+      ).map(([kind, label]) => (
+        <Hint key={kind} label={label}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            aria-live="polite"
+            onClick={() => copy(kind)}
+            className="text-editor-muted hover:bg-editor-hover hover:text-editor-foreground"
+          >
+            {copied === kind ? (
+              <Check size={14} aria-hidden="true" />
+            ) : (
+              <Clipboard size={14} aria-hidden="true" />
+            )}
+            <span className="editor-copy-label">
+              {copied === kind ? "Copied" : label}
+            </span>
+          </Button>
+        </Hint>
+      ))}
     </div>
   );
 }
