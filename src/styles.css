@@ -3610,12 +3610,27 @@ button:disabled {
 /* Placeholder shown while the editor opens; mirrors the .editor-shell grid. */
 .editor-skeleton {
   --skeleton-base: var(--color-editor-hover);
+  --skeleton-highlight: color-mix(
+    in oklab,
+    var(--color-editor-foreground) 7%,
+    transparent
+  );
+  --skeleton-border: color-mix(
+    in oklab,
+    var(--color-editor-foreground) 10%,
+    transparent
+  );
+  --editor-radius: 20px;
   display: grid;
   min-height: 100vh;
   padding: 12px;
   grid-template-columns: 80px 280px 12px minmax(0, 1fr) 12px 360px;
   grid-template-rows: minmax(0, 1fr);
   background: var(--color-editor);
+}
+.editor-skeleton .media-skeleton::after {
+  animation-duration: 1.8s;
+  animation-delay: var(--skeleton-delay, 0s);
 }
 .editor-skeleton-block {
   position: relative;
@@ -3625,29 +3640,173 @@ button:disabled {
 .editor-skeleton-top {
   display: none;
 }
+.editor-skeleton-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--skeleton-border);
+  border-radius: var(--editor-radius);
+  background: var(--color-editor-surface);
+}
+.editor-skeleton .editor-skeleton-bone {
+  position: relative;
+  inset: auto;
+  display: block;
+  flex-shrink: 0;
+  border-radius: 8px;
+}
+.editor-skeleton-bone--icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+}
+.editor-skeleton-bone--title {
+  height: 14px;
+  width: 45%;
+  border-radius: 999px;
+}
+.editor-skeleton-bone--title-wide {
+  height: 14px;
+  width: 70%;
+  border-radius: 999px;
+}
+.editor-skeleton-bone--title-narrow {
+  height: 14px;
+  width: 50%;
+  border-radius: 999px;
+}
+.editor-skeleton-bone--line {
+  height: 10px;
+  width: 62%;
+  border-radius: 999px;
+}
+.editor-skeleton-bone--line-short {
+  height: 10px;
+  width: 40%;
+  border-radius: 999px;
+}
+.editor-skeleton-bone--line-long {
+  height: 10px;
+  width: 85%;
+  border-radius: 999px;
+}
+.editor-skeleton-bone--field {
+  height: 36px;
+  width: 100%;
+  border-radius: 12px;
+}
+.editor-skeleton-bone--tile {
+  aspect-ratio: 1;
+  width: 100%;
+  border-radius: 12px;
+}
+.editor-skeleton-bone--segment {
+  flex: 1;
+  height: 36px;
+  border-radius: 12px;
+}
+.editor-skeleton-bone--pill {
+  width: 168px;
+  height: 40px;
+  border-radius: 999px;
+}
+.editor-skeleton-bone--media {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  border-radius: 6px;
+}
 .editor-skeleton-rail {
   grid-column: 1;
   grid-row: 1;
+  width: calc(80px - 12px);
+  align-items: center;
+  padding: 10px 0;
+  gap: 5px;
+  background: color-mix(in oklab, var(--color-editor-surface) 40%, transparent);
+  --skeleton-delay: 0s;
+}
+.editor-skeleton-rail-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-block: auto;
+}
+.editor-skeleton-rail-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 .editor-skeleton-left {
   grid-column: 2;
   grid-row: 1;
+  padding: 14px;
+  gap: 12px;
+  --skeleton-delay: 0.12s;
+}
+.editor-skeleton-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.editor-skeleton-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
 }
 .editor-skeleton-canvas {
   grid-column: 4;
   grid-row: 1;
+  position: relative;
   display: grid;
   place-items: center;
   padding: 2rem;
+  --skeleton-delay: 0.24s;
 }
 .editor-skeleton-page {
+  position: relative;
   aspect-ratio: 4 / 5;
   height: min(calc(100vh - 8rem), 720px);
   max-width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--skeleton-border);
+  border-radius: 10px;
+  background: var(--color-editor-surface);
+}
+.editor-skeleton-page-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3.5%;
+  height: 100%;
+  padding: 9%;
+}
+.editor-skeleton-zoom {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
 }
 .editor-skeleton-right {
   grid-column: 6;
   grid-row: 1;
+  --skeleton-delay: 0.36s;
+}
+.editor-skeleton-right-head {
+  display: flex;
+  gap: 6px;
+  padding: 10px;
+}
+.editor-skeleton-right-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0 10px 10px;
+  padding: 14px;
+  border-radius: calc(var(--editor-radius) - 8px);
+  background: var(--color-editor);
 }
 @media (max-width: 800px) {
   .editor-skeleton {
