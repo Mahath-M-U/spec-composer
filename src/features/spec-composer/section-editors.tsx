@@ -1,8 +1,13 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link2, Type, X } from "lucide-react";
 import { sectionTarget, type Target } from "./section-target";
 import { FEATURED_FONTS, MORE_FONTS } from "./fonts";
 import { useEditorStore } from "./store";
+import {
+  ART_DIRECTION_FIELDS,
+  BRAND_TONES,
+  togglePreset,
+} from "./art-direction";
 import {
   isImageKind,
   isTextKind,
@@ -289,11 +294,16 @@ function TagsControl({
   value,
   onChange,
   linked,
+  suggestions,
+  suggestionsLabel,
 }: {
   label: string;
   value: string[];
   onChange: (tags: string[]) => void;
   linked?: boolean;
+  /** Preset chips shown below the tag list, e.g. brand-tone presets on Mood. */
+  suggestions?: readonly string[];
+  suggestionsLabel?: string;
 }) {
   const [draft, setDraft] = useState("");
   const add = () => {
@@ -335,6 +345,28 @@ function TagsControl({
           onBlur={add}
         />
       </div>
+      {suggestions && suggestions.length > 0 && (
+        <div className="se-presets">
+          {suggestions.map((s) => (
+            <button
+              key={s}
+              type="button"
+              className="se-preset"
+              aria-pressed={value.includes(s)}
+              aria-label={`${suggestionsLabel ?? label} preset: ${s}`}
+              onClick={() =>
+                onChange(
+                  value.includes(s)
+                    ? value.filter((t) => t !== s)
+                    : [...value, s],
+                )
+              }
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -528,6 +560,8 @@ function MoodControls({ b }: { b: Bindings }) {
         label="Mood"
         value={moodLinked ? (b.kit?.emotions ?? []) : cd.mood}
         linked={moodLinked}
+        suggestions={BRAND_TONES}
+        suggestionsLabel="Brand tone"
         onChange={(tags) =>
           moodLinked
             ? b.editKit(() => ({ emotions: tags }))
@@ -558,6 +592,70 @@ function MoodControls({ b }: { b: Bindings }) {
       />
     </>
   );
+}
+
+/** The creative brief's art-direction fields: free text with preset chips,
+ * filtered to the style-level fields when editing a DESIGN.md section
+ * (Subject is prompt-only). */
+function ArtDirectionFields({
+  b,
+  scope,
+}: {
+  b: Bindings;
+  scope: "prompt" | "design";
+}) {
+  const ad = b.d.artDirection;
+  const fields = ART_DIRECTION_FIELDS.filter(
+    (f) => scope === "prompt" || f.design,
+  );
+  const set = (key: (typeof fields)[number]["key"], next: string) =>
+    b.edit((doc) => {
+      doc.artDirection = { ...doc.artDirection, [key]: next };
+    });
+  return (
+    <>
+      {fields.map((f) => {
+        const value = ad?.[f.key] ?? "";
+        const selected = value
+          .split(",")
+          .map((p) => p.trim().toLowerCase())
+          .filter((p) => p.length > 0);
+        return (
+          <Fragment key={f.key}>
+            <TextControl
+              label={f.label}
+              value={value}
+              debounce
+              placeholder={f.placeholder}
+              onChange={(next) => set(f.key, next)}
+            />
+            {f.presets.length > 0 && (
+              <div className="se-presets">
+                {f.presets.map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    className="se-preset"
+                    aria-pressed={selected.includes(preset.toLowerCase())}
+                    onClick={() => set(f.key, togglePreset(value, preset))}
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
+            )}
+          </Fragment>
+        );
+      })}
+    </>
+  );
+}
+
+/** The Art Direction section's controls in the Prompt Editor (every field;
+ * Subject is prompt-only, so it's never shown in the design-skill scope). */
+export function ArtDirectionControls() {
+  const b = useBindings("artDirection");
+  return <ArtDirectionFields b={b} scope="prompt" />;
 }
 
 /** Controls for one layer, or for every layer of a kind at once. */
@@ -858,6 +956,8 @@ function hasLinked(target: Target, b: Bindings) {
       return false;
     case "components":
       return !!(b.typography.linked || b.text || b.primary);
+    case "artDirection":
+      return false;
     case "element": {
       const el = b.d.elements.find((e) => e.id === target.id);
       if (!el || isImageKind(el.kind)) return false;
@@ -922,6 +1022,9 @@ export function SectionEditor({
       break;
     case "imagery":
       body = <ImageryControls b={b} />;
+      break;
+    case "artDirection":
+      body = <ArtDirectionFields b={b} scope="design" />;
       break;
     case "components": {
       const visible = b.d.elements.filter((e) => e.visible);

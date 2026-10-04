@@ -7,6 +7,7 @@ import {
   type PromptLine,
   type PromptSeg,
 } from "./compiler.ts";
+import { artDirectionDesignSection } from "./art-direction.ts";
 import {
   isImageKind,
   isTextKind,
@@ -34,6 +35,7 @@ export const DESIGN_SKILL_SECTIONS: Record<string, string> = {
   "skill:rules": "Do's and Don'ts",
   "skill:elevation": "Elevation",
   "skill:imagery": "Imagery",
+  "skill:art": "Art Direction",
   "skill:layout": "Layout",
 };
 
@@ -613,6 +615,8 @@ export function compileDesignSkillSegments(
         : "Type-only composition: no photography or illustration. Color blocks and typography carry the design.",
     ],
   ]);
+  const art = artDirectionDesignSection(doc);
+  if (art) lines.push(["skill:art", [art]]);
   lines.push([
     "skill:layout",
     [

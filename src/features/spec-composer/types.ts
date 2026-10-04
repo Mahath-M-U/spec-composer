@@ -150,6 +150,18 @@ const creativeDirectionSchema = z.object({
   styleKitId: z.string().optional(),
 });
 
+/** The creative brief's prompt-only and style-level fields beyond Purpose,
+ * Mood and Format (see art-direction.ts). All optional and free text. */
+const artDirectionSchema = z.object({
+  subject: z.string().optional(),
+  scene: z.string().optional(),
+  lighting: z.string().optional(),
+  composition: z.string().optional(),
+  material: z.string().optional(),
+  textLayout: z.string().optional(),
+});
+export type ArtDirection = z.infer<typeof artDirectionSchema>;
+
 const promptOptionsSchema = z.object({
   exactText: z.boolean(),
   relativePositioning: z.boolean(),
@@ -219,6 +231,8 @@ const specDocumentShape = z.object({
   externalToolRequirement: externalToolRequirementSchema.optional(),
   /** Prompt Editor image style id (see image-styles.ts); unknown ids add nothing. */
   imageStyle: z.string().optional(),
+  /** Creative-brief fields beyond Purpose, Mood and Format (see art-direction.ts). */
+  artDirection: artDirectionSchema.optional(),
   /** Hand edit for the Design Editor (promptMode "design_skill"). */
   designEdit: z.string().optional(),
   designEditRevision: z.number().optional(),

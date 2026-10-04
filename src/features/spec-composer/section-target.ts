@@ -6,7 +6,8 @@ import { isImageKind, isTextKind, type SpecDocument } from "./types";
 export type Target =
   | { type: "background" | "colors" | "brand" | "mood" }
   | { type: "palette" | "type" | "components" | "imagery" }
-  | { type: "element"; id: string };
+  | { type: "element"; id: string }
+  | { type: "artDirection" };
 
 /** Which editor a section gets, or null when it has nothing visual to edit
  * (layout rules, the overview…) and keeps the plain text editor. */
@@ -45,6 +46,8 @@ export function sectionTarget(key: string, doc: SpecDocument): Target | null {
       return visible.some((e) => isImageKind(e.kind))
         ? { type: "imagery" }
         : null;
+    case "skill:art":
+      return { type: "artDirection" };
     default:
       return null;
   }
