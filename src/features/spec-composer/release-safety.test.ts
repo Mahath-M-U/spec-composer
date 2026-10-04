@@ -8,7 +8,7 @@ import {
   ProjectConflictError,
 } from "./storage/adapter";
 import { createProjectBackup, importProjectBackup } from "./project-backup";
-import { loadProjectVersion, saveProject } from "./persistence";
+import { loadProject, loadProjectVersion, saveProject } from "./persistence";
 import { useEditorStore } from "./store";
 import { validateWritableDocument } from "./types";
 import { detectImageType, validateImageUpload } from "./image-validation";
@@ -214,6 +214,25 @@ describe("export and restore", () => {
     expect(single.renamed).toBe(1);
   });
 
+  it("restores identical projects after exporting and re-importing a backup", async () => {
+    const first = doc("Round trip Alpha");
+    const second = doc("Round trip Beta");
+    await saveProject(first);
+    await saveProject(second);
+    const expectedFirst = await loadProject(first.id);
+    const expectedSecond = await loadProject(second.id);
+    const backup = await createProjectBackup();
+    await idbAdapter.deleteProject(first.id);
+    await idbAdapter.deleteProject(second.id);
+    const result = await importProjectBackup(backup);
+    expect(result.imported).toBeGreaterThanOrEqual(2);
+    expect(await idbAdapter.getProject(first.id)).toEqual(expectedFirst);
+    expect(await idbAdapter.getProject(second.id)).toEqual(expectedSecond);
+    // Restoring into the same empty slots must not rename them.
+    expect((await idbAdapter.getProject(first.id) as typeof first).name).toBe("Round trip Alpha");
+    expect((await idbAdapter.getProject(second.id) as typeof second).name).toBe("Round trip Beta");
+  });
+
   it("rejects corrupt backups before writing", async () => {
     await expect(importProjectBackup("{")).rejects.toThrow("valid JSON");
     const bad = JSON.stringify({
@@ -224,6 +243,21 @@ describe("export and restore", () => {
     await expect(importProjectBackup(bad)).rejects.toThrow(
       "Nothing was imported",
     );
+  });
+
+  it("leaves existing projects untouched when a backup is rejected for corruption", async () => {
+    const existing = doc("Untouched by corrupt import");
+    await saveProject(existing);
+    const before = await loadProject(existing.id);
+    const bad = JSON.stringify({
+      kind: "spec-composer-project-backup",
+      version: 1,
+      projects: [doc("Should not be saved"), { bad: true }],
+    });
+    await expect(importProjectBackup(bad)).rejects.toThrow("Nothing was imported");
+    expect(await loadProject(existing.id)).toEqual(before);
+    const all = (await idbAdapter.listProjects()) as { name?: string }[];
+    expect(all.some((d) => d.name === "Should not be saved")).toBe(false);
   });
 
   it("keeps damaged stored records and reports their exclusion from backup", async () => {
