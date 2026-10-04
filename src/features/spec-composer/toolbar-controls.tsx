@@ -18,7 +18,7 @@ export function Tool({
 }) {
   // Disabled buttons swallow pointer events, so the span is the trigger.
   return (
-    <Hint label={label} shortcut={shortcut} {...(side ? { side } : {})}>
+    <Hint label={label} {...(side ? { side } : {})}>
       <span className="inline-flex">
         <button
           aria-label={label}

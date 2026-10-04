@@ -479,7 +479,6 @@ export function CanvasWorkspace({
                     key={handle}
                     data-resize-handle={handle}
                     className={`canvas-resize-handle handle-${handle}`}
-                    title={`Resize ${handle}`}
                   />
                 ))}
               </div>
@@ -533,7 +532,7 @@ export function CanvasWorkspace({
         />
         <Tool
           active={s.tool === "hand"}
-          label="Hand — pan the canvas"
+          label="Hand"
           shortcut="H"
           side="top"
           icon={<Hand />}
@@ -556,7 +555,7 @@ export function CanvasWorkspace({
           onClick={() => viewport.zoom(1.2)}
         />
         <Tool
-          label="Fit canvas to screen"
+          label="Fit to screen"
           side="top"
           icon={<Scan />}
           onClick={() => {

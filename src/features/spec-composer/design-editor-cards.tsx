@@ -374,7 +374,7 @@ function ImageStyleField({
         )}
         <span className="de-field-actions">
           <span className="prompt-tag-actions">
-            <Hint label="Edit image style — used by the Prompt Editor output">
+            <Hint label="Edit image style">
               <button
                 ref={pencilRef}
                 type="button"
@@ -432,7 +432,6 @@ export function DesignSettingsCard({
             render={() => (
               <span
                 className="de-field-value de-hero-title"
-                title={title.text}
                 style={
                   {
                     fontFamily: font || undefined,
@@ -555,7 +554,7 @@ function ColorSwatchBlock({
       )}
       <div className="de-palette-bottom">
         <code className="de-palette-hex">{HEX.replace(/^#/, "")}</code>
-        <Hint label={copied ? "Copied" : `Copy ${HEX}`}>
+        <Hint label={copied ? "Copied" : "Copy"}>
           <button
             type="button"
             className="de-palette-copy"

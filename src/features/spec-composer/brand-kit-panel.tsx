@@ -379,7 +379,7 @@ export function BrandKitPanel({
             </Button>
           </form>
         ) : (
-          <Hint label="Generate from Material 3">
+          <Hint label="Generate M3 kit">
             <Button
               size="sm"
               variant="outline"
@@ -609,44 +609,32 @@ function BrandKitCard({
           <span className="truncate bk-face-name">
             {kit.name}
             {kit.sourceKind === "material3" && (
-              <Hint label="Generated from Material 3">
+              <Hint label="Material 3">
                 <span className="brandkit-m3-badge">M3</span>
               </Hint>
             )}
           </span>
-          <Hint
-            label={
+          <button
+            type="button"
+            className={`bk-default-toggle${active ? " active" : ""}`}
+            aria-pressed={active}
+            aria-label={
               applyMode
-                ? active
-                  ? "Applied to this design — click to remove"
-                  : "Apply to this design"
-                : active
-                  ? "Default — click to remove as default"
-                  : "Set as default for new designs"
+                ? `${active ? "Remove" : "Apply"} ${kit.name}`
+                : `${active ? "Remove" : "Set"} ${kit.name} as default`
             }
+            data-tour="kit-default-toggle"
+            onClick={active ? onDeactivate : onActivate}
           >
-            <button
-              type="button"
-              className={`bk-default-toggle${active ? " active" : ""}`}
-              aria-pressed={active}
-              aria-label={
-                applyMode
-                  ? `${active ? "Remove" : "Apply"} ${kit.name}`
-                  : `${active ? "Remove" : "Set"} ${kit.name} as default`
-              }
-              data-tour="kit-default-toggle"
-              onClick={active ? onDeactivate : onActivate}
-            >
-              {active && <Check size={12} aria-hidden="true" />}
-              {applyMode
-                ? active
-                  ? "Applied"
-                  : "Apply"
-                : active
-                  ? "Default"
-                  : "Set as default"}
-            </button>
-          </Hint>
+            {active && <Check size={12} aria-hidden="true" />}
+            {applyMode
+              ? active
+                ? "Applied"
+                : "Apply"
+              : active
+                ? "Default"
+                : "Set as default"}
+          </button>
         </div>
 
         <BrandKitPreview kit={kit} />
@@ -787,7 +775,7 @@ function BrandKitCard({
                             <small>Choose a font for every text layer</small>
                           </div>
                         </div>
-                        <Hint label="Close font picker">
+                        <Hint label="Close">
                           <button
                             type="button"
                             aria-label="Close font picker"
@@ -881,39 +869,37 @@ function BrandKitCard({
                 {kit.colors.map((color) => {
                   const selected = selectedColor?.id === color.id;
                   return (
-                    <Hint label={`Edit ${brandColorRoleLabel(color.role)}`}>
-                      <button
-                        key={color.id}
-                        type="button"
-                        aria-pressed={selected}
-                        aria-expanded={selected}
-                        aria-controls={`brandkit-color-editor-${color.id}`}
-                        className={`brandkit-palette-tile${selected ? " selected" : ""}`}
-                        style={{
-                          background: brandKitPaint(color),
-                          color: brandKitTileForeground(color.hex),
-                        }}
-                        onClick={() =>
-                          setSelectedColorId((current) =>
-                            current === color.id ? null : color.id,
-                          )
-                        }
-                      >
-                        {selected && (
-                          <span className="brandkit-palette-tile-check">
-                            <Check aria-hidden="true" />
-                          </span>
-                        )}
-                        <span className="brandkit-palette-tile-copy">
-                          <strong>
-                            {color.type === "gradient"
-                              ? `${color.hex.toUpperCase()} · ${(color.secondaryHex ?? color.hex).toUpperCase()}`
-                              : color.hex.toUpperCase()}
-                          </strong>
-                          <small>{brandColorRoleLabel(color.role)}</small>
+                    <button
+                      key={color.id}
+                      type="button"
+                      aria-pressed={selected}
+                      aria-expanded={selected}
+                      aria-controls={`brandkit-color-editor-${color.id}`}
+                      className={`brandkit-palette-tile${selected ? " selected" : ""}`}
+                      style={{
+                        background: brandKitPaint(color),
+                        color: brandKitTileForeground(color.hex),
+                      }}
+                      onClick={() =>
+                        setSelectedColorId((current) =>
+                          current === color.id ? null : color.id,
+                        )
+                      }
+                    >
+                      {selected && (
+                        <span className="brandkit-palette-tile-check">
+                          <Check aria-hidden="true" />
                         </span>
-                      </button>
-                    </Hint>
+                      )}
+                      <span className="brandkit-palette-tile-copy">
+                        <strong>
+                          {color.type === "gradient"
+                            ? `${color.hex.toUpperCase()} · ${(color.secondaryHex ?? color.hex).toUpperCase()}`
+                            : color.hex.toUpperCase()}
+                        </strong>
+                        <small>{brandColorRoleLabel(color.role)}</small>
+                      </span>
+                    </button>
                   );
                 })}
                 {kit.colors.length < 5 && (
@@ -941,11 +927,6 @@ function BrandKitCard({
                   <div className="brandkit-color-main">
                     <span
                       className="brandkit-color-preview"
-                      title={
-                        selectedColor.type === "gradient"
-                          ? "Gradient"
-                          : selectedColor.hex
-                      }
                       style={{ background: brandKitPaint(selectedColor) }}
                     />
                     <select
@@ -989,10 +970,7 @@ function BrandKitCard({
                   <div
                     className={`brandkit-color-values${selectedColor.type === "gradient" ? " gradient" : ""}`}
                   >
-                    <label
-                      className="brandkit-color-value"
-                      title="Primary color"
-                    >
+                    <label className="brandkit-color-value">
                       <span>
                         {selectedColor.type === "gradient" ? "From" : "Color"}
                       </span>
@@ -1010,10 +988,7 @@ function BrandKitCard({
                     </label>
                     {selectedColor.type === "gradient" && (
                       <>
-                        <label
-                          className="brandkit-color-value"
-                          title="Secondary color"
-                        >
+                        <label className="brandkit-color-value">
                           <span>To</span>
                           <input
                             aria-label="Secondary color"
@@ -1033,10 +1008,7 @@ function BrandKitCard({
                             ).toUpperCase()}
                           </code>
                         </label>
-                        <label
-                          className="brandkit-gradient-angle"
-                          title="Gradient angle"
-                        >
+                        <label className="brandkit-gradient-angle">
                           <span>Angle</span>
                           <input
                             aria-label="Gradient angle"
@@ -1117,7 +1089,7 @@ function BrandKitCard({
                   {kit.emotions.map((emotion) => (
                     <span key={emotion} className="emotion-selected-tag">
                       {emotion}
-                      <Hint label={`Remove ${emotion}`}>
+                      <Hint label="Remove">
                         <button
                           type="button"
                           aria-label={`Remove ${emotion}`}

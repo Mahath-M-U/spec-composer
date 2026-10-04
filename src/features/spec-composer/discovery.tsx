@@ -41,6 +41,7 @@ import {
 import { AppIcon } from "@/components/app-icon";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { Hint } from "@/components/ui/tooltip";
 import { MediaSkeleton } from "@/components/media-skeleton";
 import { FormatGrid, PlatformFilterBar } from "./format-gallery";
 import { formats, platforms, type PlatformFilter } from "./formats";
@@ -116,7 +117,7 @@ export function DiscoveryShell({
 
   return (
     <>
-      <div className="min-h-screen bg-background text-foreground md:grid md:grid-cols-[268px_minmax(0,1fr)]">
+      <div className="min-h-screen text-foreground md:grid md:grid-cols-[268px_minmax(0,1fr)]">
         <aside className="discovery-sidebar">
           <div className="flex items-center justify-between gap-2">
             <Link to="/" className="flex min-w-0 items-center gap-3 font-bold">
@@ -215,24 +216,26 @@ export function DiscoveryShell({
               <Link to="/projects" className="mobile-projects-link">
                 My designs
               </Link>
-              <Link
-                to="/prompt-gallery"
-                className="mobile-brandkit-link"
-                activeProps={{ className: "active" }}
-                aria-label="Prompt gallery"
-                title="Prompt gallery"
-              >
-                <Images size={16} />
-              </Link>
-              <Link
-                to="/design-kit"
-                className="mobile-brandkit-link"
-                activeProps={{ className: "active" }}
-                aria-label="Design kits"
-                title="Design kits"
-              >
-                <Gem size={16} />
-              </Link>
+              <Hint label="Prompt gallery">
+                <Link
+                  to="/prompt-gallery"
+                  className="mobile-brandkit-link"
+                  activeProps={{ className: "active" }}
+                  aria-label="Prompt gallery"
+                >
+                  <Images size={16} />
+                </Link>
+              </Hint>
+              <Hint label="Design kits">
+                <Link
+                  to="/design-kit"
+                  className="mobile-brandkit-link"
+                  activeProps={{ className: "active" }}
+                  aria-label="Design kits"
+                >
+                  <Gem size={16} />
+                </Link>
+              </Hint>
               <ThemeToggle />
             </div>
           </div>
@@ -894,11 +897,6 @@ function TemplateCard({
               onClick={() => void copyDesign()}
               disabled={copying}
               aria-label={`Copy design: ${doc.name}`}
-              title={
-                doc.promptMode === "design_skill"
-                  ? "Copy DESIGN.md to clipboard"
-                  : "Copy design prompt to clipboard"
-              }
             >
               {copied ? (
                 <Check size={14} aria-hidden="true" />
@@ -1121,18 +1119,19 @@ function CreationDialog({
                     aria-label="Canvas height in pixels"
                   />
                 </label>
-                <button
-                  type="button"
-                  className="creation-swap-size"
-                  onClick={() => {
-                    setCustomWidth(customHeight);
-                    setCustomHeight(customWidth);
-                  }}
-                  aria-label="Swap width and height"
-                  title="Swap dimensions"
-                >
-                  <ArrowLeftRight size={15} />
-                </button>
+                <Hint label="Swap size">
+                  <button
+                    type="button"
+                    className="creation-swap-size"
+                    onClick={() => {
+                      setCustomWidth(customHeight);
+                      setCustomHeight(customWidth);
+                    }}
+                    aria-label="Swap width and height"
+                  >
+                    <ArrowLeftRight size={15} />
+                  </button>
+                </Hint>
               </div>
             )}
             {sizeMode === "custom" && !customSizeValid ? (

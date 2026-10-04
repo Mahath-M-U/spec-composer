@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { CanvasWorkspace } from "./canvas-surface";
 import { AssetsPanel } from "./assets-panel/AssetsPanel";
 import { ResizePanel } from "./resize-panel";
-import { PanelHeader } from "./panel-header";
+import { PanelHeader, PanelCollapseProvider } from "./panel-header";
 import { BrandKitPanel, brandKitPaint } from "./brand-kit-panel";
 import {
   ArrowLeft,
@@ -66,10 +66,7 @@ import {
   RotateCw,
   Scaling,
   Compass,
-  PanelLeftClose,
-  PanelLeftOpen,
   PanelRightClose,
-  PanelRightOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Hint } from "@/components/ui/tooltip";
@@ -102,7 +99,6 @@ import {
 import {
   buildJsonExport,
   compileExternalToolRequirement,
-  compilePromptEditorOutput,
   compileRegionPrompt,
   compileVisualPrompt,
   compileVisualSegments,
@@ -118,6 +114,7 @@ import {
   DESIGN_SKILL_HEADER,
   DESIGN_SKILL_SECTIONS,
 } from "./design-md";
+import { compileCopyText, type CopyKind } from "./copy-output";
 import { DesignMarkdown, PromptProse, ProseText } from "./design-md-view";
 import {
   DesignEditorSections,
@@ -247,6 +244,15 @@ const COMPOSE_LAYOUTS: { id: ComposeLayout; label: string; hint: string }[] = [
 const LEFT_PANEL_DEFAULT_WIDTH = 432;
 const RIGHT_PANEL_DEFAULT_WIDTH = 624;
 
+/** Total non-canvas width the floating shell reserves on desktop: the rail
+ * track plus the left/right 12px resize-handle tracks and the shell's own
+ * 12px padding on each side. Must stay in sync with `--rail-width`,
+ * `--shell-gap` and the handle tracks in styles.css. */
+function editorChromeWidth(): number {
+  const rail = window.innerWidth <= 1250 ? 76 : 80;
+  return rail + 2 * 12 + 2 * 12;
+}
+
 /** Switches the left sidebar to the Style panel's Style tab and, on desktop,
  * opens it — shared by canvas selection and prompt-panel selection so both
  * land on the same place. */
@@ -261,6 +267,7 @@ export function Editor({ projectId }: { projectId: string }) {
   const store = useEditorStore();
   const [preview, setPreview] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const [leftPanelWidth, setLeftPanelWidth] = useState(
     LEFT_PANEL_DEFAULT_WIDTH,
@@ -273,10 +280,10 @@ export function Editor({ projectId }: { projectId: string }) {
   useEffect(() => {
     const keepWorkspaceVisible = () => {
       if (sidebars.overlay) return;
-      const rail = window.innerWidth <= 1250 ? 54 : 58;
       const left = sidebars.leftOpen ? leftPanelWidth : 0;
       const right = sidebars.rightOpen ? rightPanelWidth : 0;
-      const panelBudget = Math.max(1100, window.innerWidth) - rail - 12 - 350;
+      const panelBudget =
+        Math.max(1100, window.innerWidth) - editorChromeWidth() - 350;
       if (left + right <= panelBudget) return;
       if (sidebars.rightOpen) {
         const nextRight = Math.max(280, panelBudget - left);
@@ -355,7 +362,11 @@ export function Editor({ projectId }: { projectId: string }) {
         } as CSSProperties
       }
     >
-      <TopBar preview={() => setPreview(true)} />
+      <TopBar
+        preview={() => setPreview(true)}
+        sidebars={sidebars}
+        openChat={() => setChatOpen(true)}
+      />
       <ToolRail
         sidebars={sidebars}
         onSelectPanel={(id) => {
@@ -371,7 +382,13 @@ export function Editor({ projectId }: { projectId: string }) {
           if (!sidebars.overlay) sidebars.setOpen("right", true);
         }}
       />
-      <ContextPanel />
+      <ContextPanel
+        onCollapse={() => {
+          const id = store.panel;
+          sidebars.setOpen("left", false);
+          focusSidebarControl(`editor-rail-${id}`);
+        }}
+      />
       <PanelResizeHandle
         label="Resize left sidebar"
         side="left"
@@ -382,8 +399,10 @@ export function Editor({ projectId }: { projectId: string }) {
         defaultWidth={LEFT_PANEL_DEFAULT_WIDTH}
         className="panel-resize-handle--left"
       />
-      <Workspace onCanvasSelect={openStyleFromCanvas} />
-      <RightPanelReopen sidebars={sidebars} />
+      <Workspace
+        onCanvasSelect={openStyleFromCanvas}
+        showCopy={!sidebars.rightOpen}
+      />
       <PanelResizeHandle
         label="Resize right sidebar"
         side="right"
@@ -394,7 +413,12 @@ export function Editor({ projectId }: { projectId: string }) {
         defaultWidth={RIGHT_PANEL_DEFAULT_WIDTH}
         className="panel-resize-handle--right"
       />
-      <RightPanel sidebars={sidebars} exportOpen={() => setExportOpen(true)} />
+      <RightPanel
+        sidebars={sidebars}
+        exportOpen={() => setExportOpen(true)}
+        chatOpen={chatOpen}
+        setChatOpen={setChatOpen}
+      />
       {sidebars.overlay && (sidebars.leftOpen || sidebars.rightOpen) && (
         <div
           className="editor-drawer-backdrop"
@@ -432,7 +456,6 @@ function PanelResizeHandle({
     (next: number) => {
       const shell = document.querySelector<HTMLElement>(".editor-shell");
       if (!shell) return Math.min(max, Math.max(min, next));
-      const rail = window.innerWidth <= 1250 ? 54 : 58;
       const oppositeClosed =
         shell.dataset[side === "left" ? "rightPanel" : "leftPanel"] ===
         "closed";
@@ -443,14 +466,14 @@ function PanelResizeHandle({
               side === "left" ? "--right-panel-width" : "--left-panel-width",
             ),
           );
-      const workspaceMax = shell.clientWidth - rail - 12 - 350 - oppositeWidth;
+      const workspaceMax =
+        shell.clientWidth - editorChromeWidth() - 350 - oppositeWidth;
       return Math.min(max, Math.max(min, workspaceMax), Math.max(min, next));
     },
     [max, min, side],
   );
 
   return (
-    <Hint label={`${label} (double-click to reset)`}>
       <div
         className={cn("panel-resize-handle", className)}
         role="separator"
@@ -490,24 +513,26 @@ function PanelResizeHandle({
           drag.current = null;
         }}
       />
-    </Hint>
   );
 }
 
-function TopBar({ preview }: { preview: () => void }) {
+function TopBar({
+  preview,
+  sidebars,
+  openChat,
+}: {
+  preview: () => void;
+  sidebars: SidebarLayout;
+  openChat: () => void;
+}) {
   const s = useEditorStore();
   const d = s.doc;
   return (
     <header className="editor-top">
-      <div className="flex min-w-0 items-center gap-2">
+      <div className="editor-chip editor-chip--start flex min-w-0 items-center gap-2">
         <Hint label="Back to home">
           <Link to="/" className="tool-button" aria-label="Back to home">
             <ArrowLeft aria-hidden="true" />
-          </Link>
-        </Hint>
-        <Hint label="Home">
-          <Link to="/" className="spec-mark editor-top-home" aria-label="Home">
-            <AppIcon className="h-full w-full" />
           </Link>
         </Hint>
         <label className="project-name-field" data-tour="project">
@@ -532,8 +557,8 @@ function TopBar({ preview }: { preview: () => void }) {
             s.saveStatus === "saving"
               ? "Saving…"
               : s.saveStatus === "error"
-                ? "Not saved — changes couldn't be written to this browser"
-                : "All changes saved locally in this browser"
+                ? "Not saved"
+                : "Saved locally"
           }
         >
           <span className="hidden shrink-0 items-center sm:flex" tabIndex={0}>
@@ -564,47 +589,70 @@ function TopBar({ preview }: { preview: () => void }) {
           </span>
         </Hint>
       </div>
-      <div className="flex items-center gap-1">
-        <Hint label="Preview" shortcut="P">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            aria-keyshortcuts="P"
-            aria-label="Preview"
-            data-tour="preview"
-            onClick={preview}
-            className="text-editor-muted hover:bg-editor-hover hover:text-editor-foreground"
-          >
-            <Eye size={14} aria-hidden="true" />
-            <span className="hidden sm:inline">Preview</span>
-          </Button>
-        </Hint>
+      <div className="editor-chip editor-chip--end flex items-center gap-1">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          aria-keyshortcuts="P"
+          aria-label="Preview"
+          data-tour="preview"
+          onClick={preview}
+          className="text-editor-muted hover:bg-editor-hover hover:text-editor-foreground"
+        >
+          <Eye size={14} aria-hidden="true" />
+          <span className="hidden sm:inline">Preview</span>
+        </Button>
         <ThemeToggle className="text-editor-muted hover:bg-editor-hover hover:text-editor-foreground" />
+        <RightPanelReopen sidebars={sidebars} openChat={openChat} />
       </div>
     </header>
   );
 }
 
-function RightPanelReopen({ sidebars }: { sidebars: SidebarLayout }) {
+function RightPanelReopen({
+  sidebars,
+  openChat,
+}: {
+  sidebars: SidebarLayout;
+  openChat: () => void;
+}) {
   if (sidebars.rightOpen) return null;
+  const open = (view: "design" | "prompt" | "chat") => {
+    if (view === "chat") openChat();
+    else {
+      const mode: PromptMode =
+        view === "design" ? "design_skill" : "visual_prompt";
+      const st = useEditorStore.getState();
+      if (st.doc && st.doc.promptMode !== mode)
+        st.mutate((x) => {
+          x.promptMode = mode;
+        }, false);
+    }
+    sidebars.setOpen("right", true);
+    focusSidebarControl(RIGHT_COLLAPSE_ID);
+  };
+  const views = [
+    ["design", "Design"],
+    ["prompt", "Prompt"],
+    ["chat", "Chat"],
+  ] as const;
   return (
-    <Hint label="Show prompt panel" side="left">
-      <button
-        type="button"
-        id={RIGHT_REOPEN_ID}
-        className="right-panel-reopen"
-        aria-label="Show prompt panel"
-        aria-expanded={false}
-        aria-controls="editor-right-panel"
-        onClick={() => {
-          sidebars.setOpen("right", true);
-          focusSidebarControl(RIGHT_COLLAPSE_ID);
-        }}
-      >
-        <PanelRightOpen aria-hidden="true" />
-      </button>
-    </Hint>
+    <div className="right-panel-launch" role="group" aria-label="Open side panel">
+      {views.map(([view, label], i) => (
+        <button
+          key={view}
+          type="button"
+          id={i === 0 ? RIGHT_REOPEN_ID : undefined}
+          aria-expanded={false}
+          aria-controls="editor-right-panel"
+          aria-haspopup={view === "chat" ? "dialog" : undefined}
+          onClick={() => open(view)}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -621,80 +669,59 @@ function ToolRail({
   const [mcpOpen, setMcpOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const items = [
-    ["assets", Image, "Assets", "Add text, promo and visual elements"],
-    ["style", Palette, "Style", "Edit the selected element's style and layout"],
-    ["layers", Layers3, "Layers", "Reorder, lock and group layers"],
-    [
-      "templates",
-      LayoutTemplate,
-      "Templates",
-      "Start from a ready-made layout",
-    ],
-    ["brandKit", Gem, "Design kit", "Manage fonts, colors and brand mood"],
-    ["resize", Scaling, "Resize", "Change the design size"],
+    ["assets", Image, "Assets"],
+    ["style", Palette, "Style"],
+    ["layers", Layers3, "Layers"],
+    ["templates", LayoutTemplate, "Templates"],
+    ["brandKit", Gem, "Design kit"],
+    ["resize", Scaling, "Resize"],
   ] as const;
   return (
     <aside className="tool-rail">
-      <Hint
-        label={sidebars.leftOpen ? "Hide left panel" : "Show left panel"}
-        side="right"
-      >
-        <button
-          type="button"
-          id="editor-toggle-left"
-          aria-label={sidebars.leftOpen ? "Hide left panel" : "Show left panel"}
-          aria-expanded={sidebars.leftOpen}
-          aria-controls="editor-left-panel"
-          onClick={() => sidebars.toggle("left")}
-        >
-          {sidebars.leftOpen ? (
-            <PanelLeftClose aria-hidden="true" />
-          ) : (
-            <PanelLeftOpen aria-hidden="true" />
-          )}
-          <span>{sidebars.leftOpen ? "Collapse" : "Expand"}</span>
-        </button>
+      <Hint label="Home" side="right">
+        <Link to="/" className="spec-mark editor-top-home" aria-label="Home">
+          <AppIcon className="h-full w-full" />
+        </Link>
       </Hint>
-      {items.map(([id, Icon, label, hint]) => (
-        <Hint key={id} label={hint} side="right">
+      {items.map(([id, Icon, label]) => {
+        const active = sidebars.leftOpen && s.panel === id;
+        return (
           <button
+            key={id}
             type="button"
-            className={s.panel === id ? "active" : ""}
-            aria-pressed={s.panel === id}
+            id={`editor-rail-${id}`}
+            className={active ? "active" : ""}
+            aria-pressed={active}
             data-tour={`rail-${id}`}
             onClick={() => onSelectPanel(id)}
           >
             <Icon />
             <span>{label}</span>
           </button>
-        </Hint>
-      ))}
-      <Hint label="Quick tour of the editor" side="right">
-        <button
-          type="button"
-          className="tool-rail-tour"
-          aria-label="Quick tour"
-          onClick={() => {
-            s.setPanel("assets");
-            onTour();
-            setGuideOpen(true);
-          }}
-        >
-          <Compass />
-          <span>Tour</span>
-        </button>
-      </Hint>
-      <Hint label="Connect your AI over MCP (coming soon)" side="right">
-        <button
-          type="button"
-          className="tool-rail-connect"
-          data-tour="connect"
-          onClick={() => setMcpOpen(true)}
-        >
-          <Plug />
-          <span>Connect</span>
-        </button>
-      </Hint>
+        );
+      })}
+      <button
+        type="button"
+        className="tool-rail-tour"
+        aria-label="Quick tour"
+        onClick={() => {
+          s.setPanel("assets");
+          onTour();
+          setGuideOpen(true);
+        }}
+      >
+        <Compass />
+        <span>Tour</span>
+      </button>
+      <button
+        type="button"
+        className="tool-rail-connect"
+        data-tour="connect"
+        onClick={() => setMcpOpen(true)}
+      >
+        <Plug />
+        <span>Connect</span>
+      </button>
       {mcpOpen && <McpComingSoonSplash close={() => setMcpOpen(false)} />}
       {guideOpen && (
         <QuickGuide page="editor" close={() => setGuideOpen(false)} />
@@ -703,7 +730,7 @@ function ToolRail({
   );
 }
 
-function ContextPanel() {
+function ContextPanel({ onCollapse }: { onCollapse: () => void }) {
   const panel = useEditorStore((s) => s.panel);
   return (
     <aside
@@ -712,21 +739,23 @@ function ContextPanel() {
       id="editor-left-panel"
       aria-label="Editor panel"
     >
-      {panel === "assets" ? (
-        <AssetsPanel />
-      ) : panel === "style" ? (
-        <StylePanel />
-      ) : panel === "layers" ? (
-        <LayersPanel />
-      ) : panel === "templates" ? (
-        <TemplatesPanel />
-      ) : panel === "brandKit" ? (
-        <BrandKitPanel />
-      ) : panel === "resize" ? (
-        <ResizePanel />
-      ) : (
-        <AssetsPanel />
-      )}
+      <PanelCollapseProvider onCollapse={onCollapse}>
+        {panel === "assets" ? (
+          <AssetsPanel />
+        ) : panel === "style" ? (
+          <StylePanel />
+        ) : panel === "layers" ? (
+          <LayersPanel />
+        ) : panel === "templates" ? (
+          <TemplatesPanel />
+        ) : panel === "brandKit" ? (
+          <BrandKitPanel />
+        ) : panel === "resize" ? (
+          <ResizePanel />
+        ) : (
+          <AssetsPanel />
+        )}
+      </PanelCollapseProvider>
     </aside>
   );
 }
@@ -790,10 +819,10 @@ function LayersPanel() {
         className={`layer-row ${nested ? "layer-row-child" : ""} ${s.selectedIds.includes(element.id) ? "active" : ""}`}
         onClick={(event) => s.select(element.id, event.shiftKey)}
       >
-        <span className="truncate" title={element.name}>
+        <span className="truncate">
           {element.name}
         </span>
-        <Hint label={element.locked ? "Unlock layer" : "Lock layer"}>
+        <Hint label={element.locked ? "Unlock" : "Lock"}>
           <button
             type="button"
             aria-label={
@@ -807,7 +836,7 @@ function LayersPanel() {
             {element.locked ? <Lock /> : <Unlock />}
           </button>
         </Hint>
-        <Hint label="Move layer up">
+        <Hint label="Move up">
           <button
             type="button"
             aria-label={`Move ${element.name} up`}
@@ -820,7 +849,7 @@ function LayersPanel() {
             <MoveUp />
           </button>
         </Hint>
-        <Hint label="Move layer down">
+        <Hint label="Move down">
           <button
             type="button"
             aria-label={`Move ${element.name} down`}
@@ -833,7 +862,7 @@ function LayersPanel() {
             <MoveDown />
           </button>
         </Hint>
-        <Hint label="Delete layer">
+        <Hint label="Delete">
           <button
             type="button"
             className="layer-delete"
@@ -876,7 +905,7 @@ function LayersPanel() {
                 className={`layer-group-row ${isSelected ? "active" : ""}`}
                 onClick={(event) => s.selectMany(memberIds, event.shiftKey)}
               >
-                <Hint label={isCollapsed ? "Expand group" : "Collapse group"}>
+                <Hint label={isCollapsed ? "Expand" : "Collapse"}>
                   <button
                     type="button"
                     className="layer-group-toggle"
@@ -896,13 +925,13 @@ function LayersPanel() {
                   </button>
                 </Hint>
                 <Folder className="layer-group-folder" aria-hidden="true" />
-                <span className="truncate" title={groupLabel}>
+                <span className="truncate">
                   {groupLabel}
                 </span>
                 <span className="layer-group-count">
                   {item.elements.length}
                 </span>
-                <Hint label="Delete group and its layers">
+                <Hint label="Delete group">
                   <button
                     type="button"
                     className="layer-delete"
@@ -1129,21 +1158,23 @@ function DockNumberField({
   disabled?: boolean;
 }) {
   return (
-    <label className="style-dock-field" title={label}>
-      <span className="style-dock-field-prefix" aria-hidden="true">
-        {prefix}
-      </span>
-      <input
-        type="number"
-        aria-label={label}
-        min={min}
-        max={max}
-        value={value}
-        disabled={disabled}
-        onChange={(event) => onChange(Number(event.target.value))}
-      />
-      {suffix && <em className="style-dock-field-suffix">{suffix}</em>}
-    </label>
+    <Hint label={label}>
+      <label className="style-dock-field">
+        <span className="style-dock-field-prefix" aria-hidden="true">
+          {prefix}
+        </span>
+        <input
+          type="number"
+          aria-label={label}
+          min={min}
+          max={max}
+          value={value}
+          disabled={disabled}
+          onChange={(event) => onChange(Number(event.target.value))}
+        />
+        {suffix && <em className="style-dock-field-suffix">{suffix}</em>}
+      </label>
+    </Hint>
   );
 }
 
@@ -1181,9 +1212,6 @@ function StylePanel() {
   const activeBrandKit = s.brandKits.find(
     (kit) => kit.id === d.creativeDirection.brandKitId,
   );
-  const kitOverrideHint = activeBrandKit
-    ? "Overrides the design kit; editing the kit resets it"
-    : undefined;
   const selectedElements = d.elements.filter((element) =>
     s.selectedIds.includes(element.id),
   );
@@ -1603,7 +1631,7 @@ function StylePanel() {
                 <h3 className="style-dock-section-title">Text</h3>
                 <label className="style-dock-control style-dock-font">
                   {activeBrandKit?.typography ? (
-                    <Hint label="Font is set by this poster's design kit">
+                    <Hint label="Set by design kit">
                       <div className="font-trigger style-dock-font-locked">
                         <Lock aria-hidden="true" />
                         <b>
@@ -1645,53 +1673,46 @@ function StylePanel() {
                       )
                     }
                   />
-                  <label className="style-dock-control style-dock-weight">
-                    <select
-                      aria-label="Font weight"
-                      title="Font weight"
-                      value={firstTextElement.style.fontWeight ?? 400}
-                      onChange={(event) =>
-                        updateSelectedStyles(
-                          { fontWeight: Number(event.target.value) },
-                          true,
-                        )
-                      }
-                    >
-                      {[100, 200, 300, 400, 500, 600, 700, 800, 900].map(
-                        (weight) => (
-                          <option key={weight} value={weight}>
-                            {weight}
-                          </option>
-                        ),
-                      )}
-                    </select>
-                  </label>
+                  <Hint label="Font weight">
+                    <label className="style-dock-control style-dock-weight">
+                      <select
+                        aria-label="Font weight"
+                        value={firstTextElement.style.fontWeight ?? 400}
+                        onChange={(event) =>
+                          updateSelectedStyles(
+                            { fontWeight: Number(event.target.value) },
+                            true,
+                          )
+                        }
+                      >
+                        {[100, 200, 300, 400, 500, 600, 700, 800, 900].map(
+                          (weight) => (
+                            <option key={weight} value={weight}>
+                              {weight}
+                            </option>
+                          ),
+                        )}
+                      </select>
+                    </label>
+                  </Hint>
                 </div>
-                <Hint
-                  label={
-                    activeBrandKit
-                      ? "Overrides the design kit for this text; editing the kit resets it"
-                      : undefined
-                  }
-                >
-                  <label className="style-dock-row">
-                    <span>Text color</span>
-                    <input
-                      type="color"
-                      className="style-dock-swatch"
-                      value={colorInputValue(
-                        firstTextElement.style.color,
-                        "#18181b",
-                      )}
-                      onChange={(event) =>
-                        updateSelectedStyles(
-                          { color: event.target.value },
-                          true,
-                        )
-                      }
-                    />
-                  </label>
-                </Hint>
+                <label className="style-dock-row">
+                  <span>Text color</span>
+                  <input
+                    type="color"
+                    className="style-dock-swatch"
+                    value={colorInputValue(
+                      firstTextElement.style.color,
+                      "#18181b",
+                    )}
+                    onChange={(event) =>
+                      updateSelectedStyles(
+                        { color: event.target.value },
+                        true,
+                      )
+                    }
+                  />
+                </label>
               </div>
             )}
 
@@ -1701,45 +1722,41 @@ function StylePanel() {
                 {showColorControls && firstElement && (
                   <>
                     {isTextKind(firstElement.kind) ? (
-                      <Hint label={kitOverrideHint}>
-                        <label className="style-dock-row">
-                          <span>Background</span>
-                          <input
-                            type="color"
-                            className="style-dock-swatch"
-                            value={colorInputValue(
-                              firstElement.style.background,
-                              "#ffffff",
-                            )}
-                            onChange={(event) =>
-                              updateSelectedStyles(
-                                { background: event.target.value },
-                                true,
-                              )
-                            }
-                          />
-                        </label>
-                      </Hint>
+                      <label className="style-dock-row">
+                        <span>Background</span>
+                        <input
+                          type="color"
+                          className="style-dock-swatch"
+                          value={colorInputValue(
+                            firstElement.style.background,
+                            "#ffffff",
+                          )}
+                          onChange={(event) =>
+                            updateSelectedStyles(
+                              { background: event.target.value },
+                              true,
+                            )
+                          }
+                        />
+                      </label>
                     ) : firstElement.kind === "shape" ||
                       firstElement.kind === "divider" ? (
-                      <Hint label={kitOverrideHint}>
-                        <label className="style-dock-row">
-                          <span>Element color</span>
-                          <input
-                            type="color"
-                            className="style-dock-swatch"
-                            value={colorInputValue(
-                              firstElement.style.background,
-                              "#8b5cf6",
-                            )}
-                            onChange={(event) =>
-                              updateSelectedStyles({
-                                background: event.target.value,
-                              })
-                            }
-                          />
-                        </label>
-                      </Hint>
+                      <label className="style-dock-row">
+                        <span>Element color</span>
+                        <input
+                          type="color"
+                          className="style-dock-swatch"
+                          value={colorInputValue(
+                            firstElement.style.background,
+                            "#8b5cf6",
+                          )}
+                          onChange={(event) =>
+                            updateSelectedStyles({
+                              background: event.target.value,
+                            })
+                          }
+                        />
+                      </label>
                     ) : null}
                   </>
                 )}
@@ -1787,59 +1804,8 @@ function StylePanel() {
                 </label>
                 {d.background.type === "gradient" ? (
                   <>
-                    <Hint
-                      label={
-                        activeBrandKit
-                          ? "Overrides the design kit background; editing the kit resets it"
-                          : undefined
-                      }
-                    >
-                      <label className="style-dock-row">
-                        <span>From</span>
-                        <input
-                          type="color"
-                          className="style-dock-swatch"
-                          value={d.background.value}
-                          onChange={(event) =>
-                            updateBackground({ value: event.target.value })
-                          }
-                        />
-                      </label>
-                    </Hint>
-                    <Hint
-                      label={
-                        activeBrandKit
-                          ? "Overrides the design kit background; editing the kit resets it"
-                          : undefined
-                      }
-                    >
-                      <label className="style-dock-row">
-                        <span>To</span>
-                        <input
-                          type="color"
-                          className="style-dock-swatch"
-                          value={
-                            d.background.secondaryValue ?? d.background.value
-                          }
-                          onChange={(event) =>
-                            updateBackground({
-                              secondaryValue: event.target.value,
-                            })
-                          }
-                        />
-                      </label>
-                    </Hint>
-                  </>
-                ) : (
-                  <Hint
-                    label={
-                      activeBrandKit
-                        ? "Overrides the design kit background; editing the kit resets it"
-                        : undefined
-                    }
-                  >
                     <label className="style-dock-row">
-                      <span>Color</span>
+                      <span>From</span>
                       <input
                         type="color"
                         className="style-dock-swatch"
@@ -1849,7 +1815,34 @@ function StylePanel() {
                         }
                       />
                     </label>
-                  </Hint>
+                    <label className="style-dock-row">
+                      <span>To</span>
+                      <input
+                        type="color"
+                        className="style-dock-swatch"
+                        value={
+                          d.background.secondaryValue ?? d.background.value
+                        }
+                        onChange={(event) =>
+                          updateBackground({
+                            secondaryValue: event.target.value,
+                          })
+                        }
+                      />
+                    </label>
+                  </>
+                ) : (
+                  <label className="style-dock-row">
+                    <span>Color</span>
+                    <input
+                      type="color"
+                      className="style-dock-swatch"
+                      value={d.background.value}
+                      onChange={(event) =>
+                        updateBackground({ value: event.target.value })
+                      }
+                    />
+                  </label>
                 )}
                 {d.background.type === "gradient" && (
                   <DockNumberField
@@ -1896,7 +1889,7 @@ function StylePanel() {
                         <small>Apply colors and type to this poster</small>
                       </div>
                     </div>
-                    <Hint label="Close design kit picker">
+                    <Hint label="Close">
                       <button
                         type="button"
                         aria-label="Close design kit picker"
@@ -1982,11 +1975,99 @@ function StylePanel() {
   );
 }
 
-function Workspace({ onCanvasSelect }: { onCanvasSelect: () => void }) {
+function Workspace({
+  onCanvasSelect,
+  showCopy,
+}: {
+  onCanvasSelect: () => void;
+  showCopy: boolean;
+}) {
   return (
     <CanvasWorkspace onCanvasSelect={onCanvasSelect}>
       <FloatingControls />
+      {showCopy && <CanvasCopyActions />}
     </CanvasWorkspace>
+  );
+}
+
+/** Floating copy buttons over the canvas, mirroring the prompt panel's copy
+ * actions so they stay reachable while the right panel is collapsed. They
+ * skip the panel's "before you copy" warnings and only block on the hard
+ * external-tool requirement, surfaced as a toast instead of opening a
+ * dialog. */
+function CanvasCopyActions() {
+  const [copied, setCopied] = useState<CopyKind | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!copied) return;
+    const timeout = setTimeout(() => setCopied(null), 1500);
+    return () => clearTimeout(timeout);
+  }, [copied]);
+
+  const copy = async (kind: CopyKind) => {
+    if (busy) return;
+    const { doc, brandKits } = useEditorStore.getState();
+    if (!doc) return;
+    const kit = brandKits.find((k) => k.id === doc.creativeDirection.brandKitId);
+    if (kind === "prompt") {
+      const error = validateExternalToolRequirement(doc.externalToolRequirement);
+      if (error) {
+        toast.error(error.message, {
+          description:
+            "Open the prompt panel's Prompt Editor to finish the external tool settings.",
+        });
+        return;
+      }
+    }
+    setBusy(true);
+    try {
+      await navigator.clipboard.writeText(compileCopyText(doc, kit, kind));
+      setCopied(kind);
+    } catch {
+      toast.error(
+        kind === "prompt" ? "Couldn't copy prompt" : "Couldn't copy design",
+        {
+          description: "Allow clipboard access in your browser and try again.",
+        },
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div
+      className="canvas-copy-actions"
+      data-canvas-ui
+      role="group"
+      aria-label="Copy output"
+    >
+      <button
+        type="button"
+        aria-live="polite"
+        onClick={() => copy("prompt")}
+      >
+        {copied === "prompt" ? (
+          <Check size={14} aria-hidden="true" />
+        ) : (
+          <Clipboard size={14} aria-hidden="true" />
+        )}
+        {copied === "prompt" ? "Copied" : "Copy prompt"}
+      </button>
+      <button
+        type="button"
+        aria-live="polite"
+        onClick={() => copy("design")}
+      >
+        {copied === "design" ? (
+          <Check size={14} aria-hidden="true" />
+        ) : (
+          <Clipboard size={14} aria-hidden="true" />
+        )}
+        {copied === "design" ? "Copied" : "Copy design"}
+      </button>
+    </div>
   );
 }
 
@@ -1997,7 +2078,6 @@ function FloatingControls() {
   const selectedEls = d.elements.filter((e) => s.selectedIds.includes(e.id));
   const hasGroup = selectedEls.some((e) => e.groupId);
   const units = alignUnits(selectedEls);
-  const toCanvas = units.length === 1;
   const canDistribute = units.filter((u) => !u.locked).length >= 3;
   const allLocked = selectedEls.every((element) => element.locked);
   const allVisible = selectedEls.every((element) => element.visible);
@@ -2010,38 +2090,38 @@ function FloatingControls() {
   return (
     <div className="floating-controls" data-canvas-ui>
       <Tool
-        label={`Align left${toCanvas ? " to canvas" : ""}`}
+        label="Align left"
         icon={<AlignStartVertical />}
         disabled={allLocked}
         onClick={() => s.align("left")}
       />
       <Tool
-        label={`Align center${toCanvas ? " to canvas" : ""}`}
+        label="Align center"
         icon={<AlignCenterVertical />}
         disabled={allLocked}
         onClick={() => s.align("center")}
       />
       <Tool
-        label={`Align right${toCanvas ? " to canvas" : ""}`}
+        label="Align right"
         icon={<AlignEndVertical />}
         disabled={allLocked}
         onClick={() => s.align("right")}
       />
       <Sep />
       <Tool
-        label={`Align top${toCanvas ? " to canvas" : ""}`}
+        label="Align top"
         icon={<AlignStartHorizontal />}
         disabled={allLocked}
         onClick={() => s.align("top")}
       />
       <Tool
-        label={`Align middle${toCanvas ? " to canvas" : ""}`}
+        label="Align middle"
         icon={<AlignCenterHorizontal />}
         disabled={allLocked}
         onClick={() => s.align("middle")}
       />
       <Tool
-        label={`Align bottom${toCanvas ? " to canvas" : ""}`}
+        label="Align bottom"
         icon={<AlignEndHorizontal />}
         disabled={allLocked}
         onClick={() => s.align("bottom")}
@@ -2266,42 +2346,37 @@ function ComposeList() {
   return (
     <div className="compose-list">
       <div className="compose-scroll">
-        <Hint label="Original — Restore positions from before any layout">
+        <button
+          type="button"
+          className="compose-item"
+          disabled={!s.composeOrigin}
+          onClick={s.resetCompose}
+        >
+          <ComposeThumb spec={originThumb(s.doc, s.composeOrigin)} />
+          <span className="compose-item-copy">
+            <b>Original</b>
+            <small>Restore positions from before any layout</small>
+          </span>
+        </button>
+        {COMPOSE_LAYOUTS.map((l) => (
           <button
+            key={l.id}
             type="button"
             className="compose-item"
-            disabled={!s.composeOrigin}
-            onClick={s.resetCompose}
+            onClick={() => s.compose(l.id)}
           >
-            <ComposeThumb spec={originThumb(s.doc, s.composeOrigin)} />
+            <ComposeThumb spec={COMPOSE_THUMBS[l.id]} />
             <span className="compose-item-copy">
-              <b>Original</b>
-              <small>Restore positions from before any layout</small>
+              <b>{l.label}</b>
+              <small>{l.hint}</small>
             </span>
           </button>
-        </Hint>
-        {COMPOSE_LAYOUTS.map((l) => (
-          <Hint key={l.id} label={`${l.label} — ${l.hint}`}>
-            <button
-              type="button"
-              className="compose-item"
-              onClick={() => s.compose(l.id)}
-            >
-              <ComposeThumb spec={COMPOSE_THUMBS[l.id]} />
-              <span className="compose-item-copy">
-                <b>{l.label}</b>
-                <small>{l.hint}</small>
-              </span>
-            </button>
-          </Hint>
         ))}
       </div>
-      <Hint label="Tidy up spacing">
-        <button type="button" className="compose-tidy" onClick={s.tidy}>
-          <AlignVerticalSpaceAround aria-hidden="true" />
-          Tidy up spacing
-        </button>
-      </Hint>
+      <button type="button" className="compose-tidy" onClick={s.tidy}>
+        <AlignVerticalSpaceAround aria-hidden="true" />
+        Tidy up spacing
+      </button>
     </div>
   );
 }
@@ -2309,9 +2384,13 @@ function ComposeList() {
 function RightPanel({
   sidebars,
   exportOpen,
+  chatOpen,
+  setChatOpen,
 }: {
   sidebars: SidebarLayout;
   exportOpen: () => void;
+  chatOpen: boolean;
+  setChatOpen: Dispatch<SetStateAction<boolean>>;
 }) {
   return (
     <aside
@@ -2319,7 +2398,12 @@ function RightPanel({
       id="editor-right-panel"
       aria-label="Prompt panel"
     >
-      <PromptPanel sidebars={sidebars} exportOpen={exportOpen} />
+      <PromptPanel
+        sidebars={sidebars}
+        exportOpen={exportOpen}
+        chatOpen={chatOpen}
+        setChatOpen={setChatOpen}
+      />
     </aside>
   );
 }
@@ -2396,9 +2480,13 @@ const clearHandEdit = (x: SpecDocument, mode: PromptMode) => {
 function PromptPanel({
   sidebars,
   exportOpen,
+  chatOpen,
+  setChatOpen,
 }: {
   sidebars: SidebarLayout;
   exportOpen: () => void;
+  chatOpen: boolean;
+  setChatOpen: Dispatch<SetStateAction<boolean>>;
 }) {
   const s = useEditorStore();
   const d = s.doc;
@@ -2408,7 +2496,6 @@ function PromptPanel({
   // Sections with design values open visual controls; this is set when the
   // raw text editor is open instead.
   const [textMode, setTextMode] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
   const [toolPicker, setToolPicker] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const toolButtonRef = useRef<HTMLButtonElement>(null);
@@ -2444,6 +2531,13 @@ function PromptPanel({
     s.select(id);
     openStyleEditor(sidebars);
   };
+  // The top-bar launcher can switch modes while the panel is hidden; don't
+  // carry an open text editor across modes.
+  const promptMode = d?.promptMode;
+  useEffect(() => {
+    setEditing(false);
+    setEditingPart(null);
+  }, [promptMode]);
   if (!d) return null;
   const kit = s.brandKits.find((k) => k.id === d.creativeDirection.brandKitId);
   const isSkill = d.promptMode === "design_skill";
@@ -2508,9 +2602,7 @@ function PromptPanel({
   );
   const styleSelect = (
     <label className="prompt-style-row">
-      <Hint label="Used by the Prompt Editor output">
-        <span>Image style</span>
-      </Hint>
+      <span>Image style</span>
       <select
         ref={styleSelectRef}
         className="se-input"
@@ -2569,10 +2661,11 @@ function PromptPanel({
     const currentKit = useEditorStore
       .getState()
       .brandKits.find((k) => k.id === current.creativeDirection.brandKitId);
-    const text =
-      current.promptMode === "design_skill"
-        ? (current.designEdit ?? compileDesignSkill(current, currentKit))
-        : compilePromptEditorOutput(current);
+    const text = compileCopyText(
+      current,
+      currentKit,
+      current.promptMode === "design_skill" ? "design" : "prompt",
+    );
     await navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
@@ -2637,7 +2730,7 @@ function PromptPanel({
     const actions = (
       <span className="prompt-tag-actions">
         {!isSkill && line.key === "dominant" && targetId && (
-          <Hint label={`Edit ${m.tag} style`}>
+          <Hint label="Edit style">
             <button
               type="button"
               className="prompt-part-edit"
@@ -2648,7 +2741,7 @@ function PromptPanel({
             </button>
           </Hint>
         )}
-        <Hint label={isEditing ? "Done" : `Edit ${m.tag}`}>
+        <Hint label={isEditing ? "Done" : "Edit"}>
           <button
             type="button"
             className="prompt-part-edit"
@@ -2670,7 +2763,7 @@ function PromptPanel({
             {isEditing ? <Check size={11} /> : <Pencil size={11} />}
           </button>
         </Hint>
-        <Hint label={`Delete ${m.tag}`}>
+        <Hint label="Delete">
           <button
             type="button"
             className="prompt-part-delete"
@@ -2789,7 +2882,7 @@ function PromptPanel({
       {/* Pinned bar: collapse, mode tabs and Chat, then Export at the far end. */}
       <div className="right-panel-head">
         {sidebars.rightOpen && (
-          <Hint label="Hide prompt panel">
+          <Hint label="Hide panel">
             <button
               type="button"
               id={RIGHT_COLLAPSE_ID}
@@ -2812,44 +2905,33 @@ function PromptPanel({
           <div className="contents" role="tablist" aria-label="Prompt mode">
             {(
               [
-                [
-                  "design_skill",
-                  "design.md",
-                  "Reusable DESIGN.md with the design kit and layout",
-                  Palette,
-                ],
-                [
-                  "visual_prompt",
-                  "prompt.md",
-                  "Natural-language prompt for image models",
-                  FileText,
-                ],
+                ["design_skill", "design.md", Palette],
+                ["visual_prompt", "prompt.md", FileText],
               ] as const
-            ).map(([id, label, hint, Icon]) => (
-              <Hint key={id} label={hint}>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={d.promptMode === id}
-                  className={d.promptMode === id ? "active" : ""}
-                  data-tour={
-                    id === "design_skill" ? "design-editor" : "prompt-editor"
-                  }
-                  onClick={() => {
-                    if (editing) finishEditing();
-                    setEditingPart(null);
-                    s.mutate((x) => {
-                      x.promptMode = id;
-                    }, false);
-                  }}
-                >
-                  <Icon aria-hidden="true" />
-                  <span className="segmented-label">{label}</span>
-                </button>
-              </Hint>
+            ).map(([id, label, Icon]) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={d.promptMode === id}
+                className={d.promptMode === id ? "active" : ""}
+                data-tour={
+                  id === "design_skill" ? "design-editor" : "prompt-editor"
+                }
+                onClick={() => {
+                  if (editing) finishEditing();
+                  setEditingPart(null);
+                  s.mutate((x) => {
+                    x.promptMode = id;
+                  }, false);
+                }}
+              >
+                <Icon aria-hidden="true" />
+                <span className="segmented-label">{label}</span>
+              </button>
             ))}
           </div>
-          <Hint label="Edit the composition by chatting (coming soon)">
+          <Hint label="Chat (coming soon)">
             <button
               type="button"
               className="segmented-chat"
@@ -2862,7 +2944,7 @@ function PromptPanel({
             </button>
           </Hint>
         </div>
-        <Hint label="Export as DESIGN.md, JSON or PNG">
+        <Hint label="Export">
           <button
             type="button"
             className="right-panel-export"
@@ -2959,7 +3041,7 @@ function PromptPanel({
                     </span>
                   </span>
                   <span className="prompt-tag-actions">
-                    <Hint label="Change required tool">
+                    <Hint label="Change tool">
                       <button
                         type="button"
                         className="prompt-part-edit"
@@ -2969,7 +3051,7 @@ function PromptPanel({
                         <Pencil size={11} />
                       </button>
                     </Hint>
-                    <Hint label={`Remove ${toolSettings.toolName} from prompt`}>
+                    <Hint label="Remove tool">
                       <button
                         type="button"
                         className="prompt-part-delete"
@@ -3033,10 +3115,7 @@ function PromptPanel({
           data-tour="copy-actions"
         >
           <Popover open={optionsOpen} onOpenChange={setOptionsOpen}>
-            <Hint
-              label={`Choose which sections appear in the ${noun}`}
-              side="top"
-            >
+            <Hint label="Include in output" side="top">
               <PopoverTrigger asChild>
                 <button
                   type="button"
@@ -3074,39 +3153,21 @@ function PromptPanel({
             </PopoverContent>
           </Popover>
           {toolButton}
-          <Hint
-            label={
-              editing
-                ? `Finish editing the ${noun}`
-                : `Edit the generated ${noun} by hand`
-            }
-            side="top"
+          <Button
+            variant="outline"
+            className="prompt-edit-button"
+            onClick={() => {
+              if (editing) finishEditing();
+              else setEditing(true);
+            }}
           >
-            <Button
-              variant="outline"
-              className="prompt-edit-button"
-              onClick={() => {
-                if (editing) finishEditing();
-                else setEditing(true);
-              }}
-            >
-              {editing ? <Check size={12} /> : <Pencil size={12} />}
-              {editing ? "Done" : `Edit ${noun}`}
-            </Button>
-          </Hint>
-          <Hint
-            label={
-              isSkill
-                ? "Copy the DESIGN.md to your clipboard"
-                : "Copy the prompt to your clipboard"
-            }
-            side="top"
-          >
-            <Button className="prompt-copy-button" onClick={requestCopy}>
-              <Clipboard size={12} />
-              {copied ? "Copied" : `Copy ${noun}`}
-            </Button>
-          </Hint>
+            {editing ? <Check size={12} /> : <Pencil size={12} />}
+            {editing ? "Done" : `Edit ${noun}`}
+          </Button>
+          <Button className="prompt-copy-button" onClick={requestCopy}>
+            <Clipboard size={12} />
+            {copied ? "Copied" : `Copy ${noun}`}
+          </Button>
         </div>
         {copyWarnings && (
           <div
@@ -3166,7 +3227,7 @@ function Preview({ close }: { close: () => void }) {
   );
   return (
     <div className="preview-overlay">
-      <Hint label="Close preview" side="left">
+      <Hint label="Close" side="left">
         <Button
           aria-label="Close preview"
           size="icon"
