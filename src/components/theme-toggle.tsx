@@ -13,7 +13,7 @@ export function ThemeToggle({
   const label = isDark ? "Switch to light theme" : "Switch to dark theme";
 
   return (
-    <Hint label={label}>
+    <Hint label={isDark ? "Light mode" : "Dark mode"}>
       <Button
         type="button"
         size={size}

@@ -108,10 +108,7 @@ export function ToolAddButton({
   const enabled = settings.enabled;
   const name = settings.toolName.trim();
   return (
-    <Hint
-      label={enabled ? `Change required tool: ${name}` : "Add a required tool"}
-      side="top"
-    >
+    <Hint label={enabled ? "Change tool" : "Add tool"} side="top">
       <button
         ref={buttonRef}
         type="button"

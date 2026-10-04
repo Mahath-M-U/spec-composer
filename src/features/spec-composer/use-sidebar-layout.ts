@@ -31,11 +31,11 @@ export function focusSidebarControl(id: string): void {
 /** Hides/shows the left (`ContextPanel`) and right (`RightPanel`) sidebars in
  * `Editor`. Desktop (inline) and overlay (drawer) visibility are tracked
  * separately so switching breakpoints doesn't clobber the other mode's
- * state. */
+ * state. Both sidebars start collapsed on load. */
 export function useSidebarLayout() {
   const [overlay, setOverlay] = useState(false);
   const [state, setState] = useState<SidebarState>({
-    desktop: { left: true, right: true },
+    desktop: { left: false, right: false },
     overlay: { left: false, right: false },
   });
 
@@ -91,10 +91,16 @@ export function useSidebarLayout() {
       if (event.key !== "Escape" || event.defaultPrevented) return;
       const target = event.target as HTMLElement | null;
       if (target?.closest?.(DIALOG_SELECTOR)) return;
+      const activeRailId =
+        openSide === "left"
+          ? document.querySelector<HTMLElement>(".tool-rail button.active")
+              ?.id
+          : RIGHT_REOPEN_ID;
       closeDrawers();
-      // The left toggle stays in the tool rail; the right toggle becomes a
-      // floating button over the workspace once its drawer closes.
-      focusSidebarControl(`editor-toggle-${openSide}`);
+      // The left rail button that opened the panel regains focus; the right
+      // toggle becomes a floating button over the workspace once its
+      // drawer closes.
+      if (activeRailId) focusSidebarControl(activeRailId);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);

@@ -168,6 +168,12 @@
 
   body {
     background-color: var(--color-background);
+    background-image: radial-gradient(
+      circle,
+      color-mix(in srgb, var(--color-foreground) 12%, transparent) 1px,
+      transparent 1px
+    );
+    background-size: 22px 22px;
     color: var(--color-foreground);
   }
 }
@@ -557,11 +563,6 @@ button:disabled {
 }
 .prompt-gallery-filters input::placeholder {
   color: #aaa4a6;
-}
-.prompt-gallery-filters input:focus-visible,
-.prompt-gallery-filters select:focus-visible {
-  outline: 2px solid #f5f3f3;
-  outline-offset: 2px;
 }
 .prompt-gallery-filters > p {
   margin-left: auto;
@@ -1202,10 +1203,6 @@ button:disabled {
 :root:not(.dark) .prompt-gallery-filters > p,
 :root:not(.dark) .prompt-gallery-empty {
   color: #746965;
-}
-:root:not(.dark) .prompt-gallery-filters input:focus-visible,
-:root:not(.dark) .prompt-gallery-filters select:focus-visible {
-  outline-color: #5b3232;
 }
 :root:not(.dark) .prompt-gallery-empty {
   border-color: #d7c6bd;
@@ -1863,8 +1860,6 @@ button:disabled {
 }
 .discovery-search:focus-within {
   border-color: var(--color-ring);
-  outline: 2px solid var(--color-ring);
-  outline-offset: 2px;
 }
 .discovery-search input {
   min-width: 0;
@@ -3597,15 +3592,17 @@ button:disabled {
   text-align: center;
 }
 .editor-shell {
-  --rail-width: 58px;
+  --shell-gap: 12px;
+  --rail-width: 80px;
   display: grid;
   height: 100vh;
   min-width: 1100px;
+  padding: var(--shell-gap);
   grid-template-columns:
     var(--rail-width) var(--left-track, var(--left-panel-width, 280px))
-    var(--left-handle, 6px) minmax(0, 1fr) var(--right-handle, 6px)
+    var(--left-handle, 12px) minmax(0, 1fr) var(--right-handle, 12px)
     var(--right-track, var(--right-panel-width, 360px));
-  grid-template-rows: 52px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   overflow: hidden;
   background: var(--color-editor);
   color: var(--color-editor-foreground);
@@ -3615,30 +3612,30 @@ button:disabled {
   --skeleton-base: var(--color-editor-hover);
   display: grid;
   min-height: 100vh;
-  grid-template-columns: 58px 280px 6px minmax(0, 1fr) 6px 360px;
-  grid-template-rows: 52px minmax(0, 1fr);
+  padding: 12px;
+  grid-template-columns: 80px 280px 12px minmax(0, 1fr) 12px 360px;
+  grid-template-rows: minmax(0, 1fr);
   background: var(--color-editor);
 }
 .editor-skeleton-block {
   position: relative;
   overflow: hidden;
-  border-radius: 0.4rem;
+  border-radius: var(--editor-radius, 20px);
 }
 .editor-skeleton-top {
-  grid-column: 1 / -1;
-  border-radius: 0;
+  display: none;
 }
 .editor-skeleton-rail {
   grid-column: 1;
-  grid-row: 2;
+  grid-row: 1;
 }
 .editor-skeleton-left {
   grid-column: 2;
-  grid-row: 2;
+  grid-row: 1;
 }
 .editor-skeleton-canvas {
   grid-column: 4;
-  grid-row: 2;
+  grid-row: 1;
   display: grid;
   place-items: center;
   padding: 2rem;
@@ -3650,14 +3647,13 @@ button:disabled {
 }
 .editor-skeleton-right {
   grid-column: 6;
-  grid-row: 2;
+  grid-row: 1;
 }
 @media (max-width: 800px) {
   .editor-skeleton {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr);
   }
-  .editor-skeleton-top,
   .editor-skeleton-rail,
   .editor-skeleton-left,
   .editor-skeleton-right {
@@ -3670,17 +3666,16 @@ button:disabled {
   }
 }
 .editor-top {
-  grid-column: 1/-1;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
+  position: relative;
+  z-index: 30;
+  grid-row: 1;
+  grid-column: 4;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 0.5rem;
-  border-bottom: 1px solid var(--color-editor-border);
-  background: var(--color-editor-surface);
-  padding: 0 0.65rem;
-}
-.editor-top > div:last-child {
-  justify-content: flex-end;
+  padding: 12px;
+  pointer-events: none;
 }
 .spec-mark {
   display: block;
@@ -3743,7 +3738,7 @@ button:disabled {
   width: 15px;
 }
 .tool-rail {
-  grid-row: 2;
+  grid-row: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -3809,7 +3804,7 @@ button:disabled {
 }
 .context-panel,
 .right-panel {
-  grid-row: 2;
+  grid-row: 1;
   min-height: 0;
   overflow-y: auto;
   background: var(--color-editor-surface);
@@ -3876,7 +3871,7 @@ button:disabled {
 .panel-resize-handle {
   position: relative;
   z-index: 3;
-  grid-row: 2;
+  grid-row: 1;
   min-height: 0;
   cursor: col-resize;
   touch-action: none;
@@ -3910,9 +3905,6 @@ button:disabled {
   grid-column: 3;
 }
 .editor-shell > .workspace {
-  grid-column: 4;
-}
-.editor-shell > .right-panel-reopen {
   grid-column: 4;
 }
 .editor-shell > .panel-resize-handle--right {
@@ -3984,6 +3976,21 @@ button:disabled {
   font-size: 10px;
   font-weight: 650;
   white-space: nowrap;
+}
+.panel-header-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.5rem;
+}
+.panel-header .right-panel-toggle {
+  margin-left: 0;
+  margin-right: -7px;
+  color: var(--color-editor-muted);
+}
+.panel-header .right-panel-toggle svg {
+  width: 14px;
+  height: 14px;
 }
 .panel-input {
   border: 1px solid var(--color-editor-border);
@@ -5582,7 +5589,7 @@ button:disabled {
 }
 .workspace {
   position: relative;
-  grid-row: 2;
+  grid-row: 1;
   overflow: hidden;
   background-color: var(--color-editor);
   touch-action: none;
@@ -8791,7 +8798,7 @@ ol.md-list {
 }
 @media (max-width: 1250px) {
   .editor-shell {
-    --rail-width: 54px;
+    --rail-width: 76px;
   }
 }
 @media (max-width: 1099px) {
@@ -8801,10 +8808,10 @@ ol.md-list {
     position: relative;
     grid-template-columns: var(--rail-width) minmax(0, 1fr);
   }
-  .editor-shell > .workspace {
+  .editor-top {
     grid-column: 2;
   }
-  .editor-shell > .right-panel-reopen {
+  .editor-shell > .workspace {
     grid-column: 2;
   }
   .editor-shell > .panel-resize-handle {
@@ -8812,26 +8819,30 @@ ol.md-list {
   }
   .editor-shell > :is(.context-panel, .right-panel) {
     position: absolute;
-    top: 52px;
-    bottom: 0;
+    top: var(--shell-gap);
+    bottom: var(--shell-gap);
     z-index: 50;
+    border-radius: var(--editor-radius);
     box-shadow: 0 16px 48px rgb(0 0 0 / 0.28);
   }
   .editor-shell > .context-panel {
-    left: var(--rail-width);
+    left: calc(var(--shell-gap) + var(--rail-width));
     width: min(
       var(--left-panel-width, 320px),
-      calc(100% - var(--rail-width) - 24px)
+      calc(100% - var(--rail-width) - var(--shell-gap) * 2 - 12px)
     );
   }
   .editor-shell > .right-panel {
-    right: 0;
-    width: min(var(--right-panel-width, 460px), calc(100% - 24px));
+    right: var(--shell-gap);
+    width: min(
+      var(--right-panel-width, 460px),
+      calc(100% - var(--shell-gap) * 2)
+    );
   }
   .editor-drawer-backdrop {
     display: block;
     position: absolute;
-    inset: 52px 0 0 var(--rail-width);
+    inset: 0;
     z-index: 45;
     background: rgb(0 0 0 / 0.32);
   }
@@ -8858,24 +8869,25 @@ ol.md-list {
 }
 @media (max-width: 767px) {
   .editor-shell {
-    --rail-width: 48px;
+    --shell-gap: 8px;
+    --rail-width: 56px;
   }
   .editor-shell .tool-rail button {
     height: 44px;
     width: 44px;
   }
   .editor-shell > .context-panel {
-    width: calc(100% - var(--rail-width));
+    width: calc(100% - var(--rail-width) - var(--shell-gap) * 2);
   }
   .editor-shell > .right-panel {
-    left: 0;
-    width: 100%;
+    left: var(--shell-gap);
+    width: calc(100% - var(--shell-gap) * 2);
   }
   .editor-top-home {
     display: none;
   }
   .editor-top {
-    padding: 0 0.4rem;
+    padding: 8px;
     gap: 0.25rem;
   }
   .project-name-autosize {
@@ -8885,28 +8897,17 @@ ol.md-list {
 
 /* Tooltips (see Hint in components/ui/tooltip.tsx) */
 .editor-hint {
-  display: flex;
-  max-width: 260px;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid var(--color-editor-border);
-  border-radius: 0.35rem;
-  background: var(--color-editor-foreground);
-  padding: 5px 8px;
-  color: var(--color-editor-surface);
+  max-width: 200px;
+  border: 1px solid color-mix(in srgb, var(--foreground) 16%, transparent);
+  border-radius: 4px;
+  background: var(--background);
+  color: var(--foreground);
+  padding: 2px 6px;
   font-size: 11px;
   font-weight: 500;
-  line-height: 1.35;
+  line-height: 1.3;
+  box-shadow: none;
   pointer-events: none;
-}
-.editor-hint kbd {
-  border-radius: 0.25rem;
-  background: color-mix(in srgb, var(--color-editor-surface) 18%, transparent);
-  padding: 1px 5px;
-  font-family: inherit;
-  font-size: 10px;
-  font-weight: 600;
-  opacity: 0.8;
 }
 
 /* Editor chrome has its own hierarchy; document and brand-kit colors stay authored. */
@@ -9038,28 +9039,6 @@ ol.md-list {
   color: var(--color-editor-muted);
   font-size: 11px;
   text-align: center;
-}
-
-.editor-shell :is(.context-panel, .right-panel, .font-list, .brandkit-list),
-.editor-shell :is(.brandkit-list-panel, .brandkit-card-content) {
-  scrollbar-color: var(--color-editor-border) transparent;
-}
-
-.editor-shell .template-panel-grid::-webkit-scrollbar-thumb,
-.editor-shell .brandkit-card-content::-webkit-scrollbar-thumb {
-  background: var(--color-editor-border);
-  background-clip: padding-box;
-}
-
-.editor-shell
-  :is(
-    .context-panel,
-    .right-panel,
-    .font-list,
-    .brandkit-list
-  )::-webkit-scrollbar-thumb {
-  background: var(--color-editor-border);
-  background-clip: padding-box;
 }
 
 .editor-shell .workspace {
@@ -11658,4 +11637,957 @@ button.de-subrow-tag:focus-visible {
 }
 .resize-panel > .resize-action-bar {
   margin-top: auto;
+}
+
+/* Editor floating shell */
+.editor-shell {
+  --editor-glass: color-mix(
+    in oklab,
+    var(--color-editor-surface) 80%,
+    transparent
+  );
+  --editor-glass-border: color-mix(
+    in oklab,
+    var(--color-editor-foreground) 10%,
+    transparent
+  );
+  --editor-accent: var(--color-primary);
+  --editor-accent-ink: var(--editor-action);
+  --editor-accent-soft: color-mix(
+    in oklab,
+    var(--color-primary) 16%,
+    transparent
+  );
+  --editor-radius: 20px;
+  --editor-shadow: 0 20px 48px -16px
+    color-mix(in oklab, var(--color-editor-foreground) 30%, transparent);
+  /* Approved: the focus ring follows the app accent instead of a neutral tone. */
+  --editor-focus: var(--editor-action);
+}
+
+.dark .editor-shell {
+  --editor-shadow: 0 24px 64px -16px color-mix(in oklab, black 70%, transparent);
+}
+
+/* Sidebar accents follow the Copy prompt button (--primary). */
+.editor-shell :is(.tool-rail, .context-panel, .right-panel) {
+  --editor-action: var(--color-primary);
+  --editor-action-foreground: var(--color-primary-foreground);
+  --editor-accent-ink: var(--color-primary);
+  --field-ring: var(--color-primary);
+}
+
+.editor-chip,
+.zoom-controls,
+.floating-controls,
+.tool-rail {
+  border: 1px solid var(--editor-glass-border);
+  background: var(--editor-glass);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: var(--editor-shadow);
+}
+
+.editor-chip {
+  pointer-events: auto;
+  border-radius: 999px;
+  padding: 4px 6px;
+}
+
+.zoom-controls,
+.floating-controls {
+  border-radius: 999px;
+}
+
+.tool-rail {
+  border-radius: var(--editor-radius);
+}
+
+/* Rail: icon-only buttons, vertically centred nav between the pinned logo
+ * and the pinned tour/connect footer. */
+.editor-shell .tool-rail {
+  width: calc(var(--rail-width) - var(--shell-gap));
+  padding: 10px 0;
+  border-right: 0;
+}
+
+.editor-shell .tool-rail button {
+  height: 40px;
+  width: 40px;
+  border-radius: 12px;
+}
+
+/* Labels stay in the a11y tree and in tooltips; visually hidden via a clip
+ * pattern rather than display:none so they're still announced. */
+.editor-shell .tool-rail span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.editor-shell .tool-rail button.active {
+  background: var(--editor-accent-soft);
+  color: var(--editor-accent-ink);
+}
+
+.editor-shell .tool-rail button.active::before {
+  content: none;
+}
+
+.editor-shell .tool-rail [data-tour="rail-assets"] {
+  margin-top: auto;
+}
+
+.zoom-controls {
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  padding: 5px;
+}
+
+.floating-controls {
+  top: 64px;
+}
+
+@container (max-width: 560px) {
+  .editor-shell .floating-controls {
+    top: 64px;
+  }
+}
+
+.zoom-controls .tool-button.active,
+.floating-controls .tool-button.active {
+  background: var(--editor-accent-soft);
+  color: var(--editor-accent-ink);
+}
+
+.editor-shell .workspace {
+  background: transparent;
+  border-radius: var(--editor-radius);
+}
+
+.editor-shell :is(.context-panel, .right-panel) {
+  border: 1px solid var(--editor-glass-border);
+  border-radius: var(--editor-radius);
+  background: var(--color-editor-surface);
+  box-shadow: var(--editor-shadow);
+}
+
+.editor-shell .right-panel-head {
+  height: auto;
+  border-bottom: 0;
+  padding: 10px;
+  gap: 8px;
+}
+
+.editor-shell .segmented {
+  border: 0;
+  gap: 6px;
+}
+
+.editor-shell .segmented button {
+  border-radius: 12px;
+  background: color-mix(
+    in oklab,
+    var(--color-editor-foreground) 4%,
+    transparent
+  );
+}
+
+.editor-shell .segmented .active {
+  background: var(--editor-accent-soft);
+  color: var(--editor-accent-ink);
+}
+
+.editor-shell .segmented-chat {
+  position: relative;
+}
+
+.editor-shell .segmented-chat::after {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  height: 6px;
+  width: 6px;
+  border-radius: 50%;
+  background: var(--editor-accent-ink);
+  content: "";
+}
+
+/* Panel body sits as an inset rounded card beneath the sticky head. */
+.editor-shell .right-panel > .flex-1 {
+  margin: 0 10px 10px;
+  border-radius: calc(var(--editor-radius) - 8px);
+  background: var(--color-editor);
+}
+
+.editor-shell .panel-resize-handle {
+  background: transparent;
+}
+
+.editor-shell .panel-resize-handle::after {
+  top: 50%;
+  bottom: auto;
+  height: 40px;
+  inset-inline: 2px;
+  transform: translateY(-50%);
+  background: var(--color-editor-border);
+  transition:
+    background 0.15s ease,
+    inset 0.15s ease,
+    top 0.15s ease,
+    height 0.15s ease,
+    transform 0.15s ease;
+}
+
+.editor-shell .panel-resize-handle:hover::after,
+.editor-shell .panel-resize-handle:focus-visible::after {
+  top: 0;
+  bottom: 0;
+  height: auto;
+  transform: none;
+  inset-inline: 1px;
+  background: var(--editor-accent);
+}
+
+.editor-shell .right-panel-reopen {
+  position: static;
+  z-index: auto;
+  grid-row: auto;
+  justify-self: auto;
+  align-self: auto;
+  margin: 0;
+  height: 30px;
+  width: 30px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--editor-accent-soft);
+  color: var(--editor-accent-ink);
+  box-shadow: none;
+}
+
+.editor-shell .right-panel-reopen:hover {
+  background: color-mix(
+    in oklab,
+    var(--editor-accent-soft),
+    var(--editor-accent-ink) 12%
+  );
+  color: var(--editor-accent-ink);
+}
+
+/* Editor scrollbars */
+.editor-shell
+  :is(
+    .context-panel,
+    .right-panel,
+    .font-list,
+    .brandkit-list,
+    .brandkit-list-panel,
+    .brandkit-card-content,
+    .template-panel-grid,
+    .asset-row
+  ),
+.editor-shell .brandkit-panel:not(.brandkit-home-panel) .brandkit-list-panel {
+  --editor-scroll-thumb: color-mix(
+    in oklab,
+    var(--color-editor-foreground) 18%,
+    transparent
+  );
+  --editor-scroll-thumb-hover: color-mix(
+    in oklab,
+    var(--editor-action) 60%,
+    transparent
+  );
+  --editor-scroll-thumb-active: var(--editor-action);
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  .editor-shell
+    :is(
+      .context-panel,
+      .right-panel,
+      .font-list,
+      .brandkit-list,
+      .brandkit-list-panel,
+      .brandkit-card-content,
+      .template-panel-grid,
+      .asset-row
+    ),
+  .editor-shell .brandkit-panel:not(.brandkit-home-panel) .brandkit-list-panel {
+    scrollbar-width: thin;
+    scrollbar-color: var(--editor-scroll-thumb) transparent;
+  }
+
+  .editor-shell
+    :is(
+      .context-panel,
+      .right-panel,
+      .font-list,
+      .brandkit-list,
+      .brandkit-list-panel,
+      .brandkit-card-content,
+      .template-panel-grid,
+      .asset-row
+    ):hover,
+  .editor-shell
+    .brandkit-panel:not(.brandkit-home-panel)
+    .brandkit-list-panel:hover {
+    scrollbar-color: var(--editor-scroll-thumb-hover) transparent;
+  }
+}
+
+@supports selector(::-webkit-scrollbar) {
+  .editor-shell
+    :is(
+      .context-panel,
+      .right-panel,
+      .font-list,
+      .brandkit-list,
+      .brandkit-list-panel,
+      .brandkit-card-content,
+      .template-panel-grid,
+      .asset-row
+    ),
+  .editor-shell .brandkit-panel:not(.brandkit-home-panel) .brandkit-list-panel {
+    scrollbar-width: auto;
+    scrollbar-color: auto;
+  }
+
+  .editor-shell
+    :is(
+      .context-panel,
+      .right-panel,
+      .font-list,
+      .brandkit-list,
+      .brandkit-list-panel,
+      .brandkit-card-content,
+      .template-panel-grid,
+      .asset-row
+    )::-webkit-scrollbar,
+  .editor-shell
+    .brandkit-panel:not(.brandkit-home-panel)
+    .brandkit-list-panel::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+    background: transparent;
+  }
+
+  .editor-shell
+    :is(
+      .context-panel,
+      .right-panel,
+      .font-list,
+      .brandkit-list,
+      .brandkit-list-panel,
+      .brandkit-card-content,
+      .template-panel-grid,
+      .asset-row
+    )::-webkit-scrollbar-track,
+  .editor-shell
+    .brandkit-panel:not(.brandkit-home-panel)
+    .brandkit-list-panel::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .editor-shell
+    :is(
+      .context-panel,
+      .right-panel,
+      .font-list,
+      .brandkit-list,
+      .brandkit-list-panel,
+      .brandkit-card-content,
+      .template-panel-grid,
+      .asset-row
+    )::-webkit-scrollbar-track:vertical,
+  .editor-shell
+    .brandkit-panel:not(.brandkit-home-panel)
+    .brandkit-list-panel::-webkit-scrollbar-track:vertical {
+    margin-block: 12px;
+  }
+
+  .editor-shell
+    :is(
+      .context-panel,
+      .right-panel,
+      .font-list,
+      .brandkit-list,
+      .brandkit-list-panel,
+      .brandkit-card-content,
+      .template-panel-grid,
+      .asset-row
+    )::-webkit-scrollbar-thumb,
+  .editor-shell
+    .brandkit-panel:not(.brandkit-home-panel)
+    .brandkit-list-panel::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background-clip: padding-box;
+    background-color: var(--editor-scroll-thumb);
+    min-height: 32px;
+    min-width: 32px;
+  }
+
+  .editor-shell
+    :is(
+      .context-panel,
+      .right-panel,
+      .font-list,
+      .brandkit-list,
+      .brandkit-list-panel,
+      .brandkit-card-content,
+      .template-panel-grid,
+      .asset-row
+    )::-webkit-scrollbar-thumb:hover,
+  .editor-shell
+    .brandkit-panel:not(.brandkit-home-panel)
+    .brandkit-list-panel::-webkit-scrollbar-thumb:hover {
+    background-color: var(--editor-scroll-thumb-hover);
+  }
+
+  .editor-shell
+    :is(
+      .context-panel,
+      .right-panel,
+      .font-list,
+      .brandkit-list,
+      .brandkit-list-panel,
+      .brandkit-card-content,
+      .template-panel-grid,
+      .asset-row
+    )::-webkit-scrollbar-thumb:active,
+  .editor-shell
+    .brandkit-panel:not(.brandkit-home-panel)
+    .brandkit-list-panel::-webkit-scrollbar-thumb:active {
+    background-color: var(--editor-scroll-thumb-active);
+  }
+
+  .editor-shell
+    :is(
+      .context-panel,
+      .right-panel,
+      .font-list,
+      .brandkit-list,
+      .brandkit-list-panel,
+      .brandkit-card-content,
+      .template-panel-grid,
+      .asset-row
+    )::-webkit-scrollbar-corner,
+  .editor-shell
+    .brandkit-panel:not(.brandkit-home-panel)
+    .brandkit-list-panel::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+}
+
+/* Text fields: one rest/hover/focus treatment + app dot background. */
+:root {
+  --field-border-hover: color-mix(
+    in oklab,
+    var(--color-foreground) 35%,
+    var(--color-border)
+  );
+  --field-ring: var(--color-ring);
+}
+.editor-shell {
+  --field-border-hover: color-mix(
+    in oklab,
+    var(--color-editor-foreground) 30%,
+    var(--color-editor-border)
+  );
+  --field-ring: var(--editor-action);
+}
+
+/* App-level fields */
+:root
+  :is(
+    .creation-format-field select,
+    .creation-custom-size input,
+    .creation-name-field input,
+    .prompt-gallery-filters input,
+    .prompt-gallery-filters select,
+    .discovery-search,
+    .projects-search,
+    .projects-sort
+  ):hover:not(:focus, :focus-within) {
+  border-color: var(--field-border-hover);
+}
+:root
+  :is(
+    .creation-format-field select,
+    .creation-custom-size input,
+    .creation-name-field input,
+    .prompt-gallery-filters input,
+    .prompt-gallery-filters select
+  ):focus,
+:root :is(.discovery-search, .projects-search, .projects-sort):focus-within {
+  border-color: var(--field-ring);
+  outline: 2px solid transparent;
+  outline-offset: 0;
+}
+
+/* Editor fields */
+.editor-shell
+  :is(
+    .asset-search,
+    .panel-input,
+    .se-input,
+    .prompt-part-text,
+    .font-search input,
+    .brandkit-new-row input,
+    .brandkit-identity-grid > .field-label > :is(input, select),
+    .brandkit-color-main select,
+    .brandkit-gradient-angle input[type="number"],
+    .emotion-add-row input,
+    .style-dock select,
+    .style-dock
+      input:not(
+        [type="color"],
+        [type="range"],
+        [type="checkbox"],
+        [type="radio"]
+      ),
+    .style-dock .element-details-fields textarea,
+    .font-trigger
+  ):hover:not(:focus, :disabled) {
+  border-color: var(--field-border-hover);
+}
+.editor-shell
+  :is(
+    .asset-search,
+    .panel-input,
+    .se-input,
+    .prompt-part-text,
+    .font-search input,
+    .brandkit-new-row input,
+    .brandkit-identity-grid > .field-label > :is(input, select),
+    .brandkit-color-main select,
+    .brandkit-gradient-angle input[type="number"],
+    .emotion-add-row input,
+    .style-dock select,
+    .style-dock
+      input:not(
+        [type="color"],
+        [type="range"],
+        [type="checkbox"],
+        [type="radio"]
+      ),
+    .style-dock .element-details-fields textarea,
+    .font-trigger
+  ):focus {
+  border-color: var(--field-ring);
+  outline: 2px solid transparent;
+  outline-offset: 0;
+}
+
+/* Project name: borderless field inside the pill chip */
+.editor-shell .project-name-field {
+  border-radius: 999px;
+}
+.editor-shell .project-name-field:focus-within {
+  box-shadow: inset 0 0 0 1px var(--field-ring);
+}
+.editor-shell .project-name-autosize input:focus-visible {
+  outline: 2px solid transparent;
+  outline-offset: 0;
+}
+
+/* App background dots; workspace stays solid so only the zoom-aware canvas dots show there */
+.editor-shell,
+.editor-skeleton {
+  background-image: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--color-editor-foreground) 12%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 22px 22px;
+}
+
+/* Pill toolbars: circular icon buttons + focus ring that follows them */
+.editor-shell
+  :is(.zoom-controls, .floating-controls, .editor-chip)
+  .tool-button {
+  border-radius: 999px;
+}
+.editor-shell
+  :is(.zoom-controls, .floating-controls, .editor-chip)
+  .tool-button:focus-visible {
+  outline-offset: 0;
+}
+.editor-shell .editor-chip :is(button, a) {
+  border-radius: 999px;
+}
+
+.canvas-copy-actions {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 20;
+  display: flex;
+  gap: 4px;
+  padding: 5px;
+  border-radius: 999px;
+  border: 1px solid var(--editor-glass-border);
+  background: var(--editor-glass);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: var(--editor-shadow);
+}
+.canvas-copy-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-editor-foreground);
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.canvas-copy-actions button:hover,
+.editor-shell .canvas-copy-actions button:focus-visible {
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+}
+.canvas-copy-actions button:active {
+  background: color-mix(in oklab, var(--color-primary) 88%, black);
+  color: var(--color-primary-foreground);
+}
+.editor-shell .canvas-copy-actions button:focus-visible {
+  outline-offset: 0;
+}
+@container (max-width: 800px) {
+  .editor-shell .canvas-copy-actions {
+    right: 12px;
+    bottom: 70px;
+  }
+}
+.editor-shell .workspace {
+  background-color: var(--color-editor);
+}
+
+/* Tool rail: 60% glass; light blur lets the shell dots read through. */
+.editor-shell .tool-rail {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, white 10%, transparent),
+      transparent 45%
+    ),
+    color-mix(in oklab, var(--color-editor-surface) 60%, transparent);
+  -webkit-backdrop-filter: blur(4px) saturate(140%);
+  backdrop-filter: blur(4px) saturate(140%);
+}
+.dark .editor-shell .tool-rail {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, white 4%, transparent),
+      transparent 45%
+    ),
+    color-mix(in oklab, var(--color-editor-surface) 60%, transparent);
+}
+
+/* Top-bar launcher while the right panel is hidden: text pills that open
+ * the panel on Design, Prompt or Chat. */
+.editor-shell .right-panel-launch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 999px;
+  background: color-mix(
+    in oklab,
+    var(--color-editor-foreground) 5%,
+    transparent
+  );
+}
+.editor-shell .right-panel-launch button {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-editor-foreground);
+  background: transparent;
+  box-shadow: none;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.editor-shell .right-panel-launch button:hover,
+.editor-shell .right-panel-launch button:focus-visible {
+  background: var(--editor-accent-soft);
+  color: var(--editor-accent-ink);
+}
+.editor-shell .right-panel-launch button:focus-visible {
+  outline-offset: 0;
+}
+@media (max-width: 480px) {
+  .editor-shell .right-panel-launch button {
+    padding: 0 8px;
+    font-size: 11px;
+  }
+}
+
+/* Save-status dot: 30px round slot mirroring the back button so the dot
+ * sits as far from the pill's right edge as the arrow does from the left. */
+.editor-shell .editor-chip--start > span:last-child {
+  width: 30px;
+  height: 30px;
+  justify-content: center;
+  border-radius: 999px;
+}
+.editor-shell .editor-chip--start > span:last-child:focus-visible {
+  outline: 2px solid var(--editor-focus);
+  outline-offset: 0;
+}
+
+/* Sidebar scrollbars: small, plain, no arrows. Appended last so it overrides
+   "Editor scrollbars" above. The brandkit-list-panel compound inside :is()
+   lifts every match to (0,4,0) specificity. Chromium/Safari: standard
+   properties must stay auto or ::-webkit-scrollbar is ignored (Chrome 121+). */
+.editor-shell
+  :is(
+    .context-panel,
+    .right-panel,
+    .right-panel :is(.prompt-view, .prompt-text, .md-table-wrap, .md-code),
+    .font-list,
+    .brandkit-list,
+    .brandkit-list-panel,
+    .brandkit-card-content,
+    .template-panel-grid,
+    .brandkit-panel:not(.brandkit-home-panel) .brandkit-list-panel
+  ) {
+  --sidebar-scroll-thumb: color-mix(
+    in oklab,
+    var(--color-editor-foreground) 20%,
+    transparent
+  );
+  --sidebar-scroll-thumb-hover: color-mix(
+    in oklab,
+    var(--color-editor-foreground) 38%,
+    transparent
+  );
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  .editor-shell
+    :is(
+      .context-panel,
+      .right-panel,
+      .right-panel :is(.prompt-view, .prompt-text, .md-table-wrap, .md-code),
+      .font-list,
+      .brandkit-list,
+      .brandkit-list-panel,
+      .brandkit-card-content,
+      .template-panel-grid,
+      .brandkit-panel:not(.brandkit-home-panel) .brandkit-list-panel
+    ) {
+    scrollbar-width: thin;
+    scrollbar-color: var(--sidebar-scroll-thumb) transparent;
+  }
+  .editor-shell
+    :is(
+      .context-panel,
+      .right-panel,
+      .right-panel :is(.prompt-view, .prompt-text, .md-table-wrap, .md-code),
+      .font-list,
+      .brandkit-list,
+      .brandkit-list-panel,
+      .brandkit-card-content,
+      .template-panel-grid,
+      .brandkit-panel:not(.brandkit-home-panel) .brandkit-list-panel
+    ):hover {
+    scrollbar-color: var(--sidebar-scroll-thumb-hover) transparent;
+  }
+}
+
+@supports selector(::-webkit-scrollbar) {
+  .editor-shell
+    :is(
+      .context-panel,
+      .right-panel,
+      .right-panel :is(.prompt-view, .prompt-text, .md-table-wrap, .md-code),
+      .font-list,
+      .brandkit-list,
+      .brandkit-list-panel,
+      .brandkit-card-content,
+      .template-panel-grid,
+      .brandkit-panel:not(.brandkit-home-panel) .brandkit-list-panel
+    ) {
+    scrollbar-width: auto;
+    scrollbar-color: auto;
+  }
+  .editor-shell
+    :is(
+      .context-panel,
+      .right-panel,
+      .right-panel :is(.prompt-view, .prompt-text, .md-table-wrap, .md-code),
+      .font-list,
+      .brandkit-list,
+      .brandkit-list-panel,
+      .brandkit-card-content,
+      .template-panel-grid,
+      .brandkit-panel:not(.brandkit-home-panel) .brandkit-list-panel
+    )::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+    background: transparent;
+  }
+  .editor-shell
+    :is(
+      .context-panel,
+      .right-panel,
+      .right-panel :is(.prompt-view, .prompt-text, .md-table-wrap, .md-code),
+      .font-list,
+      .brandkit-list,
+      .brandkit-list-panel,
+      .brandkit-card-content,
+      .template-panel-grid,
+      .brandkit-panel:not(.brandkit-home-panel) .brandkit-list-panel
+    )::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+  .editor-shell
+    :is(
+      .context-panel,
+      .right-panel,
+      .right-panel :is(.prompt-view, .prompt-text, .md-table-wrap, .md-code),
+      .font-list,
+      .brandkit-list,
+      .brandkit-list-panel,
+      .brandkit-card-content,
+      .template-panel-grid,
+      .brandkit-panel:not(.brandkit-home-panel) .brandkit-list-panel
+    )::-webkit-scrollbar-track,
+  .editor-shell
+    :is(
+      .context-panel,
+      .right-panel,
+      .right-panel :is(.prompt-view, .prompt-text, .md-table-wrap, .md-code),
+      .font-list,
+      .brandkit-list,
+      .brandkit-list-panel,
+      .brandkit-card-content,
+      .template-panel-grid,
+      .brandkit-panel:not(.brandkit-home-panel) .brandkit-list-panel
+    )::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  .editor-shell
+    :is(
+      .context-panel,
+      .right-panel,
+      .right-panel :is(.prompt-view, .prompt-text, .md-table-wrap, .md-code),
+      .font-list,
+      .brandkit-list,
+      .brandkit-list-panel,
+      .brandkit-card-content,
+      .template-panel-grid,
+      .brandkit-panel:not(.brandkit-home-panel) .brandkit-list-panel
+    )::-webkit-scrollbar-thumb {
+    border: 0;
+    border-radius: 999px;
+    background-clip: border-box;
+    background-color: var(--sidebar-scroll-thumb);
+    min-height: 24px;
+    min-width: 24px;
+  }
+  .editor-shell
+    :is(
+      .context-panel,
+      .right-panel,
+      .right-panel :is(.prompt-view, .prompt-text, .md-table-wrap, .md-code),
+      .font-list,
+      .brandkit-list,
+      .brandkit-list-panel,
+      .brandkit-card-content,
+      .template-panel-grid,
+      .brandkit-panel:not(.brandkit-home-panel) .brandkit-list-panel
+    )::-webkit-scrollbar-thumb:hover,
+  .editor-shell
+    :is(
+      .context-panel,
+      .right-panel,
+      .right-panel :is(.prompt-view, .prompt-text, .md-table-wrap, .md-code),
+      .font-list,
+      .brandkit-list,
+      .brandkit-list-panel,
+      .brandkit-card-content,
+      .template-panel-grid,
+      .brandkit-panel:not(.brandkit-home-panel) .brandkit-list-panel
+    )::-webkit-scrollbar-thumb:active {
+    background-color: var(--sidebar-scroll-thumb-hover);
+  }
+}
+
+/* Tool rail: caption under each icon. Collapse toggle stays icon-only
+ * (it has its own aria-label and its text flips Collapse/Expand). */
+.editor-shell .tool-rail button:not(#editor-toggle-left) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: calc(100% - 6px);
+  height: 52px;
+  padding: 0;
+}
+.editor-shell .tool-rail button:not(#editor-toggle-left) > span {
+  position: static;
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  overflow: hidden;
+  clip-path: none;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 12px;
+  text-transform: none;
+}
+/* Keep the "not live yet" dot on the icon's top-right corner. */
+.editor-shell .tool-rail .tool-rail-connect::after {
+  top: 8px;
+  right: calc(50% - 13px);
+}
+/* Short viewports: compact rail, scroll as last resort. */
+@media (max-height: 640px) {
+  .editor-shell .tool-rail {
+    gap: 2px;
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+  .editor-shell .tool-rail button:not(#editor-toggle-left) {
+    height: 44px;
+    gap: 2px;
+  }
+}
+/* Phones: 48px rail is too narrow for captions; back to icon-only. */
+@media (max-width: 767px) {
+  .editor-shell .tool-rail button:not(#editor-toggle-left) {
+    width: 40px;
+    height: 40px;
+  }
+  .editor-shell .tool-rail button:not(#editor-toggle-left) > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    clip-path: inset(50%);
+  }
+  .editor-shell .tool-rail .tool-rail-connect::after {
+    top: 9px;
+    right: 11px;
+  }
 }
