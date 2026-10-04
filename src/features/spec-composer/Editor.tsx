@@ -2900,9 +2900,12 @@ function PromptPanel({
           </Hint>
         )}
         <div className="segmented">
-          {/* display:contents keeps the tabs grid items of .segmented while
-            Chat, a dialog trigger rather than a tab, sits outside the list. */}
-          <div className="contents" role="tablist" aria-label="Prompt mode">
+          {/* Chat is a dialog trigger, not a tab, so it sits outside the tablist. */}
+          <div
+            className="segmented-tabs"
+            role="tablist"
+            aria-label="Prompt mode"
+          >
             {(
               [
                 ["design_skill", "design.md", Palette],
