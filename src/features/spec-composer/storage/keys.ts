@@ -5,6 +5,7 @@ export const LS_KEYS = {
   materialKits: "spec-composer:style-kits",
   defaultBrandKit: "spec-composer:default-brand-kit",
   ui: "spec-composer:ui",
+  topBarCopyMode: "spec-composer:top-bar-copy-mode",
   assetUsage: "spec-composer:asset-usage",
   storageVersion: "spec-composer:storage-version",
   /** Raw legacy records that failed validation during migration. */

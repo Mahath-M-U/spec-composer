@@ -75,7 +75,15 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { readRaw, writeRaw } from "@/lib/storage/local";
 import { AppIcon } from "@/components/app-icon";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useEditorStore, type Box, type ComposeLayout } from "./store";
@@ -89,6 +97,7 @@ import {
 import { alignUnits } from "./canvas-geometry";
 import { Sep, Tool } from "./toolbar-controls";
 import { loadProjectVersion } from "./persistence";
+import { LS_KEYS } from "./storage";
 import { reportStorageError } from "./storage/errors";
 import { validateImageUpload } from "./image-validation";
 import {
@@ -587,19 +596,20 @@ function TopBar({
         </Hint>
       </div>
       <div className="editor-chip editor-chip--end flex items-center gap-1">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          aria-keyshortcuts="P"
-          aria-label="Preview"
-          data-tour="preview"
-          onClick={preview}
-          className="text-editor-muted hover:bg-editor-hover hover:text-editor-foreground"
-        >
-          <Eye size={14} aria-hidden="true" />
-          <span className="hidden sm:inline">Preview</span>
-        </Button>
+        <Hint label="Preview">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-keyshortcuts="P"
+            aria-label="Preview"
+            data-tour="preview"
+            onClick={preview}
+            className="text-editor-muted hover:bg-editor-hover hover:text-editor-foreground"
+          >
+            <Eye size={16} aria-hidden="true" />
+          </Button>
+        </Hint>
         {!sidebars.rightOpen && <TopBarCopyActions />}
         <ThemeToggle className="text-editor-muted hover:bg-editor-hover hover:text-editor-foreground" />
         <RightPanelReopen sidebars={sidebars} openChat={openChat} />
@@ -1981,13 +1991,36 @@ function Workspace({ onCanvasSelect }: { onCanvasSelect: () => void }) {
   );
 }
 
-/** Top-bar copy buttons shown while the right panel is collapsed. They skip
- * the panel's "before you copy" warnings and only block on the hard
+const COPY_OPTIONS: Record<CopyKind, { label: string; Icon: typeof Palette }> =
+  {
+    prompt: { label: "Copy prompt", Icon: FileText },
+    design: { label: "Copy design", Icon: Palette },
+  };
+
+/** Per-viewer default for the top-bar Copy button; survives the component
+ * unmounting while the right panel is open. */
+function loadCopyMode(): CopyKind {
+  return readRaw(LS_KEYS.topBarCopyMode) === "prompt" ? "prompt" : "design";
+}
+
+function saveCopyMode(mode: CopyKind) {
+  try {
+    writeRaw(LS_KEYS.topBarCopyMode, mode);
+  } catch {
+    // Losing a UI preference is harmless.
+  }
+}
+
+/** Top-bar Copy split button shown while the right panel is collapsed: the
+ * main half copies the last-chosen output (design by default), and the
+ * chevron opens a menu that switches the default and copies. It skips the
+ * panel's "before you copy" warnings and only blocks on the hard
  * external-tool requirement, surfaced as a toast instead of opening a
  * dialog. */
 function TopBarCopyActions() {
   const [copied, setCopied] = useState<CopyKind | null>(null);
   const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState<CopyKind>(loadCopyMode);
 
   useEffect(() => {
     if (!copied) return;
@@ -2026,39 +2059,77 @@ function TopBarCopyActions() {
     }
   };
 
+  const { label: modeLabel, Icon: ModeIcon } = COPY_OPTIONS[mode];
+  const choose = (kind: CopyKind) => {
+    setMode(kind);
+    saveCopyMode(kind);
+    void copy(kind);
+  };
+
   return (
-    <div
-      className="flex items-center gap-1"
-      role="group"
-      aria-label="Copy output"
-    >
-      {(
-        [
-          ["prompt", "Copy prompt"],
-          ["design", "Copy design"],
-        ] as const
-      ).map(([kind, label]) => (
-        <Hint key={kind} label={label}>
+    <>
+      <div className="editor-split-button" role="group" aria-label="Copy">
+        <Hint label={modeLabel}>
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            aria-live="polite"
-            onClick={() => copy(kind)}
-            className="text-editor-muted hover:bg-editor-hover hover:text-editor-foreground"
+            aria-label={modeLabel}
+            onClick={() => void copy(mode)}
+            className="editor-split-main"
           >
-            {copied === kind ? (
+            {copied === mode ? (
               <Check size={14} aria-hidden="true" />
             ) : (
-              <Clipboard size={14} aria-hidden="true" />
+              <ModeIcon size={14} aria-hidden="true" />
             )}
             <span className="editor-copy-label">
-              {copied === kind ? "Copied" : label}
+              {copied === mode ? "Copied" : modeLabel}
             </span>
           </Button>
         </Hint>
-      ))}
-    </div>
+        <DropdownMenu>
+          <Hint label="More copy options">
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label="More copy options"
+                className="editor-split-toggle w-6"
+              >
+                <ChevronDown size={12} aria-hidden="true" />
+              </Button>
+            </DropdownMenuTrigger>
+          </Hint>
+          <DropdownMenuContent align="end" sideOffset={6} className="editor-menu">
+            <DropdownMenuRadioGroup value={mode}>
+              {(["prompt", "design"] as const).map((kind) => {
+                const { label, Icon } = COPY_OPTIONS[kind];
+                return (
+                  <DropdownMenuRadioItem
+                    key={kind}
+                    value={kind}
+                    className="editor-menu-item"
+                    onSelect={() => choose(kind)}
+                  >
+                    <Icon aria-hidden="true" />
+                    {label}
+                  </DropdownMenuRadioItem>
+                );
+              })}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      <span role="status" aria-live="polite" className="sr-only">
+        {copied === "prompt"
+          ? "Prompt copied"
+          : copied === "design"
+            ? "Design copied"
+            : ""}
+      </span>
+    </>
   );
 }
 

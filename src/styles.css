@@ -9038,7 +9038,8 @@ ol.md-list {
 
 /* Editor chrome has its own hierarchy; document and brand-kit colors stay authored. */
 .editor-shell,
-.editor-skeleton {
+.editor-skeleton,
+.editor-menu {
   --color-editor: #e9e4dc;
   --color-editor-surface: #f5f1eb;
   --color-editor-hover: #e0d9cf;
@@ -9052,7 +9053,8 @@ ol.md-list {
 }
 
 .dark .editor-shell,
-.dark .editor-skeleton {
+.dark .editor-skeleton,
+.dark .editor-menu {
   --color-editor: #141414;
   --color-editor-surface: #1e1e1e;
   --color-editor-hover: #282828;
@@ -11827,8 +11829,8 @@ button.de-subrow-tag:focus-visible {
   --editor-shadow: 0 24px 64px -16px color-mix(in oklab, black 70%, transparent);
 }
 
-/* Sidebar accents follow the Copy prompt button (--primary). */
-.editor-shell :is(.tool-rail, .context-panel, .right-panel) {
+/* Sidebar and top-bar accents use the app primary (--primary). */
+.editor-shell :is(.tool-rail, .context-panel, .right-panel, .editor-top) {
   --editor-action: var(--color-primary);
   --editor-action-foreground: var(--color-primary-foreground);
   --editor-accent-ink: var(--color-primary);
@@ -12363,8 +12365,9 @@ button.de-subrow-tag:focus-visible {
 .editor-shell .editor-top {
   container: editor-top / inline-size;
 }
-/* Narrow top bar: copy labels are visually hidden, not removed, so the
- * aria-live "Copied" text is still announced. */
+/* Narrow top bar: the Copy split button collapses to icon + chevron; the
+ * label is visually hidden, not removed, and the main half also carries an
+ * aria-label. */
 @container editor-top (max-width: 820px) {
   .editor-shell .editor-copy-label {
     position: absolute;
@@ -12377,6 +12380,110 @@ button.de-subrow-tag:focus-visible {
     white-space: nowrap;
     border: 0;
   }
+}
+
+/* Top-bar Copy split button: two halves joined into one soft-accent pill. */
+.editor-split-button {
+  display: inline-flex;
+  align-items: center;
+}
+.editor-shell .editor-chip .editor-split-button {
+  --split-ink: var(--editor-accent-ink);
+}
+.editor-shell .editor-chip :is(.editor-split-main, .editor-split-toggle) {
+  background: var(--editor-accent-soft);
+  color: var(--split-ink);
+  box-shadow: none;
+}
+.editor-shell .editor-chip :is(.editor-split-main, .editor-split-toggle):hover,
+.editor-shell .editor-chip .editor-split-toggle[data-state="open"] {
+  background: color-mix(
+    in oklab,
+    var(--editor-accent-soft),
+    var(--editor-accent-ink) 12%
+  );
+  color: var(--split-ink);
+}
+.editor-shell .editor-chip .editor-split-main {
+  padding-right: 8px;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.editor-shell .editor-chip .editor-split-toggle {
+  position: relative;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+.editor-shell .editor-chip .editor-split-toggle::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 0;
+  width: 1px;
+  background: color-mix(in oklab, var(--split-ink) 30%, transparent);
+  pointer-events: none;
+}
+.editor-shell
+  .editor-chip
+  .editor-split-button:is(:hover, :has([data-state="open"]))
+  .editor-split-toggle::before {
+  opacity: 0;
+}
+/* Narrow top bar: tighten the split button's main-half padding now that it
+ * no longer carries the chevron, after the unconditional padding-right
+ * rule above so this override wins the source-order tie at equal
+ * specificity. */
+@container editor-top (max-width: 820px) {
+  .editor-shell .editor-chip .editor-split-main {
+    padding-inline: 8px 6px;
+  }
+}
+
+.editor-menu {
+  min-width: 160px;
+  padding: 4px;
+  border: 1px solid var(--color-editor-border);
+  border-radius: 8px;
+  background: var(--color-editor-surface);
+  color: var(--color-editor-foreground);
+  font-size: 12px;
+  box-shadow: none;
+}
+.editor-menu .editor-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 6px;
+  font-weight: 500;
+  color: var(--color-editor-foreground);
+  cursor: pointer;
+  outline: none;
+}
+.editor-menu .editor-menu-item > svg {
+  width: 14px;
+  height: 14px;
+  color: var(--color-editor-muted);
+}
+.editor-menu .editor-menu-item:is(:focus, [data-highlighted]) {
+  background: var(--color-editor-hover);
+  color: var(--color-editor-foreground);
+}
+.editor-menu .editor-menu-item:is(:focus, [data-highlighted]) > svg {
+  color: var(--color-editor-foreground);
+}
+/* Radio items: move the checked dot to the trailing edge so the leading icon
+ * lines up with plain items. */
+.editor-menu .editor-menu-item[role="menuitemradio"] {
+  position: relative;
+  padding-right: 28px;
+}
+.editor-menu .editor-menu-item[role="menuitemradio"] > span:first-child {
+  left: auto;
+  right: 8px;
+  color: var(--color-primary);
 }
 .editor-shell .workspace {
   background-color: var(--color-editor);
