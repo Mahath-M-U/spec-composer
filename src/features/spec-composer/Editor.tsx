@@ -613,13 +613,13 @@ function TopBar({
             aria-label="Preview"
             data-tour="preview"
             onClick={preview}
-            className="text-editor-muted hover:bg-editor-hover hover:text-editor-foreground"
+            className="editor-preview-button text-editor-muted hover:bg-editor-hover hover:text-editor-foreground"
           >
             <Eye size={16} aria-hidden="true" />
           </Button>
         </Hint>
         {!sidebars.rightOpen && <TopBarCopyActions />}
-        <ThemeToggle className="text-editor-muted hover:bg-editor-hover hover:text-editor-foreground" />
+        <ThemeToggle className="editor-theme-button text-editor-muted hover:bg-editor-hover hover:text-editor-foreground" />
         <RightPanelReopen sidebars={sidebars} openChat={openChat} />
       </div>
     </header>
@@ -693,7 +693,43 @@ function ToolRail({
     ["resize", Scaling, "Resize"],
   ] as const;
   return (
-    <aside className="tool-rail">
+    <aside
+      className="tool-rail"
+      onFocusCapture={(event) => {
+        if (!window.matchMedia("(max-width: 767px)").matches) return;
+        const rail = event.currentTarget;
+        const button = event.target;
+        if (
+          !(button instanceof HTMLButtonElement) ||
+          !rail.contains(button) ||
+          button.parentElement !== rail
+        )
+          return;
+        const railBounds = rail.getBoundingClientRect();
+        const buttonBounds = button.getBoundingClientRect();
+        const padding = getComputedStyle(rail);
+        const left = railBounds.left + Number.parseFloat(padding.paddingLeft);
+        const right =
+          railBounds.right - Number.parseFloat(padding.paddingRight);
+        const delta =
+          buttonBounds.left < left
+            ? buttonBounds.left - left
+            : buttonBounds.right > right
+              ? buttonBounds.right - right
+              : 0;
+        if (!delta) return;
+        rail.scrollTo({
+          left: Math.max(
+            0,
+            Math.min(
+              rail.scrollWidth - rail.clientWidth,
+              rail.scrollLeft + delta,
+            ),
+          ),
+          behavior: "auto",
+        });
+      }}
+    >
       <Hint label="Home" side="right">
         <Link to="/" className="spec-mark editor-top-home" aria-label="Home">
           <AppIcon className="h-full w-full" />
