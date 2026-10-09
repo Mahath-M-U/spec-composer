@@ -115,14 +115,14 @@ export function createStyleKit(name: string, seedHex: string): StyleKit {
   };
 }
 
-/** Converts a generated Material 3 style kit into the existing BrandKit shape
- * so it flows through the same apply-to-document/apply-to-element code path
- * as a hand-authored brand kit. */
-export function brandKitFromMaterialKit(kit: StyleKit): BrandKit {
-  const c = kit.materialColors;
-  const colors: BrandKitColor[] = [
+/** The five role colors (primary/secondary/background/text/accent) a
+ * Material 3 seed resolves to. Shared by the generated brand kit and the
+ * builder's live preview so they always match. */
+export function materialRoleColors(seedHex: string): BrandKitColor[] {
+  const c = generateMaterialColorKit(seedHex);
+  return [
     {
-      id: crypto.randomUUID().slice(0, 8),
+      id: "m3-primary",
       hex: tone(c.primary, 40),
       angle: 135,
       type: "solid",
@@ -130,7 +130,7 @@ export function brandKitFromMaterialKit(kit: StyleKit): BrandKit {
       usecase: "Headlines, Buttons",
     },
     {
-      id: crypto.randomUUID().slice(0, 8),
+      id: "m3-secondary",
       hex: tone(c.secondary, 50),
       angle: 135,
       type: "solid",
@@ -138,7 +138,7 @@ export function brandKitFromMaterialKit(kit: StyleKit): BrandKit {
       usecase: "Subheadings, Highlights",
     },
     {
-      id: crypto.randomUUID().slice(0, 8),
+      id: "m3-background",
       hex: tone(c.neutral, 95),
       angle: 135,
       type: "solid",
@@ -146,7 +146,7 @@ export function brandKitFromMaterialKit(kit: StyleKit): BrandKit {
       usecase: "Canvas",
     },
     {
-      id: crypto.randomUUID().slice(0, 8),
+      id: "m3-text",
       hex: tone(c.neutral, 10),
       angle: 135,
       type: "solid",
@@ -154,7 +154,7 @@ export function brandKitFromMaterialKit(kit: StyleKit): BrandKit {
       usecase: "Headings, Body text",
     },
     {
-      id: crypto.randomUUID().slice(0, 8),
+      id: "m3-accent",
       hex: tone(c.tertiary, 60),
       angle: 135,
       type: "solid",
@@ -162,6 +162,19 @@ export function brandKitFromMaterialKit(kit: StyleKit): BrandKit {
       usecase: "Accents",
     },
   ];
+}
+
+/** Converts a generated Material 3 style kit into the existing BrandKit shape
+ * so it flows through the same apply-to-document/apply-to-element code path
+ * as a hand-authored brand kit. `overrides` lets the one-screen generate
+ * builder carry its emotions/style/typography/profile picks through. */
+export function brandKitFromMaterialKit(
+  kit: StyleKit,
+  overrides?: Partial<Pick<BrandKit, "emotions" | "style" | "typography" | "profile">>,
+): BrandKit {
+  const colors = materialRoleColors(kit.materialColors.seedHex).map(
+    (color) => ({ ...color, id: crypto.randomUUID().slice(0, 8) }),
+  );
   const now = new Date().toISOString();
   return {
     id: `brandkit_${crypto.randomUUID().slice(0, 8)}`,
@@ -174,6 +187,7 @@ export function brandKitFromMaterialKit(kit: StyleKit): BrandKit {
     updatedAt: now,
     sourceKind: "material3",
     styleKitId: kit.id,
+    ...overrides,
   };
 }
 

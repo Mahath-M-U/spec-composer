@@ -4,6 +4,7 @@ import {
   type SpecDocument,
   type SpecElement,
 } from "./types.ts";
+import { brandProfileLines } from "./brand-profile.ts";
 import { imageStyleLine } from "./image-styles.ts";
 import {
   ART_FIELD_KEYS,
@@ -185,6 +186,9 @@ export function compileVisualSegments(doc: SpecDocument): PromptLine[] {
         `Brand-mandatory values (non-negotiable, do not substitute): primary ${doc.creativeDirection.primaryColor}, secondary ${doc.creativeDirection.secondaryColor}, typography ${doc.creativeDirection.typography}.${brandLocked.length ? ` Elements ${brandLocked.join(", ")} are brand-locked and must match these exactly.` : ""}`,
       ],
     ]);
+    const identity = brandProfileLines(doc.creativeDirection.brandProfile);
+    if (identity.length)
+      lines.push(["identity", [`Brand identity: ${identity.join(" ")}`]]);
   }
   lines.push([
     "typography",

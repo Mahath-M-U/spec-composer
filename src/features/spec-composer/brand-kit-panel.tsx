@@ -26,6 +26,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { CREATIVE_STYLES, EMOTION_PRESETS } from "./brand-profile";
+import {
+  AudienceField,
+  MissionField,
+  PersonalityField,
+  PositioningField,
+  ValuesField,
+  VisionField,
+  VoiceField,
+} from "./brand-profile-inputs";
+import { BrandKitBuilder, type BrandKitBuilderMode } from "./brand-kit-builder";
 import { getBrandKitColor } from "./brand-kits";
 import { matchesBrandKitQuery } from "./brand-kit-search";
 import { nearestColorName } from "./color-names";
@@ -75,7 +86,7 @@ async function copyBrandColorHex(hex: string) {
 }
 
 /** A small sample poster showing a kit's colors and typography in use. */
-function BrandKitPreview({ kit }: { kit: BrandKit }) {
+export function BrandKitPreview({ kit }: { kit: BrandKit }) {
   const { primary, secondary, accent, background, text } =
     brandKitPreviewColors(kit);
 
@@ -123,32 +134,6 @@ function BrandKitPreview({ kit }: { kit: BrandKit }) {
     </div>
   );
 }
-
-const CREATIVE_STYLES = [
-  "Minimal",
-  "Editorial",
-  "Bold",
-  "Luxury",
-  "Playful",
-  "Tech",
-  "Corporate",
-  "Retro",
-] as const;
-
-const EMOTION_PRESETS = [
-  "Calm",
-  "Energetic",
-  "Playful",
-  "Elegant",
-  "Bold",
-  "Confident",
-  "Cheerful",
-  "Mysterious",
-  "Romantic",
-  "Nostalgic",
-  "Serene",
-  "Dramatic",
-] as const;
 
 const BRAND_COLOR_ROLES: Array<{
   value: BrandKitColor["role"];
@@ -213,11 +198,9 @@ export function BrandKitPanel({
   const s = useEditorStore();
   const d = s.doc;
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [isCreating, setIsCreating] = useState(false);
-  const [creatingName, setCreatingName] = useState("");
-  const [isGeneratingM3, setIsGeneratingM3] = useState(false);
-  const [m3Name, setM3Name] = useState("");
-  const [m3Seed, setM3Seed] = useState("#6750A4");
+  const [builderMode, setBuilderMode] = useState<BrandKitBuilderMode | null>(
+    null,
+  );
   const [kitQuery, setKitQuery] = useState("");
 
   if (!standalone && !d) return null;
@@ -233,28 +216,9 @@ export function BrandKitPanel({
     ? s.defaultBrandKitId
     : d?.creativeDirection.brandKitId;
 
-  const confirmCreate = () => {
-    const name = creatingName.trim() || "Untitled kit";
-    const id = s.createBrandKit(name);
-    setIsCreating(false);
-    setCreatingName("");
-    setExpandedId(id);
-  };
-
-  const confirmGenerateM3 = () => {
-    const name = m3Name.trim() || "Material 3 kit";
-    const seed = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(m3Seed)
-      ? m3Seed
-      : "#6750A4";
-    const id = s.createMaterialKit(name, seed);
-    setIsGeneratingM3(false);
-    setM3Name("");
-    setExpandedId(id);
-  };
-
   return (
     <div
-      className={`brandkit-panel${standalone ? " brandkit-home-panel" : ""}${pageView ? " brandkit-page-panel" : ""}${isCreating || isGeneratingM3 ? " brandkit-creating" : ""}`}
+      className={`brandkit-panel${standalone ? " brandkit-home-panel" : ""}${pageView ? " brandkit-page-panel" : ""}`}
     >
       {!standalone && (
         <>
@@ -295,107 +259,41 @@ export function BrandKitPanel({
       )}
 
       <div className="brandkit-create-toolbar">
-        {isCreating ? (
-          <form
-            className="brandkit-new-row brandkit-newkit-button"
-            onSubmit={(event) => {
-              event.preventDefault();
-              confirmCreate();
-            }}
-          >
-            <input
-              autoFocus
-              value={creatingName}
-              onChange={(event) => setCreatingName(event.target.value)}
-              placeholder="Name this design kit"
-              aria-label="New design kit name"
-            />
-            <Button size="sm" type="submit">
-              Create
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              type="button"
-              onClick={() => setIsCreating(false)}
-            >
-              Cancel
-            </Button>
-          </form>
-        ) : (
+        <Button
+          size="sm"
+          className="brandkit-newkit-button"
+          data-tour="kit-new"
+          onClick={() => setBuilderMode("create")}
+        >
+          <Plus size={14} />
+          New design kit
+        </Button>
+
+        <Hint label="Generate M3 kit">
           <Button
             size="sm"
-            className="brandkit-newkit-button"
-            data-tour="kit-new"
-            onClick={() => {
-              setIsCreating(true);
-              setCreatingName("");
-            }}
+            variant="outline"
+            className="brandkit-m3-trigger-button"
+            aria-label="Generate from Material 3"
+            data-tour="kit-generate"
+            onClick={() => setBuilderMode("generate")}
           >
-            <Plus size={14} />
-            New design kit
+            <Sparkles size={14} />
           </Button>
-        )}
-
-        {isGeneratingM3 ? (
-          <form
-            className="brandkit-new-row brandkit-m3-row brandkit-m3-form"
-            onSubmit={(event) => {
-              event.preventDefault();
-              confirmGenerateM3();
-            }}
-          >
-            <input
-              autoFocus
-              value={m3Name}
-              onChange={(event) => setM3Name(event.target.value)}
-              placeholder="Name this style kit"
-              aria-label="New Material 3 style kit name"
-            />
-            <input
-              type="color"
-              value={/^#[0-9a-fA-F]{6}$/.test(m3Seed) ? m3Seed : "#6750a4"}
-              onChange={(event) => setM3Seed(event.target.value)}
-              aria-label="Material 3 seed color"
-              className="brandkit-m3-seed-swatch"
-            />
-            <input
-              value={m3Seed}
-              onChange={(event) => setM3Seed(event.target.value)}
-              placeholder="#6750A4"
-              aria-label="Material 3 seed color hex"
-              className="brandkit-m3-seed-hex"
-            />
-            <Button size="sm" type="submit">
-              Generate
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              type="button"
-              onClick={() => setIsGeneratingM3(false)}
-            >
-              Cancel
-            </Button>
-          </form>
-        ) : (
-          <Hint label="Generate M3 kit">
-            <Button
-              size="sm"
-              variant="outline"
-              className="brandkit-m3-trigger-button"
-              aria-label="Generate from Material 3"
-              data-tour="kit-generate"
-              onClick={() => {
-                setIsGeneratingM3(true);
-                setM3Name("");
-              }}
-            >
-              <Sparkles size={14} />
-            </Button>
-          </Hint>
-        )}
+        </Hint>
       </div>
+
+      <BrandKitBuilder
+        open={builderMode !== null}
+        mode={builderMode ?? "create"}
+        onOpenChange={(next) => {
+          if (!next) setBuilderMode(null);
+        }}
+        onCreated={(id) => {
+          setBuilderMode(null);
+          setExpandedId(id);
+        }}
+      />
 
       {!s.brandKits.length && (
         <div className="asset-empty">
@@ -462,6 +360,7 @@ function BrandKitCard({
   const [fontOpen, setFontOpen] = useState(false);
   const [fontQuery, setFontQuery] = useState("");
   const [emotionOptionsOpen, setEmotionOptionsOpen] = useState(false);
+  const [strategyOpen, setStrategyOpen] = useState(false);
   const [selectedColorId, setSelectedColorId] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const fontPickerRef = useRef<HTMLDivElement>(null);
@@ -1148,6 +1047,77 @@ function BrandKitCard({
                       </button>
                     </Hint>
                   </form>
+                </div>
+              )}
+            </div>
+
+            <div className="brandkit-strategy">
+              <div className="brandkit-section-head">
+                <div>
+                  <span>Brand strategy</span>
+                  <small>Vision, mission, personality, audience, positioning and voice</small>
+                </div>
+                <button
+                  type="button"
+                  className={strategyOpen ? "active" : undefined}
+                  aria-expanded={strategyOpen}
+                  onClick={() => setStrategyOpen((open) => !open)}
+                >
+                  {strategyOpen ? "Done" : "Choose"}
+                  <ChevronDown aria-hidden="true" />
+                </button>
+              </div>
+              {strategyOpen && (
+                <div className="bk-strategy">
+                  <fieldset className="bk-section">
+                    <legend>Vision</legend>
+                    <VisionField
+                      profile={kit.profile ?? {}}
+                      onChange={(profile) => patch({ profile })}
+                    />
+                  </fieldset>
+                  <fieldset className="bk-section">
+                    <legend>Mission</legend>
+                    <MissionField
+                      profile={kit.profile ?? {}}
+                      onChange={(profile) => patch({ profile })}
+                    />
+                  </fieldset>
+                  <fieldset className="bk-section">
+                    <legend>Core values</legend>
+                    <ValuesField
+                      profile={kit.profile ?? {}}
+                      onChange={(profile) => patch({ profile })}
+                    />
+                  </fieldset>
+                  <fieldset className="bk-section">
+                    <legend>Personality</legend>
+                    <PersonalityField
+                      profile={kit.profile ?? {}}
+                      onChange={(profile) => patch({ profile })}
+                    />
+                  </fieldset>
+                  <fieldset className="bk-section">
+                    <legend>Target audience</legend>
+                    <AudienceField
+                      profile={kit.profile ?? {}}
+                      onChange={(profile) => patch({ profile })}
+                    />
+                  </fieldset>
+                  <fieldset className="bk-section">
+                    <legend>Positioning</legend>
+                    <PositioningField
+                      profile={kit.profile ?? {}}
+                      onChange={(profile) => patch({ profile })}
+                    />
+                  </fieldset>
+                  <fieldset className="bk-section">
+                    <legend>Voice</legend>
+                    <VoiceField
+                      profile={kit.profile ?? {}}
+                      onChange={(profile) => patch({ profile })}
+                    />
+                  </fieldset>
                 </div>
               )}
             </div>

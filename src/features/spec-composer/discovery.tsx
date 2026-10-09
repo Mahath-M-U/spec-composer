@@ -212,7 +212,7 @@ export function DiscoveryShell({
             <span className="sidebar-soon-badge">Soon</span>
           </button>
         </aside>
-        <main className="min-w-0">
+        <main className="discovery-main min-w-0">
           <div className="mobile-discovery-bar">
             <Link
               to="/"

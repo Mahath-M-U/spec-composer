@@ -141,6 +141,32 @@ const specElementSchema = z.object({
   constraint: elementConstraintSchema.optional(),
 });
 
+/**
+ * The 10-field brand strategy profile collected by the brand kit builder.
+ * Every key is optional and unconstrained in length/count so stored docs and
+ * kits always parse — the builder's own UI enforces sane limits (e.g. 5 core
+ * values) on write.
+ */
+export const brandProfileSchema = z.object({
+  visionThemes: z.array(z.string()).optional(),
+  vision: z.string().optional(),
+  missionFocus: z.array(z.string()).optional(),
+  mission: z.string().optional(),
+  values: z.array(z.string()).optional(),
+  archetype: z.string().optional(),
+  personality: z.record(z.string(), z.number()).optional(),
+  audienceAges: z.array(z.string()).optional(),
+  audienceSegments: z.array(z.string()).optional(),
+  audienceInterests: z.array(z.string()).optional(),
+  audience: z.string().optional(),
+  positioningTier: z.string().optional(),
+  differentiators: z.array(z.string()).optional(),
+  positioning: z.string().optional(),
+  voiceTone: z.record(z.string(), z.number()).optional(),
+  voiceTraits: z.array(z.string()).optional(),
+});
+export type BrandProfile = z.infer<typeof brandProfileSchema>;
+
 const creativeDirectionSchema = z.object({
   style: z.string(),
   mood: z.array(z.string()),
@@ -150,6 +176,7 @@ const creativeDirectionSchema = z.object({
   typography: z.string(),
   brandKitId: z.string().optional(),
   styleKitId: z.string().optional(),
+  brandProfile: brandProfileSchema.optional(),
 });
 
 const promptOptionsSchema = z.object({
@@ -410,6 +437,7 @@ export interface BrandKit {
   updatedAt: string;
   sourceKind?: "material3";
   styleKitId?: string;
+  profile?: BrandProfile;
 }
 
 export function isSpecDocument(value: unknown): value is SpecDocument {
