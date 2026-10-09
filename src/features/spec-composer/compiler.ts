@@ -110,10 +110,12 @@ function describeConstraint(el: SpecElement, doc: SpecDocument): PromptSeg[] {
     );
   return segs;
 }
-const describe = (el: SpecElement, doc: SpecDocument) => {
-  const mp = materialPhrase(el) ? [materialPhrase(el)] : [];
-  return segText([...describeSegs(el, doc), ...mp, ...describeConstraint(el, doc)]);
-};
+const describe = (el: SpecElement, doc: SpecDocument) =>
+  segText([
+    ...describeSegs(el, doc),
+    materialPhrase(el),
+    ...describeConstraint(el, doc),
+  ]);
 export const an = (word: string) => (/^[aeiou]/i.test(word) ? "an" : "a");
 export type PromptLine = {
   key: string;
@@ -185,11 +187,10 @@ export function compileVisualSegments(doc: SpecDocument): PromptLine[] {
     ]);
   }
   lines.push([
-    "mood",
-    [
-      `Mood: ${doc.creativeDirection.mood.join(", ")}. Typography direction: ${doc.creativeDirection.typography}.`,
-    ],
+    "typography",
+    [`Typography direction: ${doc.creativeDirection.typography}.`],
   ]);
+  lines.push(["mood", [`Mood: ${doc.creativeDirection.mood.join(", ")}.`]]);
   for (const key of ART_FIELD_KEYS) {
     const line = artLine(doc, key);
     lines.push([key, line ? [line] : []]);
@@ -209,10 +210,10 @@ export function compileVisualSegments(doc: SpecDocument): PromptLine[] {
       ],
     ]);
   for (const e of els) {
-    const mp = materialPhrase(e) ? [materialPhrase(e)] : [];
+    const mp = materialPhrase(e);
     lines.push([
       `el:${e.id}`,
-      [...describeSegs(e, doc), ...mp, ...describeConstraint(e, doc)],
+      [...describeSegs(e, doc), ...(mp ? [mp] : []), ...describeConstraint(e, doc)],
     ]);
   }
   lines.push([

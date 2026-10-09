@@ -2523,6 +2523,7 @@ const promptMeta = (key: string, d: SpecDocument) => {
     colors: ["setup", "Colors"],
     brand: ["setup", "Brand"],
     mood: ["setup", "Mood"],
+    typography: ["setup", "Typography"],
     scene: ["setup", "Scene"],
     lighting: ["setup", "Lighting"],
     dominant: ["visual", "Dominant visual"],

@@ -997,6 +997,8 @@ function hasLinked(target: Target, b: Bindings) {
     case "scene":
     case "lighting":
       return false;
+    case "typography":
+      return b.typography.linked;
     case "element": {
       const el = b.d.elements.find((e) => e.id === target.id);
       if (!el || isImageKind(el.kind)) return false;
@@ -1065,6 +1067,16 @@ export function SectionEditor({
     case "scene":
     case "lighting":
       body = <ArtFieldControls b={b} field={target.type} />;
+      break;
+    case "typography":
+      body = (
+        <FontControl
+          label="Typography (all text)"
+          value={b.typography.value}
+          linked={b.typography.linked}
+          onChange={b.typography.set}
+        />
+      );
       break;
     case "components": {
       const visible = b.d.elements.filter((e) => e.visible);

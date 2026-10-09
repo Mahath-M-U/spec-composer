@@ -1564,6 +1564,7 @@ const PROMPT_ICONS: Record<string, LucideIcon> = {
   colors: Palette,
   brand: Sparkles,
   mood: Type,
+  typography: Type,
   scene: Mountain,
   lighting: Lightbulb,
   dominant: ImageIcon,
