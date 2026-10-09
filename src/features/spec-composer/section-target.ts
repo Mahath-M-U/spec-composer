@@ -7,7 +7,8 @@ export type Target =
   | { type: "background" | "colors" | "brand" | "mood" }
   | { type: "palette" | "type" | "components" | "imagery" }
   | { type: "element"; id: string }
-  | { type: "scene" | "lighting" };
+  | { type: "scene" | "lighting" }
+  | { type: "typography" };
 
 /** Which editor a section gets, or null when it has nothing visual to edit
  * (layout rules, the overview…) and keeps the plain text editor. */
@@ -53,6 +54,8 @@ export function sectionTarget(key: string, doc: SpecDocument): Target | null {
     case "lighting":
     case "skill:lighting":
       return { type: "lighting" };
+    case "typography":
+      return { type: "typography" };
     default:
       return null;
   }

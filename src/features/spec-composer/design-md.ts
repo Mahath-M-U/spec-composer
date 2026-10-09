@@ -395,7 +395,8 @@ function slotSegs(el: SpecElement, doc: SpecDocument): PromptSeg[] {
     ? `, at ${pct(el.x, W)} / ${pct(el.y, H)}, ${pct(el.width, W)} × ${pct(el.height, H)} of the canvas (≈${el.width} × ${el.height} px)`
     : "";
   const head = `- ${el.name} (${el.kind})${where}${size}`;
-  const mp = materialPhrase(el) ? [materialPhrase(el)] : [];
+  const mpv = materialPhrase(el);
+  const mp = mpv ? [mpv] : [];
   if (isTextKind(el.kind))
     return [
       head,

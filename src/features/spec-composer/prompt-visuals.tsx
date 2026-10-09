@@ -235,6 +235,11 @@ export function PromptPart({
         </div>,
         children,
       );
+    case "typography":
+      return stack(
+        <Specimen family={cd.typography} note="Typography direction" />,
+        children,
+      );
     case "dominant": {
       const dominant = dominantVisual(doc);
       return dominant
