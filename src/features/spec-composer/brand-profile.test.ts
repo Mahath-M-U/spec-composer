@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   brandProfileLines,
+  countFilledSections,
   isBrandProfileEmpty,
   normalizeBrandProfile,
   PERSONALITY_AXES,
@@ -92,6 +93,57 @@ describe("isBrandProfileEmpty", () => {
 
   it("is false once a field has content", () => {
     expect(isBrandProfileEmpty({ vision: "See far" })).toBe(false);
+  });
+});
+
+describe("countFilledSections", () => {
+  const base = {
+    profile: {},
+    emotions: [] as string[],
+    paletteTouched: false,
+    typographyTouched: false,
+  };
+
+  it("is 0 for an empty profile with nothing touched (the '3 of 10' regression)", () => {
+    expect(countFilledSections(base)).toBe(0);
+  });
+
+  it("counts vision themes alone as 1", () => {
+    expect(
+      countFilledSections({ ...base, profile: { visionThemes: ["Trust"] } }),
+    ).toBe(1);
+  });
+
+  it("counts a vision note alone as 1", () => {
+    expect(
+      countFilledSections({ ...base, profile: { vision: "See far" } }),
+    ).toBe(1);
+  });
+
+  it("doesn't count personality sliders left at 50", () => {
+    const axis = PERSONALITY_AXES[0]!;
+    expect(
+      countFilledSections({
+        ...base,
+        profile: { personality: { [axis.id]: 50 } },
+      }),
+    ).toBe(0);
+  });
+
+  it("counts personality once a slider moves off 50", () => {
+    const axis = PERSONALITY_AXES[0]!;
+    expect(
+      countFilledSections({
+        ...base,
+        profile: { personality: { [axis.id]: 70 } },
+      }),
+    ).toBe(1);
+  });
+
+  it("adds 2 when both palette and typography are touched", () => {
+    expect(
+      countFilledSections({ ...base, paletteTouched: true, typographyTouched: true }),
+    ).toBe(2);
   });
 });
 

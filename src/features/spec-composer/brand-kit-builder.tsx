@@ -5,23 +5,22 @@ import {
   CREATIVE_STYLES,
   EMOTION_PRESETS,
   brandProfileLines,
+  countFilledSections,
   PALETTE_PRESETS,
 } from "./brand-profile";
+import { MultiSelect, OptionSelect, type SelectOption } from "./brand-select";
 import {
   AudienceField,
-  ChipMultiSelect,
   FontTileGrid,
   PalettePresetCards,
   PaletteSwatchTiles,
   PersonalityField,
   PositioningField,
   SeedSwatchPicker,
-  TileSelect,
   ValuesField,
   VisionField,
   VoiceField,
   MissionField,
-  type TileOption,
 } from "./brand-profile-inputs";
 import { BrandKitPreview } from "./brand-kit-panel";
 import { materialRoleColors } from "./material-kits";
@@ -42,6 +41,11 @@ interface Draft {
   colors: BrandKitColor[];
   /** Generate mode's Material 3 seed. */
   seed: string;
+  /** Whether the palette has been changed from its default, for the
+   * "x of 10 sections filled" counter. */
+  paletteTouched: boolean;
+  /** Whether typography (font or style) has been changed from its default. */
+  typographyTouched: boolean;
 }
 
 function initialDraft(): Draft {
@@ -56,36 +60,12 @@ function initialDraft(): Draft {
       id: crypto.randomUUID().slice(0, 8),
     })),
     seed: "#6750A4",
+    paletteTouched: false,
+    typographyTouched: false,
   };
 }
 
-/** How many of the 10 brand-strategy sections have anything in them, for the
- * header's "x of 10 sections filled" counter. */
-function countFilled(draft: Draft, mode: BrandKitBuilderMode): number {
-  const p = draft.profile;
-  const touched = (values: Record<string, number> | undefined) =>
-    !!values && Object.values(values).some((v) => v !== 50);
-  const checks = [
-    !!(p.visionThemes?.length || p.vision?.trim()),
-    !!(p.missionFocus?.length || p.mission?.trim()),
-    !!p.values?.length,
-    !!draft.emotions.length,
-    !!(p.archetype || touched(p.personality)),
-    !!(
-      p.audienceAges?.length ||
-      p.audienceSegments?.length ||
-      p.audienceInterests?.length ||
-      p.audience?.trim()
-    ),
-    !!(p.positioningTier || p.differentiators?.length || p.positioning?.trim()),
-    !!(p.voiceTraits?.length || touched(p.voiceTone)),
-    mode === "create" ? draft.colors.length > 0 : isHex(draft.seed),
-    !!draft.typography.trim(),
-  ];
-  return checks.filter(Boolean).length;
-}
-
-const creativeStyleOptions: TileOption[] = CREATIVE_STYLES.map((style) => ({
+const creativeStyleOptions: SelectOption[] = CREATIVE_STYLES.map((style) => ({
   id: style,
   label: style,
 }));
@@ -130,7 +110,12 @@ export function BrandKitBuilder({
     updatedAt: "",
   };
   const summaryLines = brandProfileLines(draft.profile);
-  const filled = countFilled(draft, mode);
+  const filled = countFilledSections({
+    profile: draft.profile,
+    emotions: draft.emotions,
+    paletteTouched: draft.paletteTouched,
+    typographyTouched: draft.typographyTouched,
+  });
 
   const finish = () => {
     const name = draft.name.trim() || fallbackName;
@@ -181,39 +166,45 @@ export function BrandKitBuilder({
           <div className="bk-builder-form">
             <fieldset className="bk-group">
               <legend className="bk-group-title">Purpose</legend>
-              <fieldset className="bk-section">
-                <legend>Vision</legend>
-                <p className="bk-section-hint">Where is the brand headed?</p>
-                <VisionField profile={draft.profile} onChange={patchProfile} />
-              </fieldset>
-              <fieldset className="bk-section">
-                <legend>Mission</legend>
-                <p className="bk-section-hint">What does the brand do, and for whom?</p>
-                <MissionField profile={draft.profile} onChange={patchProfile} />
-              </fieldset>
+              <div className="bk-pair">
+                <fieldset className="bk-section">
+                  <legend>Vision</legend>
+                  <p className="bk-section-hint">Where is the brand headed?</p>
+                  <VisionField profile={draft.profile} onChange={patchProfile} />
+                </fieldset>
+                <fieldset className="bk-section">
+                  <legend>Mission</legend>
+                  <p className="bk-section-hint">What does the brand do, and for whom?</p>
+                  <MissionField profile={draft.profile} onChange={patchProfile} />
+                </fieldset>
+              </div>
             </fieldset>
 
             <fieldset className="bk-group">
               <legend className="bk-group-title">Character</legend>
-              <fieldset className="bk-section">
-                <legend>Core values</legend>
-                <p className="bk-section-hint">Pick up to 5 that define the brand.</p>
-                <ValuesField profile={draft.profile} onChange={patchProfile} />
-              </fieldset>
-              <fieldset className="bk-section">
-                <legend>Emotion</legend>
-                <p className="bk-section-hint">How should the brand feel?</p>
-                <ChipMultiSelect
-                  options={EMOTION_PRESETS}
-                  value={draft.emotions}
-                  onChange={(emotions) => setDraft((d) => ({ ...d, emotions }))}
-                  ariaLabel="Brand emotions"
-                />
-              </fieldset>
+              <div className="bk-pair">
+                <fieldset className="bk-section">
+                  <legend>Core values</legend>
+                  <p className="bk-section-hint">Pick up to 5 that define the brand.</p>
+                  <ValuesField profile={draft.profile} onChange={patchProfile} />
+                </fieldset>
+                <fieldset className="bk-section">
+                  <legend>Emotion</legend>
+                  <p className="bk-section-hint">How should the brand feel?</p>
+                  <MultiSelect
+                    options={EMOTION_PRESETS}
+                    value={draft.emotions}
+                    onChange={(emotions) => setDraft((d) => ({ ...d, emotions }))}
+                    ariaLabel="Brand emotions"
+                    placeholder="Add an emotion"
+                    quickPicks={3}
+                  />
+                </fieldset>
+              </div>
               <fieldset className="bk-section">
                 <legend>Personality</legend>
                 <p className="bk-section-hint">
-                  Choose an archetype, then fine-tune with the sliders.
+                  Pick an archetype; fine-tune if you like.
                 </p>
                 <PersonalityField profile={draft.profile} onChange={patchProfile} />
               </fieldset>
@@ -250,17 +241,23 @@ export function BrandKitBuilder({
                 {mode === "create" ? (
                   <>
                     <PalettePresetCards
-                      onApply={(colors) => setDraft((d) => ({ ...d, colors }))}
+                      onApply={(colors) =>
+                        setDraft((d) => ({ ...d, colors, paletteTouched: true }))
+                      }
                     />
                     <PaletteSwatchTiles
                       colors={draft.colors}
-                      onChange={(colors) => setDraft((d) => ({ ...d, colors }))}
+                      onChange={(colors) =>
+                        setDraft((d) => ({ ...d, colors, paletteTouched: true }))
+                      }
                     />
                   </>
                 ) : (
                   <SeedSwatchPicker
                     seed={draft.seed}
-                    onChange={(seed) => setDraft((d) => ({ ...d, seed }))}
+                    onChange={(seed) =>
+                      setDraft((d) => ({ ...d, seed, paletteTouched: true }))
+                    }
                   />
                 )}
               </fieldset>
@@ -270,15 +267,22 @@ export function BrandKitBuilder({
                 <FontTileGrid
                   name={draft.name.trim() || fallbackName}
                   value={draft.typography}
-                  onChange={(typography) => setDraft((d) => ({ ...d, typography }))}
+                  onChange={(typography) =>
+                    setDraft((d) => ({ ...d, typography, typographyTouched: true }))
+                  }
                 />
-                <TileSelect
+                <OptionSelect
                   options={creativeStyleOptions}
                   value={draft.style}
                   onChange={(style) =>
-                    setDraft((d) => ({ ...d, style: style || d.style }))
+                    setDraft((d) => ({
+                      ...d,
+                      style: style || d.style,
+                      typographyTouched: true,
+                    }))
                   }
                   ariaLabel="Creative style"
+                  placeholder="Choose a style"
                 />
               </fieldset>
             </fieldset>

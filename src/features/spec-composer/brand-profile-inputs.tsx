@@ -1,7 +1,5 @@
-import { useState } from "react";
-import { Check, Plus, Search } from "lucide-react";
-import { Hint } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
+import { useRef, useState } from "react";
+import { Search } from "lucide-react";
 import {
   ARCHETYPES,
   AUDIENCE_AGES,
@@ -18,153 +16,10 @@ import {
   VOICE_TRAITS,
   type BipolarAxis,
 } from "./brand-profile";
+import { MultiSelect, OptionSelect, type SelectOption } from "./brand-select";
 import { materialRoleColors } from "./material-kits";
 import { FEATURED_FONTS, MORE_FONTS } from "./fonts";
 import type { BrandKitColor, BrandProfile } from "./types";
-
-/** A chip multi-select built from `.emotion-chip`/`.emotion-add-row`, the
- * markup already used by the card editor's emotion picker. */
-export function ChipMultiSelect({
-  options,
-  value,
-  onChange,
-  max,
-  allowCustom = true,
-  ariaLabel,
-}: {
-  options: readonly string[];
-  value: string[];
-  onChange: (next: string[]) => void;
-  max?: number;
-  allowCustom?: boolean;
-  ariaLabel: string;
-}) {
-  const [custom, setCustom] = useState("");
-  const atMax = max != null && value.length >= max;
-  const customChips = value.filter((v) => !options.includes(v));
-
-  const toggle = (option: string) => {
-    const has = value.includes(option);
-    if (!has && atMax) return;
-    onChange(has ? value.filter((v) => v !== option) : [...value, option]);
-  };
-
-  const addCustom = () => {
-    const trimmed = custom.trim();
-    if (!trimmed || value.includes(trimmed) || atMax) {
-      setCustom("");
-      return;
-    }
-    onChange([...value, trimmed]);
-    setCustom("");
-  };
-
-  return (
-    <div className="bk-chip-field">
-      <div className="emotion-chip-grid" role="listbox" aria-label={ariaLabel}>
-        {options.map((option) => {
-          const active = value.includes(option);
-          return (
-            <button
-              key={option}
-              type="button"
-              role="option"
-              aria-selected={active}
-              disabled={!active && atMax}
-              className={`emotion-chip${active ? " active" : ""}`}
-              onClick={() => toggle(option)}
-            >
-              {active && <Check aria-hidden="true" />}
-              {option}
-            </button>
-          );
-        })}
-        {customChips.map((option) => (
-          <button
-            key={option}
-            type="button"
-            role="option"
-            aria-selected
-            className="emotion-chip active"
-            onClick={() => toggle(option)}
-          >
-            <Check aria-hidden="true" />
-            {option}
-          </button>
-        ))}
-      </div>
-      {allowCustom && (
-        <form
-          className="emotion-add-row"
-          onSubmit={(event) => {
-            event.preventDefault();
-            addCustom();
-          }}
-        >
-          <input
-            value={custom}
-            disabled={atMax}
-            onChange={(event) => setCustom(event.target.value)}
-            placeholder={atMax ? `Up to ${max}` : "Add your own"}
-            aria-label={`Add custom ${ariaLabel.toLowerCase()}`}
-          />
-          <Hint label="Add">
-            <button type="submit" aria-label="Add" disabled={atMax}>
-              <Plus aria-hidden="true" />
-            </button>
-          </Hint>
-        </form>
-      )}
-    </div>
-  );
-}
-
-export interface TileOption {
-  id: string;
-  label: string;
-  description?: string;
-}
-
-/** A single-choice grid of title + description cards. */
-export function TileSelect({
-  options,
-  value,
-  onChange,
-  ariaLabel,
-  className,
-}: {
-  options: TileOption[];
-  value: string;
-  onChange: (id: string) => void;
-  ariaLabel: string;
-  className?: string;
-}) {
-  return (
-    <div
-      className={cn("bk-tile-grid", className)}
-      role="listbox"
-      aria-label={ariaLabel}
-    >
-      {options.map((option) => {
-        const selected = value === option.id;
-        return (
-          <button
-            key={option.id}
-            type="button"
-            role="option"
-            aria-selected={selected}
-            aria-pressed={selected}
-            className="bk-tile"
-            onClick={() => onChange(selected ? "" : option.id)}
-          >
-            <strong>{option.label}</strong>
-            {option.description && <small>{option.description}</small>}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 /** A native range input with pole labels and a live descriptor, so it never
  * pulls in the shadcn Slider's ring focus style. */
@@ -342,9 +197,10 @@ export function FontTileGrid({
 }) {
   const [query, setQuery] = useState("");
   const normalized = query.trim().toLowerCase();
-  const matches = (font: string) =>
-    !normalized || font.toLowerCase().includes(normalized);
-  const fonts = [...FEATURED_FONTS.filter(matches), ...MORE_FONTS.filter(matches)];
+  const matches = (font: string) => font.toLowerCase().includes(normalized);
+  const fonts = normalized
+    ? [...FEATURED_FONTS.filter(matches), ...MORE_FONTS.filter(matches)]
+    : FEATURED_FONTS;
   return (
     <div className="bk-font-grid-wrap">
       <label className="bk-font-search font-search">
@@ -382,8 +238,9 @@ export function FontTileGrid({
 }
 
 /** A single-line optional note, bound directly to the free-text extra of a
- * profile field. Enter never submits anything above it. */
-function NoteInput({
+ * profile field. Collapsed behind a "+ Add note" toggle unless it already
+ * has text; Enter never submits anything above it. */
+function NoteField({
   value,
   onChange,
   placeholder,
@@ -394,8 +251,34 @@ function NoteInput({
   placeholder: string;
   ariaLabel: string;
 }) {
+  const [open, setOpen] = useState(() => !!value.trim());
+  const inputRef = useRef<HTMLInputElement>(null);
+  const focusPending = useRef(false);
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        className="bk-note-toggle"
+        onClick={() => {
+          focusPending.current = true;
+          setOpen(true);
+        }}
+      >
+        + Add note
+      </button>
+    );
+  }
+
   return (
     <input
+      ref={(node) => {
+        inputRef.current = node;
+        if (node && focusPending.current) {
+          focusPending.current = false;
+          node.focus();
+        }
+      }}
       className="bk-note"
       value={value}
       onChange={(event) => onChange(event.target.value)}
@@ -408,6 +291,39 @@ function NoteInput({
   );
 }
 
+/** A collapsed `<details>` disclosure for the bipolar sliders, opening on
+ * its own if any slider was already moved off neutral. `touched` is the
+ * number of sliders currently off 50, shown as "· n adjusted". */
+function FineTune({
+  label,
+  touched,
+  children,
+}: {
+  label: string;
+  touched: number;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(touched > 0);
+  return (
+    <details
+      className="bk-finetune"
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
+      <summary>
+        Fine-tune {label}
+        {touched > 0 ? ` · ${touched} adjusted` : null}
+      </summary>
+      {children}
+    </details>
+  );
+}
+
+const countAdjusted = (
+  axes: BipolarAxis[],
+  values: Record<string, number> | undefined,
+) => axes.filter((axis) => (values?.[axis.id] ?? 50) !== 50).length;
+
 export interface FieldProps {
   profile: BrandProfile;
   onChange: (next: BrandProfile) => void;
@@ -416,13 +332,15 @@ export interface FieldProps {
 export function VisionField({ profile, onChange }: FieldProps) {
   return (
     <>
-      <ChipMultiSelect
+      <MultiSelect
         options={VISION_THEMES}
         value={profile.visionThemes ?? []}
         onChange={(visionThemes) => onChange({ ...profile, visionThemes })}
         ariaLabel="Vision themes"
+        placeholder="Add a vision theme"
+        quickPicks={3}
       />
-      <NoteInput
+      <NoteField
         value={profile.vision ?? ""}
         onChange={(vision) => onChange({ ...profile, vision })}
         placeholder="Add a note about your vision"
@@ -435,13 +353,15 @@ export function VisionField({ profile, onChange }: FieldProps) {
 export function MissionField({ profile, onChange }: FieldProps) {
   return (
     <>
-      <ChipMultiSelect
+      <MultiSelect
         options={MISSION_FOCUS}
         value={profile.missionFocus ?? []}
         onChange={(missionFocus) => onChange({ ...profile, missionFocus })}
         ariaLabel="Mission focus"
+        placeholder="Add a mission focus"
+        quickPicks={3}
       />
-      <NoteInput
+      <NoteField
         value={profile.mission ?? ""}
         onChange={(mission) => onChange({ ...profile, mission })}
         placeholder="Add a note about your mission"
@@ -453,17 +373,19 @@ export function MissionField({ profile, onChange }: FieldProps) {
 
 export function ValuesField({ profile, onChange }: FieldProps) {
   return (
-    <ChipMultiSelect
+    <MultiSelect
       options={CORE_VALUES}
       value={profile.values ?? []}
       onChange={(values) => onChange({ ...profile, values })}
       max={5}
       ariaLabel="Core values"
+      placeholder="Add a core value"
+      quickPicks={3}
     />
   );
 }
 
-const archetypeOptions: TileOption[] = ARCHETYPES.map((a) => ({
+const archetypeOptions: SelectOption[] = ARCHETYPES.map((a) => ({
   id: a.id,
   label: a.label,
   description: a.description,
@@ -473,28 +395,34 @@ export function PersonalityField({ profile, onChange }: FieldProps) {
   const personality = profile.personality ?? {};
   return (
     <>
-      <TileSelect
+      <OptionSelect
         options={archetypeOptions}
         value={profile.archetype ?? ""}
         onChange={(archetype) => onChange({ ...profile, archetype })}
         ariaLabel="Brand archetype"
-        className="bk-archetype-grid"
+        placeholder="Choose an archetype"
+        clearable
       />
-      <div className="bk-slider-stack">
-        {PERSONALITY_AXES.map((axis) => (
-          <BipolarSlider
-            key={axis.id}
-            axis={axis}
-            value={personality[axis.id] ?? 50}
-            onChange={(v) =>
-              onChange({
-                ...profile,
-                personality: { ...personality, [axis.id]: v },
-              })
-            }
-          />
-        ))}
-      </div>
+      <FineTune
+        label="personality"
+        touched={countAdjusted(PERSONALITY_AXES, personality)}
+      >
+        <div className="bk-slider-stack">
+          {PERSONALITY_AXES.map((axis) => (
+            <BipolarSlider
+              key={axis.id}
+              axis={axis}
+              value={personality[axis.id] ?? 50}
+              onChange={(v) =>
+                onChange({
+                  ...profile,
+                  personality: { ...personality, [axis.id]: v },
+                })
+              }
+            />
+          ))}
+        </div>
+      </FineTune>
     </>
   );
 }
@@ -502,29 +430,43 @@ export function PersonalityField({ profile, onChange }: FieldProps) {
 export function AudienceField({ profile, onChange }: FieldProps) {
   return (
     <>
-      <ChipMultiSelect
-        options={AUDIENCE_AGES}
-        value={profile.audienceAges ?? []}
-        onChange={(audienceAges) => onChange({ ...profile, audienceAges })}
-        ariaLabel="Audience ages"
-      />
-      <ChipMultiSelect
-        options={AUDIENCE_SEGMENTS}
-        value={profile.audienceSegments ?? []}
-        onChange={(audienceSegments) =>
-          onChange({ ...profile, audienceSegments })
-        }
-        ariaLabel="Audience segments"
-      />
-      <ChipMultiSelect
-        options={AUDIENCE_INTERESTS}
-        value={profile.audienceInterests ?? []}
-        onChange={(audienceInterests) =>
-          onChange({ ...profile, audienceInterests })
-        }
-        ariaLabel="Audience interests"
-      />
-      <NoteInput
+      <div className="bk-subgrid">
+        <div className="bk-subfield">
+          <span className="bk-subfield-label">Age</span>
+          <MultiSelect
+            options={AUDIENCE_AGES}
+            value={profile.audienceAges ?? []}
+            onChange={(audienceAges) => onChange({ ...profile, audienceAges })}
+            ariaLabel="Audience ages"
+            placeholder="Add an age range"
+          />
+        </div>
+        <div className="bk-subfield">
+          <span className="bk-subfield-label">Segment</span>
+          <MultiSelect
+            options={AUDIENCE_SEGMENTS}
+            value={profile.audienceSegments ?? []}
+            onChange={(audienceSegments) =>
+              onChange({ ...profile, audienceSegments })
+            }
+            ariaLabel="Audience segments"
+            placeholder="Add a segment"
+          />
+        </div>
+        <div className="bk-subfield">
+          <span className="bk-subfield-label">Interests</span>
+          <MultiSelect
+            options={AUDIENCE_INTERESTS}
+            value={profile.audienceInterests ?? []}
+            onChange={(audienceInterests) =>
+              onChange({ ...profile, audienceInterests })
+            }
+            ariaLabel="Audience interests"
+            placeholder="Add an interest"
+          />
+        </div>
+      </div>
+      <NoteField
         value={profile.audience ?? ""}
         onChange={(audience) => onChange({ ...profile, audience })}
         placeholder="Add a note about your audience"
@@ -534,7 +476,7 @@ export function AudienceField({ profile, onChange }: FieldProps) {
   );
 }
 
-const tierOptions: TileOption[] = POSITIONING_TIERS.map((t) => ({
+const tierOptions: SelectOption[] = POSITIONING_TIERS.map((t) => ({
   id: t.id,
   label: t.label,
   description: t.description,
@@ -543,19 +485,28 @@ const tierOptions: TileOption[] = POSITIONING_TIERS.map((t) => ({
 export function PositioningField({ profile, onChange }: FieldProps) {
   return (
     <>
-      <TileSelect
-        options={tierOptions}
-        value={profile.positioningTier ?? ""}
-        onChange={(positioningTier) => onChange({ ...profile, positioningTier })}
-        ariaLabel="Positioning tier"
-      />
-      <ChipMultiSelect
-        options={DIFFERENTIATORS}
-        value={profile.differentiators ?? []}
-        onChange={(differentiators) => onChange({ ...profile, differentiators })}
-        ariaLabel="Differentiators"
-      />
-      <NoteInput
+      <div className="bk-subgrid">
+        <OptionSelect
+          options={tierOptions}
+          value={profile.positioningTier ?? ""}
+          onChange={(positioningTier) =>
+            onChange({ ...profile, positioningTier })
+          }
+          ariaLabel="Positioning tier"
+          placeholder="Choose a tier"
+          clearable
+        />
+        <MultiSelect
+          options={DIFFERENTIATORS}
+          value={profile.differentiators ?? []}
+          onChange={(differentiators) =>
+            onChange({ ...profile, differentiators })
+          }
+          ariaLabel="Differentiators"
+          placeholder="Add a differentiator"
+        />
+      </div>
+      <NoteField
         value={profile.positioning ?? ""}
         onChange={(positioning) => onChange({ ...profile, positioning })}
         placeholder="Add a note about your positioning"
@@ -569,24 +520,28 @@ export function VoiceField({ profile, onChange }: FieldProps) {
   const voiceTone = profile.voiceTone ?? {};
   return (
     <>
-      <div className="bk-slider-stack">
-        {VOICE_AXES.map((axis) => (
-          <BipolarSlider
-            key={axis.id}
-            axis={axis}
-            value={voiceTone[axis.id] ?? 50}
-            onChange={(v) =>
-              onChange({ ...profile, voiceTone: { ...voiceTone, [axis.id]: v } })
-            }
-          />
-        ))}
-      </div>
-      <ChipMultiSelect
+      <MultiSelect
         options={VOICE_TRAITS}
         value={profile.voiceTraits ?? []}
         onChange={(voiceTraits) => onChange({ ...profile, voiceTraits })}
         ariaLabel="Voice traits"
+        placeholder="Add a voice trait"
+        quickPicks={3}
       />
+      <FineTune label="voice" touched={countAdjusted(VOICE_AXES, voiceTone)}>
+        <div className="bk-slider-stack">
+          {VOICE_AXES.map((axis) => (
+            <BipolarSlider
+              key={axis.id}
+              axis={axis}
+              value={voiceTone[axis.id] ?? 50}
+              onChange={(v) =>
+                onChange({ ...profile, voiceTone: { ...voiceTone, [axis.id]: v } })
+              }
+            />
+          ))}
+        </div>
+      </FineTune>
     </>
   );
 }

@@ -347,6 +347,39 @@ export function isBrandProfileEmpty(profile?: BrandProfile): boolean {
   });
 }
 
+/** How many of the 10 brand-strategy sections have anything in them, for the
+ * builder's "x of 10 sections filled" counter. A slider only counts once
+ * it's been moved off its neutral 50; palette/typography only count once
+ * the caller marks them touched (so defaults don't inflate the count). */
+export function countFilledSections(input: {
+  profile: BrandProfile;
+  emotions: string[];
+  paletteTouched: boolean;
+  typographyTouched: boolean;
+}): number {
+  const p = input.profile;
+  const touched = (values: Record<string, number> | undefined) =>
+    !!values && Object.values(values).some((v) => v !== 50);
+  const checks = [
+    !!(p.visionThemes?.length || p.vision?.trim()),
+    !!(p.missionFocus?.length || p.mission?.trim()),
+    !!p.values?.length,
+    !!input.emotions.length,
+    !!(p.archetype || touched(p.personality)),
+    !!(
+      p.audienceAges?.length ||
+      p.audienceSegments?.length ||
+      p.audienceInterests?.length ||
+      p.audience?.trim()
+    ),
+    !!(p.positioningTier || p.differentiators?.length || p.positioning?.trim()),
+    !!(p.voiceTraits?.length || touched(p.voiceTone)),
+    input.paletteTouched,
+    input.typographyTouched,
+  ];
+  return checks.filter(Boolean).length;
+}
+
 function fieldSentence(
   label: string,
   chips: string[] | undefined,
