@@ -1,5 +1,4 @@
 import { useRef, useState } from "react";
-import { Search } from "lucide-react";
 import {
   ARCHETYPES,
   AUDIENCE_AGES,
@@ -16,9 +15,13 @@ import {
   VOICE_TRAITS,
   type BipolarAxis,
 } from "./brand-profile";
-import { MultiSelect, OptionSelect, type SelectOption } from "./brand-select";
+import {
+  MultiSelect,
+  OptionSelect,
+  SegmentedSelect,
+  type SelectOption,
+} from "./brand-select";
 import { materialRoleColors } from "./material-kits";
-import { FEATURED_FONTS, MORE_FONTS } from "./fonts";
 import type { BrandKitColor, BrandProfile } from "./types";
 
 /** A native range input with pole labels and a live descriptor, so it never
@@ -183,63 +186,10 @@ export function PaletteSwatchTiles({
   );
 }
 
-/** FEATURED_FONTS tiles showing "Aa" and the kit name in that font, plus a
- * search over MORE_FONTS — reuses the font lists behind the card's font
- * picker so the two stay in sync. */
-export function FontTileGrid({
-  name,
-  value,
-  onChange,
-}: {
-  name: string;
-  value: string;
-  onChange: (font: string) => void;
-}) {
-  const [query, setQuery] = useState("");
-  const normalized = query.trim().toLowerCase();
-  const matches = (font: string) => font.toLowerCase().includes(normalized);
-  const fonts = normalized
-    ? [...FEATURED_FONTS.filter(matches), ...MORE_FONTS.filter(matches)]
-    : FEATURED_FONTS;
-  return (
-    <div className="bk-font-grid-wrap">
-      <label className="bk-font-search font-search">
-        <Search aria-hidden="true" />
-        <input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search fonts"
-          aria-label="Search fonts"
-        />
-      </label>
-      <div className="bk-font-grid" role="listbox" aria-label="Typography">
-        {fonts.map((font) => {
-          const selected = value === font;
-          return (
-            <button
-              key={font}
-              type="button"
-              role="option"
-              aria-selected={selected}
-              aria-pressed={selected}
-              className="bk-font-tile"
-              style={{ fontFamily: font }}
-              onClick={() => onChange(font)}
-            >
-              <span className="bk-font-tile-glyph">Aa</span>
-              <span className="bk-font-tile-name">{name || "Untitled kit"}</span>
-            </button>
-          );
-        })}
-        {!fonts.length && <p className="font-empty">No fonts match “{query}”</p>}
-      </div>
-    </div>
-  );
-}
-
 /** A single-line optional note, bound directly to the free-text extra of a
  * profile field. Collapsed behind a "+ Add note" toggle unless it already
- * has text; Enter never submits anything above it. */
+ * has text, and re-collapses on blur if left empty; Enter never submits
+ * anything above it. */
 function NoteField({
   value,
   onChange,
@@ -282,6 +232,9 @@ function NoteField({
       className="bk-note"
       value={value}
       onChange={(event) => onChange(event.target.value)}
+      onBlur={() => {
+        if (!value.trim()) setOpen(false);
+      }}
       placeholder={placeholder}
       aria-label={ariaLabel}
       onKeyDown={(event) => {
@@ -338,7 +291,6 @@ export function VisionField({ profile, onChange }: FieldProps) {
         onChange={(visionThemes) => onChange({ ...profile, visionThemes })}
         ariaLabel="Vision themes"
         placeholder="Add a vision theme"
-        quickPicks={3}
       />
       <NoteField
         value={profile.vision ?? ""}
@@ -359,7 +311,6 @@ export function MissionField({ profile, onChange }: FieldProps) {
         onChange={(missionFocus) => onChange({ ...profile, missionFocus })}
         ariaLabel="Mission focus"
         placeholder="Add a mission focus"
-        quickPicks={3}
       />
       <NoteField
         value={profile.mission ?? ""}
@@ -380,7 +331,6 @@ export function ValuesField({ profile, onChange }: FieldProps) {
       max={5}
       ariaLabel="Core values"
       placeholder="Add a core value"
-      quickPicks={3}
     />
   );
 }
@@ -391,8 +341,15 @@ const archetypeOptions: SelectOption[] = ARCHETYPES.map((a) => ({
   description: a.description,
 }));
 
-export function PersonalityField({ profile, onChange }: FieldProps) {
+/** Personality (archetype + sliders) and voice (traits + sliders) combined
+ * into one section with a single Fine-tune disclosure for both slider
+ * stacks. */
+export function PersonalityVoiceField({ profile, onChange }: FieldProps) {
   const personality = profile.personality ?? {};
+  const voiceTone = profile.voiceTone ?? {};
+  const touched =
+    countAdjusted(PERSONALITY_AXES, personality) +
+    countAdjusted(VOICE_AXES, voiceTone);
   return (
     <>
       <OptionSelect
@@ -403,10 +360,15 @@ export function PersonalityField({ profile, onChange }: FieldProps) {
         placeholder="Choose an archetype"
         clearable
       />
-      <FineTune
-        label="personality"
-        touched={countAdjusted(PERSONALITY_AXES, personality)}
-      >
+      <MultiSelect
+        options={VOICE_TRAITS}
+        value={profile.voiceTraits ?? []}
+        onChange={(voiceTraits) => onChange({ ...profile, voiceTraits })}
+        ariaLabel="Voice traits"
+        placeholder="Add a voice trait"
+      />
+      <FineTune label="personality & voice" touched={touched}>
+        <p className="bk-finetune-heading">Personality</p>
         <div className="bk-slider-stack">
           {PERSONALITY_AXES.map((axis) => (
             <BipolarSlider
@@ -418,6 +380,19 @@ export function PersonalityField({ profile, onChange }: FieldProps) {
                   ...profile,
                   personality: { ...personality, [axis.id]: v },
                 })
+              }
+            />
+          ))}
+        </div>
+        <p className="bk-finetune-heading">Voice</p>
+        <div className="bk-slider-stack">
+          {VOICE_AXES.map((axis) => (
+            <BipolarSlider
+              key={axis.id}
+              axis={axis}
+              value={voiceTone[axis.id] ?? 50}
+              onChange={(v) =>
+                onChange({ ...profile, voiceTone: { ...voiceTone, [axis.id]: v } })
               }
             />
           ))}
@@ -485,63 +460,25 @@ const tierOptions: SelectOption[] = POSITIONING_TIERS.map((t) => ({
 export function PositioningField({ profile, onChange }: FieldProps) {
   return (
     <>
-      <div className="bk-subgrid">
-        <OptionSelect
-          options={tierOptions}
-          value={profile.positioningTier ?? ""}
-          onChange={(positioningTier) =>
-            onChange({ ...profile, positioningTier })
-          }
-          ariaLabel="Positioning tier"
-          placeholder="Choose a tier"
-          clearable
-        />
-        <MultiSelect
-          options={DIFFERENTIATORS}
-          value={profile.differentiators ?? []}
-          onChange={(differentiators) =>
-            onChange({ ...profile, differentiators })
-          }
-          ariaLabel="Differentiators"
-          placeholder="Add a differentiator"
-        />
-      </div>
+      <SegmentedSelect
+        options={tierOptions}
+        value={profile.positioningTier ?? ""}
+        onChange={(positioningTier) => onChange({ ...profile, positioningTier })}
+        ariaLabel="Positioning tier"
+      />
+      <MultiSelect
+        options={DIFFERENTIATORS}
+        value={profile.differentiators ?? []}
+        onChange={(differentiators) => onChange({ ...profile, differentiators })}
+        ariaLabel="Differentiators"
+        placeholder="Add a differentiator"
+      />
       <NoteField
         value={profile.positioning ?? ""}
         onChange={(positioning) => onChange({ ...profile, positioning })}
         placeholder="Add a note about your positioning"
         ariaLabel="Positioning note"
       />
-    </>
-  );
-}
-
-export function VoiceField({ profile, onChange }: FieldProps) {
-  const voiceTone = profile.voiceTone ?? {};
-  return (
-    <>
-      <MultiSelect
-        options={VOICE_TRAITS}
-        value={profile.voiceTraits ?? []}
-        onChange={(voiceTraits) => onChange({ ...profile, voiceTraits })}
-        ariaLabel="Voice traits"
-        placeholder="Add a voice trait"
-        quickPicks={3}
-      />
-      <FineTune label="voice" touched={countAdjusted(VOICE_AXES, voiceTone)}>
-        <div className="bk-slider-stack">
-          {VOICE_AXES.map((axis) => (
-            <BipolarSlider
-              key={axis.id}
-              axis={axis}
-              value={voiceTone[axis.id] ?? 50}
-              onChange={(v) =>
-                onChange({ ...profile, voiceTone: { ...voiceTone, [axis.id]: v } })
-              }
-            />
-          ))}
-        </div>
-      </FineTune>
     </>
   );
 }

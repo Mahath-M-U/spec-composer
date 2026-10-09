@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { FEATURED_FONTS, MORE_FONTS } from "./fonts";
 import { createOptionLabel, filterOptions, toggleValue } from "./multi-select-options";
 
 /** A type-to-filter, type-to-add multi-select: selected values render as
@@ -33,7 +34,6 @@ export function MultiSelect({
   max,
   ariaLabel,
   placeholder,
-  quickPicks,
 }: {
   options: readonly string[];
   value: string[];
@@ -41,7 +41,6 @@ export function MultiSelect({
   max?: number;
   ariaLabel: string;
   placeholder?: string;
-  quickPicks?: number;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -93,9 +92,9 @@ export function MultiSelect({
                   }
                 }}
               >
-                <span>{placeholder ?? "Add…"}</span>
+                <span className="bk-ms-label">{placeholder ?? "Add…"}</span>
                 {max != null && (
-                  <span>
+                  <span className="bk-ms-count">
                     {value.length}/{max}
                   </span>
                 )}
@@ -161,20 +160,6 @@ export function MultiSelect({
           </Command>
         </PopoverContent>
       </Popover>
-      {!value.length && !!quickPicks && (
-        <div className="bk-quick-picks">
-          {options.slice(0, quickPicks).map((option) => (
-            <button
-              key={option}
-              type="button"
-              className="emotion-chip"
-              onClick={() => select(option)}
-            >
-              {option}
-            </button>
-          ))}
-        </div>
-      )}
     </>
   );
 }
@@ -227,5 +212,117 @@ export function OptionSelect({
         ))}
       </SelectContent>
     </Select>
+  );
+}
+
+/** A searchable dropdown over every typeface the editor offers (Featured
+ * first, then More), each option rendered in its own font. */
+export function FontSelect({
+  value,
+  onChange,
+  ariaLabel,
+}: {
+  value: string;
+  onChange: (font: string) => void;
+  ariaLabel: string;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const select = (font: string) => {
+    onChange(font);
+    setOpen(false);
+  };
+
+  return (
+    <Popover modal open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="bk-select-trigger bk-font-trigger"
+          aria-label={ariaLabel}
+          style={{ fontFamily: value }}
+        >
+          <span className="bk-ms-label">{value}</span>
+          <ChevronDown aria-hidden="true" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        collisionPadding={8}
+        className="bk-ms-popover"
+        style={{ width: "var(--radix-popover-trigger-width)" }}
+      >
+        <Command>
+          <CommandInput placeholder="Search fonts" />
+          <CommandList className="bk-ms-list">
+            <CommandEmpty>No fonts match</CommandEmpty>
+            <CommandGroup heading="Featured">
+              {FEATURED_FONTS.map((font) => (
+                <CommandItem
+                  key={font}
+                  value={font}
+                  style={{ fontFamily: font }}
+                  onSelect={() => select(font)}
+                >
+                  {value === font ? (
+                    <Check aria-hidden="true" />
+                  ) : (
+                    <Check aria-hidden="true" className="opacity-0" />
+                  )}
+                  {font}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+            <CommandGroup heading="More fonts">
+              {MORE_FONTS.map((font) => (
+                <CommandItem
+                  key={font}
+                  value={font}
+                  style={{ fontFamily: font }}
+                  onSelect={() => select(font)}
+                >
+                  {value === font ? (
+                    <Check aria-hidden="true" />
+                  ) : (
+                    <Check aria-hidden="true" className="opacity-0" />
+                  )}
+                  {font}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/** A 4-button segmented toggle for a fixed single choice, e.g. the
+ * positioning tier. Clicking the active button clears it. */
+export function SegmentedSelect({
+  options,
+  value,
+  onChange,
+  ariaLabel,
+}: {
+  options: SelectOption[];
+  value: string;
+  onChange: (id: string) => void;
+  ariaLabel: string;
+}) {
+  return (
+    <div role="group" aria-label={ariaLabel} className="bk-segmented">
+      {options.map((option) => (
+        <button
+          key={option.id}
+          type="button"
+          aria-pressed={value === option.id}
+          title={option.description}
+          onClick={() => onChange(value === option.id ? "" : option.id)}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
   );
 }

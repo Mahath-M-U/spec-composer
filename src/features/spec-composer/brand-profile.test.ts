@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   brandProfileLines,
   countFilledSections,
+  FILLED_SECTION_TOTAL,
   isBrandProfileEmpty,
   normalizeBrandProfile,
   PERSONALITY_AXES,
@@ -140,10 +141,48 @@ describe("countFilledSections", () => {
     ).toBe(1);
   });
 
+  it("counts voice traits alone as 1 (merged personality & voice section)", () => {
+    expect(
+      countFilledSections({ ...base, profile: { voiceTraits: ["Warm"] } }),
+    ).toBe(1);
+  });
+
+  it("still counts as 1 when archetype, voice traits and a voice tone slider are all set", () => {
+    const axis = PERSONALITY_AXES[0]!;
+    expect(
+      countFilledSections({
+        ...base,
+        profile: {
+          archetype: "sage",
+          voiceTraits: ["Warm"],
+          voiceTone: { [axis.id]: 70 },
+        },
+      }),
+    ).toBe(1);
+  });
+
   it("adds 2 when both palette and typography are touched", () => {
     expect(
       countFilledSections({ ...base, paletteTouched: true, typographyTouched: true }),
     ).toBe(2);
+  });
+
+  it("counts 9 (= FILLED_SECTION_TOTAL) when everything is filled", () => {
+    expect(
+      countFilledSections({
+        profile: {
+          visionThemes: ["Trust"],
+          missionFocus: ["Quality first"],
+          values: ["Honesty"],
+          archetype: "sage",
+          audienceAges: ["Adults (25-34)"],
+          positioningTier: "premium",
+        },
+        emotions: ["Calm"],
+        paletteTouched: true,
+        typographyTouched: true,
+      }),
+    ).toBe(FILLED_SECTION_TOTAL);
   });
 });
 

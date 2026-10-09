@@ -2,24 +2,22 @@ import { useEffect, useState, type KeyboardEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
-  CREATIVE_STYLES,
   EMOTION_PRESETS,
+  FILLED_SECTION_TOTAL,
   brandProfileLines,
   countFilledSections,
   PALETTE_PRESETS,
 } from "./brand-profile";
-import { MultiSelect, OptionSelect, type SelectOption } from "./brand-select";
+import { FontSelect, MultiSelect } from "./brand-select";
 import {
   AudienceField,
-  FontTileGrid,
   PalettePresetCards,
   PaletteSwatchTiles,
-  PersonalityField,
+  PersonalityVoiceField,
   PositioningField,
   SeedSwatchPicker,
   ValuesField,
   VisionField,
-  VoiceField,
   MissionField,
 } from "./brand-profile-inputs";
 import { BrandKitPreview } from "./brand-kit-panel";
@@ -34,7 +32,6 @@ const isHex = (value: string) => /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(value);
 interface Draft {
   name: string;
   emotions: string[];
-  style: string;
   typography: string;
   profile: BrandProfile;
   /** Create mode's editable role palette. */
@@ -42,9 +39,9 @@ interface Draft {
   /** Generate mode's Material 3 seed. */
   seed: string;
   /** Whether the palette has been changed from its default, for the
-   * "x of 10 sections filled" counter. */
+   * "x of 9 sections filled" counter. */
   paletteTouched: boolean;
-  /** Whether typography (font or style) has been changed from its default. */
+  /** Whether typography has been changed from its default. */
   typographyTouched: boolean;
 }
 
@@ -52,7 +49,6 @@ function initialDraft(): Draft {
   return {
     name: "",
     emotions: [],
-    style: "Minimal",
     typography: "Manrope",
     profile: {},
     colors: PALETTE_PRESETS[0]!.colors.map((color) => ({
@@ -65,12 +61,7 @@ function initialDraft(): Draft {
   };
 }
 
-const creativeStyleOptions: SelectOption[] = CREATIVE_STYLES.map((style) => ({
-  id: style,
-  label: style,
-}));
-
-/** The one-screen brand kit builder: Create and Generate both collect all 10
+/** The one-screen brand kit builder: Create and Generate both collect all 9
  * brand-strategy fields plus the look (palette/typography) on a single
  * scrollable form, no wizard steps. */
 export function BrandKitBuilder({
@@ -104,7 +95,7 @@ export function BrandKitBuilder({
     name: draft.name.trim() || fallbackName,
     colors: previewColors,
     emotions: draft.emotions,
-    style: draft.style,
+    style: mode === "generate" ? "Material 3" : "Minimal",
     typography: draft.typography,
     createdAt: "",
     updatedAt: "",
@@ -121,7 +112,6 @@ export function BrandKitBuilder({
     const name = draft.name.trim() || fallbackName;
     const base = {
       emotions: draft.emotions,
-      style: draft.style,
       typography: draft.typography,
       ...(Object.keys(draft.profile).length ? { profile: draft.profile } : {}),
     };
@@ -159,7 +149,9 @@ export function BrandKitBuilder({
             placeholder={`Name this ${mode === "create" ? "design kit" : "style kit"}`}
             aria-label="Kit name"
           />
-          <span className="bk-builder-count">{filled} of 10 sections filled</span>
+          <span className="bk-builder-count">
+            {filled} of {FILLED_SECTION_TOTAL} sections filled
+          </span>
         </div>
 
         <div className="bk-builder-body">
@@ -197,16 +189,18 @@ export function BrandKitBuilder({
                     onChange={(emotions) => setDraft((d) => ({ ...d, emotions }))}
                     ariaLabel="Brand emotions"
                     placeholder="Add an emotion"
-                    quickPicks={3}
                   />
                 </fieldset>
               </div>
               <fieldset className="bk-section">
-                <legend>Personality</legend>
+                <legend>Personality & voice</legend>
                 <p className="bk-section-hint">
-                  Pick an archetype; fine-tune if you like.
+                  Pick an archetype and how it sounds; fine-tune if you like.
                 </p>
-                <PersonalityField profile={draft.profile} onChange={patchProfile} />
+                <PersonalityVoiceField
+                  profile={draft.profile}
+                  onChange={patchProfile}
+                />
               </fieldset>
             </fieldset>
 
@@ -221,11 +215,6 @@ export function BrandKitBuilder({
                 <legend>Positioning</legend>
                 <p className="bk-section-hint">Where does the brand sit in the market?</p>
                 <PositioningField profile={draft.profile} onChange={patchProfile} />
-              </fieldset>
-              <fieldset className="bk-section">
-                <legend>Voice</legend>
-                <p className="bk-section-hint">How does the brand sound in copy?</p>
-                <VoiceField profile={draft.profile} onChange={patchProfile} />
               </fieldset>
             </fieldset>
 
@@ -263,26 +252,13 @@ export function BrandKitBuilder({
               </fieldset>
               <fieldset className="bk-section">
                 <legend>Typography</legend>
-                <p className="bk-section-hint">Pick one font for every text layer.</p>
-                <FontTileGrid
-                  name={draft.name.trim() || fallbackName}
+                <p className="bk-section-hint">One font for every text layer.</p>
+                <FontSelect
                   value={draft.typography}
                   onChange={(typography) =>
                     setDraft((d) => ({ ...d, typography, typographyTouched: true }))
                   }
-                />
-                <OptionSelect
-                  options={creativeStyleOptions}
-                  value={draft.style}
-                  onChange={(style) =>
-                    setDraft((d) => ({
-                      ...d,
-                      style: style || d.style,
-                      typographyTouched: true,
-                    }))
-                  }
-                  ariaLabel="Creative style"
-                  placeholder="Choose a style"
+                  ariaLabel="Typography"
                 />
               </fieldset>
             </fieldset>

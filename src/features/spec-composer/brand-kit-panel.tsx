@@ -30,11 +30,10 @@ import { CREATIVE_STYLES, EMOTION_PRESETS } from "./brand-profile";
 import {
   AudienceField,
   MissionField,
-  PersonalityField,
+  PersonalityVoiceField,
   PositioningField,
   ValuesField,
   VisionField,
-  VoiceField,
 } from "./brand-profile-inputs";
 import { BrandKitBuilder, type BrandKitBuilderMode } from "./brand-kit-builder";
 import { getBrandKitColor } from "./brand-kits";
@@ -1091,8 +1090,8 @@ function BrandKitCard({
                     />
                   </fieldset>
                   <fieldset className="bk-section">
-                    <legend>Personality</legend>
-                    <PersonalityField
+                    <legend>Personality & voice</legend>
+                    <PersonalityVoiceField
                       profile={kit.profile ?? {}}
                       onChange={(profile) => patch({ profile })}
                     />
@@ -1107,13 +1106,6 @@ function BrandKitCard({
                   <fieldset className="bk-section">
                     <legend>Positioning</legend>
                     <PositioningField
-                      profile={kit.profile ?? {}}
-                      onChange={(profile) => patch({ profile })}
-                    />
-                  </fieldset>
-                  <fieldset className="bk-section">
-                    <legend>Voice</legend>
-                    <VoiceField
                       profile={kit.profile ?? {}}
                       onChange={(profile) => patch({ profile })}
                     />

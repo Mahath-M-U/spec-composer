@@ -347,10 +347,11 @@ export function isBrandProfileEmpty(profile?: BrandProfile): boolean {
   });
 }
 
-/** How many of the 10 brand-strategy sections have anything in them, for the
- * builder's "x of 10 sections filled" counter. A slider only counts once
+/** How many of the 9 brand-strategy sections have anything in them, for the
+ * builder's "x of 9 sections filled" counter. A slider only counts once
  * it's been moved off its neutral 50; palette/typography only count once
- * the caller marks them touched (so defaults don't inflate the count). */
+ * the caller marks them touched (so defaults don't inflate the count).
+ * Personality and voice share one "Personality & voice" section. */
 export function countFilledSections(input: {
   profile: BrandProfile;
   emotions: string[];
@@ -365,7 +366,12 @@ export function countFilledSections(input: {
     !!(p.missionFocus?.length || p.mission?.trim()),
     !!p.values?.length,
     !!input.emotions.length,
-    !!(p.archetype || touched(p.personality)),
+    !!(
+      p.archetype ||
+      touched(p.personality) ||
+      p.voiceTraits?.length ||
+      touched(p.voiceTone)
+    ),
     !!(
       p.audienceAges?.length ||
       p.audienceSegments?.length ||
@@ -373,12 +379,14 @@ export function countFilledSections(input: {
       p.audience?.trim()
     ),
     !!(p.positioningTier || p.differentiators?.length || p.positioning?.trim()),
-    !!(p.voiceTraits?.length || touched(p.voiceTone)),
     input.paletteTouched,
     input.typographyTouched,
   ];
   return checks.filter(Boolean).length;
 }
+
+/** Total number of sections `countFilledSections` can report as filled. */
+export const FILLED_SECTION_TOTAL = 9;
 
 function fieldSentence(
   label: string,

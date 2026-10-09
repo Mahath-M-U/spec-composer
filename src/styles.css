@@ -4257,7 +4257,6 @@ button:disabled {
 .brandkit-list,
 .bk-builder-form,
 .bk-builder-preview,
-.bk-font-grid,
 .bk-ms-list,
 .bk-select-content [data-radix-select-viewport] {
   scrollbar-width: thin;
@@ -4274,7 +4273,6 @@ button:disabled {
 .brandkit-list::-webkit-scrollbar,
 .bk-builder-form::-webkit-scrollbar,
 .bk-builder-preview::-webkit-scrollbar,
-.bk-font-grid::-webkit-scrollbar,
 .bk-ms-list::-webkit-scrollbar,
 .bk-select-content [data-radix-select-viewport]::-webkit-scrollbar {
   width: 8px;
@@ -4285,7 +4283,6 @@ button:disabled {
 .brandkit-list::-webkit-scrollbar-track,
 .bk-builder-form::-webkit-scrollbar-track,
 .bk-builder-preview::-webkit-scrollbar-track,
-.bk-font-grid::-webkit-scrollbar-track,
 .bk-ms-list::-webkit-scrollbar-track,
 .bk-select-content [data-radix-select-viewport]::-webkit-scrollbar-track {
   background: transparent;
@@ -4296,7 +4293,6 @@ button:disabled {
 .brandkit-list::-webkit-scrollbar-thumb,
 .bk-builder-form::-webkit-scrollbar-thumb,
 .bk-builder-preview::-webkit-scrollbar-thumb,
-.bk-font-grid::-webkit-scrollbar-thumb,
 .bk-ms-list::-webkit-scrollbar-thumb,
 .bk-select-content [data-radix-select-viewport]::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
@@ -4314,7 +4310,6 @@ button:disabled {
 .brandkit-list::-webkit-scrollbar-thumb:hover,
 .bk-builder-form::-webkit-scrollbar-thumb:hover,
 .bk-builder-preview::-webkit-scrollbar-thumb:hover,
-.bk-font-grid::-webkit-scrollbar-thumb:hover,
 .bk-ms-list::-webkit-scrollbar-thumb:hover,
 .bk-select-content [data-radix-select-viewport]::-webkit-scrollbar-thumb:hover {
   background: color-mix(
@@ -6957,16 +6952,20 @@ button:disabled {
 
 /* Section groups */
 .bk-group {
-  margin: 0 0 22px;
+  margin: 0;
   border: none;
   padding: 0;
 }
-.bk-group:last-child {
-  margin-bottom: 0;
+.bk-group + .bk-group {
+  border-top: 1px solid var(--color-editor-border);
+  padding-top: 18px;
+}
+.bk-group > * + * {
+  margin-top: 16px;
 }
 .bk-group-title {
   display: block;
-  margin: 0 0 10px;
+  margin: 0;
   padding: 0;
   color: var(--color-editor-muted);
   font-size: 10px;
@@ -6977,17 +6976,13 @@ button:disabled {
 .bk-section {
   margin: 0;
   border: none;
-  border-top: 1px solid var(--color-editor-border);
-  padding: 14px 0;
-}
-.bk-group > .bk-section:first-of-type {
-  border-top: none;
-  padding-top: 0;
+  padding: 0;
 }
 .bk-section > legend {
   display: block;
   margin: 0 0 2px;
   padding: 0;
+  border: none;
   color: var(--color-editor-foreground);
   font-size: 12px;
   font-weight: 750;
@@ -7016,28 +7011,17 @@ button:disabled {
   outline: 2px solid currentColor;
   outline-offset: 2px;
 }
-/* Paired sections: two .bk-section columns sharing one top border */
+/* Paired sections: two .bk-section columns side by side */
 .bk-pair {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 0 16px;
-  border-top: 1px solid var(--color-editor-border);
-  padding-top: 14px;
-}
-.bk-group-title + .bk-pair {
-  border-top: none;
-  padding-top: 0;
-}
-.bk-pair > .bk-section {
-  border-top: none;
-  padding: 0 0 14px;
 }
 
-/* Subfields within one section: audience age/segment/interests,
-   positioning tier/differentiators */
+/* Subfields within one section: audience age/segment/interests */
 .bk-subgrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0 16px;
 }
 .bk-subfield {
@@ -7097,7 +7081,7 @@ button:disabled {
   display: flex;
   flex: 1 1 auto;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 6px;
   min-width: 90px;
   border: none;
@@ -7106,6 +7090,15 @@ button:disabled {
   color: var(--color-editor-muted);
   font-size: 11px;
   text-align: left;
+}
+.bk-ms-label {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.bk-ms-count {
+  margin-left: auto;
+  color: var(--color-editor-muted);
+  font-variant-numeric: tabular-nums;
 }
 .bk-ms-trigger svg {
   height: 12px;
@@ -7131,6 +7124,13 @@ button:disabled {
   background: var(--color-editor-hover);
   color: inherit;
 }
+.bk-ms-popover [cmdk-group-heading] {
+  color: var(--color-editor-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
 .bk-select-content [role="option"][data-highlighted] {
   background: var(--color-editor-hover);
   color: inherit;
@@ -7141,7 +7141,7 @@ button:disabled {
   font-size: 10px;
 }
 
-/* OptionSelect trigger: archetype, positioning tier, creative style */
+/* OptionSelect trigger: archetype */
 .bk-select-trigger {
   height: 34px;
   border: 1px solid var(--color-editor-border);
@@ -7162,6 +7162,20 @@ button:disabled {
 .bk-builder .bk-select-trigger,
 .bk-strategy .bk-select-trigger {
   box-shadow: none;
+}
+
+/* FontSelect trigger: shows the chosen font in its own typeface */
+.bk-font-trigger {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  box-shadow: none;
+}
+.bk-font-trigger:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
 }
 
 /* "+ Add note" toggle */
@@ -7195,13 +7209,43 @@ button:disabled {
 .bk-finetune > summary + * {
   margin-top: 10px;
 }
+.bk-finetune-heading {
+  margin: 12px 0 6px;
+  color: var(--color-editor-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
 
-/* Quick-pick chips shown under an empty MultiSelect */
-.bk-quick-picks {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 6px;
+/* Positioning tier: 4-button segmented toggle */
+.bk-segmented {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid var(--color-editor-border);
+  border-radius: 8px;
+}
+.bk-segmented button {
+  border: none;
+  border-left: 1px solid var(--color-editor-border);
+  background: transparent;
+  padding: 7px 4px;
+  color: var(--color-editor-muted);
+  font-size: 11px;
+}
+.bk-segmented button:first-child {
+  border-left: none;
+}
+.bk-segmented button[aria-pressed="true"] {
+  background: color-mix(in oklab, var(--color-primary) 14%, transparent);
+  color: var(--color-editor-foreground);
+}
+.bk-segmented button:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 2px solid currentColor;
+  outline-offset: -2px;
 }
 
 /* Bipolar sliders: personality and voice */
@@ -7377,65 +7421,13 @@ button:disabled {
   outline-offset: 2px;
 }
 
-/* Font tiles (typography) */
-.bk-font-grid-wrap {
-  display: grid;
-  gap: 10px;
-}
-.bk-font-search {
-  margin: 0;
-}
-.bk-font-grid {
-  display: grid;
-  max-height: 260px;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 8px;
-  overflow-y: auto;
-}
-.bk-font-tile {
-  display: grid;
-  gap: 4px;
-  border: 1px solid var(--color-editor-border);
-  border-radius: 10px;
-  background: var(--color-editor);
-  padding: 10px;
-  text-align: left;
-  color: var(--color-editor-foreground);
-}
-.bk-font-tile:hover {
-  background: var(--color-editor-hover);
-}
-.bk-font-tile[aria-pressed="true"] {
-  border-color: var(--color-primary);
-  background: color-mix(in oklab, var(--color-primary) 14%, transparent);
-}
-.bk-font-tile:focus-visible {
-  outline: 2px solid currentColor;
-  outline-offset: 2px;
-}
-.bk-font-tile-glyph {
-  font-size: 22px;
-  line-height: 1;
-}
-.bk-font-tile-name {
-  overflow: hidden;
-  color: var(--color-editor-muted);
-  font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.bk-font-tile[aria-pressed="true"] .bk-font-tile-name {
-  color: color-mix(in oklab, var(--color-primary) 82%, white);
-}
-
 /* Brand strategy, inside the kit card */
 .bk-strategy {
   display: grid;
-  gap: 0;
+  gap: 16px;
 }
-.bk-strategy > .bk-section:first-child {
-  border-top: none;
-  padding-top: 0;
+.bk-strategy .bk-subgrid {
+  grid-template-columns: 1fr;
 }
 
 @media (max-width: 760px) {
@@ -7462,6 +7454,9 @@ button:disabled {
   }
   .bk-builder-summary {
     display: none;
+  }
+  .bk-subgrid {
+    grid-template-columns: 1fr;
   }
 }
 
