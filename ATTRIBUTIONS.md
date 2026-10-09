@@ -29,6 +29,25 @@ The vector motifs in `src/features/spec-composer/motifs/` and
 `src/features/spec-composer/illustrations.tsx` are drawn in code as part of the
 source and are covered by the MIT License.
 
+## Homepage hero artwork
+
+`public/home-hero/botanical-leaves.svg` is adapted from
+[Molumen fern on FreeSVG](https://freesvg.org/molumen-fern), a public-domain
+work distributed under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
+
+`public/home-hero/nature-landscape.svg` contains original soft flowing hills
+and dunes created for this project and covered by the MIT License.
+
+See [the detailed hero attribution notice](public/home-hero/ATTRIBUTION.md)
+for download sources and adaptations.
+
+## Application screenshots
+
+`docs/screenshots/homepage-hero-desktop.png` and
+`docs/screenshots/homepage-hero-mobile.png` are captures of the application's
+user interface, not AI-generated screenshots. Template artwork depicted in
+them retains the attribution listed above.
+
 ## Third-party logos and trademarks
 
 `src/assets/tool-logos/` contains the marks of Figma, Google Drive, GitHub,

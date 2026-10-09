@@ -71,9 +71,17 @@ import { TemplateCardMedia } from "./template-card-media";
 import { templateImageFor } from "./template-images";
 import { findImageStyle } from "./image-styles";
 import { useEditorStore } from "./store";
-import { compileDesignSkill } from "./design-md";
+import {
+  compileDesignSkill,
+  compileDesignSkillSegments,
+  DESIGN_SKILL_HEADER,
+  DESIGN_SKILL_SECTIONS,
+} from "./design-md";
+import { DesignMarkdown } from "./design-md-view";
+import { DesignEditorSections, type DesignPart } from "./design-editor-cards";
 import {
   compilePromptEditorOutput,
+  segText,
   validateExternalToolRequirement,
 } from "./compiler";
 import {
@@ -769,78 +777,202 @@ export function HomePage() {
 }
 
 function HomeHero({ onCreate }: { onCreate: () => void }) {
+  const previews = useMemo(
+    () =>
+      starterTemplates.flatMap((template) => {
+        const image = templateImageFor(template.name);
+        return image?.status === "approved"
+          ? [{ doc: template.document, image }]
+          : [];
+      }),
+    [],
+  );
+  const [preview, setPreview] = useState(
+    () =>
+      previews.find((item) => item.doc.name === "Product Launch") ??
+      previews[0],
+  );
+  const selectedOnMount = useRef(false);
+  useEffect(() => {
+    if (selectedOnMount.current || !previews.length) return;
+    selectedOnMount.current = true;
+    try {
+      const storageKey = "spec-composer:home-hero-template";
+      const previous = sessionStorage.getItem(storageKey);
+      const choices = previews.filter((item) => item.doc.name !== previous);
+      const chosen =
+        choices[Math.floor(Math.random() * choices.length)] ?? previews[0];
+      if (chosen) {
+        setPreview(chosen);
+        sessionStorage.setItem(storageKey, chosen.doc.name);
+      }
+    } catch {
+      // The deterministic first preview remains valid when storage is unavailable.
+    }
+  }, [previews]);
+  const parts = useMemo<DesignPart[]>(
+    () =>
+      preview
+        ? compileDesignSkillSegments(preview.doc)
+            .filter((line) =>
+              [
+                "skill:title",
+                "skill:tagline",
+                "skill:theme",
+                "skill:colors",
+                "skill:type",
+                "skill:spacing",
+              ].includes(line.key),
+            )
+            .map((line) => {
+              const text = segText(line.segs);
+              return {
+                key: line.key,
+                tag:
+                  DESIGN_SKILL_HEADER[line.key] ??
+                  DESIGN_SKILL_SECTIONS[line.key] ??
+                  line.key,
+                text,
+                editing: false,
+                actions: null,
+                body: <DesignMarkdown text={text} />,
+              };
+            })
+        : [],
+    [preview],
+  );
+  const designerFrame = useRef<HTMLDivElement>(null);
+  const designerPanel = useRef<HTMLDivElement>(null);
+  const [designerFit, setDesignerFit] = useState({ scale: 0, height: 0 });
+  useEffect(() => {
+    const frame = designerFrame.current;
+    const panel = designerPanel.current;
+    if (!frame || !panel) return;
+    const fit = () => {
+      if (!panel.offsetWidth || !panel.offsetHeight) return;
+      const maxHeight = parseFloat(
+        getComputedStyle(frame).getPropertyValue("--hero-designer-max-height"),
+      );
+      const scale = Math.min(
+        frame.clientWidth / panel.offsetWidth,
+        maxHeight / panel.offsetHeight,
+      );
+      const height = panel.offsetHeight * scale;
+      setDesignerFit((current) =>
+        current.scale === scale && current.height === height
+          ? current
+          : { scale, height },
+      );
+    };
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(frame);
+    observer.observe(panel);
+    return () => observer.disconnect();
+  }, [preview]);
+  if (!preview) return null;
   return (
-    <section className="home-hero" aria-labelledby="home-hero-title">
+    <section
+      className="home-hero"
+      aria-labelledby="home-hero-title"
+      data-hero-template={preview.doc.name}
+    >
+      <div className="home-hero-decoration" aria-hidden="true">
+        <div className="home-hero-landscape-fade">
+          <div className="home-hero-landscape" />
+        </div>
+        <div className="home-hero-fern home-hero-fern--left" />
+        <div className="home-hero-fern home-hero-fern--right" />
+      </div>
       <div className="home-hero-copy">
         <p className="home-hero-eyebrow">
-          From canvas to creative intelligence
+          FROM CANVAS TO CREATIVE INTELLIGENCE
         </p>
         <h1 id="home-hero-title">
           Design visually.
-          <span>Generate production-ready creative instructions.</span>
+          <span>From idea to AI image.</span>
         </h1>
         <p className="home-hero-description">
-          Turn your ideas into beautiful designs, structured specs, and AI-ready
-          prompts — all in one place.
+          Draw or drop a visual idea, get a structured specification, and
+          generate production-ready images with AI &mdash; all in one place.
         </p>
         <div className="home-hero-actions">
           <button type="button" onClick={onCreate}>
             <Plus size={17} aria-hidden="true" /> Create a design
           </button>
           <a href="#format-section-title">
-            Explore formats <ArrowRight size={16} aria-hidden="true" />
+            Explore templates <ArrowRight size={16} aria-hidden="true" />
           </a>
         </div>
       </div>
-      <div className="home-hero-art" aria-hidden="true">
-        <svg className="home-hero-flow" viewBox="0 0 600 220" fill="none">
-          <path d="M165 90c25-23 43-21 67 8m-13-6 15 8-5-17" />
-          <path d="M360 117c24 21 45 22 67 0m-11 0 15-4-5 16" />
+      <div className="home-hero-art" aria-hidden="true" inert>
+        <svg
+          className="home-hero-flow"
+          viewBox="0 0 600 244"
+          fill="none"
+          focusable="false"
+        >
+          <path d="M115 11c27-25 58-24 86-3m-12-2 14 4-4-13" />
+          <path d="M325 239c35 28 70 27 105 7m-12-2 15-1-5 13" />
         </svg>
-        <div className="home-hero-card home-hero-card--canvas">
-          <div className="home-hero-picture">
-            <svg viewBox="0 0 86 78" role="presentation">
-              <rect width="86" height="78" fill="#fff4e8" />
-              <rect x="7" y="7" width="72" height="64" fill="#f5ba93" />
-              <path d="M7 50 27 32l14 13 17-23 21 22v27H7Z" fill="#de886f" />
-              <path d="m7 65 26-21 13 9 14-12 19 20v10H7Z" fill="#842f41" />
-              <circle cx="59" cy="23" r="8" fill="#ffdc9f" />
-            </svg>
+        <div
+          className="home-hero-preview home-hero-preview--canvas"
+          key={`canvas:${preview.doc.name}`}
+        >
+          <div className="home-hero-toolbar">
+            <span className="home-hero-toolbar-dots">
+              <i />
+              <i />
+              <i />
+            </span>
+            <span className="home-hero-toolbar-tools">
+              <Menu size={10} />
+              <Plus size={10} />
+              <ArrowLeftRight size={10} />
+            </span>
           </div>
-          <span className="home-hero-card-label">
-            <b>01</b>
-            <span>
-              <strong>Canvas</strong>
-              <small>Design visually</small>
+          <div className="home-hero-canvas-stage">
+            <DocumentPreview doc={preview.doc} />
+            <span className="home-hero-selection">
+              <i />
+              <i />
+              <i />
+              <i />
             </span>
-          </span>
-        </div>
-        <div className="home-hero-card home-hero-card--spec">
-          <div className="home-hero-code">
-            <i />
-            <i />
-            <i />
-            <i />
-            <i />
-            <i />
           </div>
-          <span className="home-hero-card-label">
-            <b>02</b>
-            <span>
-              <strong>Spec</strong>
-              <small>Structured details</small>
-            </span>
-          </span>
         </div>
-        <div className="home-hero-card home-hero-card--ai">
-          <Sparkles className="home-hero-sparkle" strokeWidth={1.4} />
-          <span className="home-hero-card-label">
-            <b>03</b>
-            <span>
-              <strong>AI</strong>
-              <small>Generate &amp; more</small>
-            </span>
-          </span>
+        <div
+          className="home-hero-preview home-hero-preview--spec"
+          key={`spec:${preview.doc.name}`}
+        >
+          <div
+            className="home-hero-spec-viewport"
+            ref={designerFrame}
+            style={{ height: designerFit.height }}
+          >
+            <div
+              className="home-hero-designer"
+              ref={designerPanel}
+              style={{
+                transform: `scale(${designerFit.scale})`,
+                visibility: designerFit.scale ? "visible" : "hidden",
+              }}
+            >
+              <DesignEditorSections parts={parts} doc={preview.doc} />
+            </div>
+          </div>
+        </div>
+        <div
+          className="home-hero-preview home-hero-preview--image"
+          key={`image:${preview.doc.name}`}
+        >
+          <img
+            src={preview.image.src}
+            alt=""
+            width={preview.image.width}
+            height={preview.image.height}
+            decoding="async"
+          />
         </div>
       </div>
     </section>
