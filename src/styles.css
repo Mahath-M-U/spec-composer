@@ -12851,3 +12851,425 @@ button.de-subrow-tag:focus-visible {
     right: 11px;
   }
 }
+
+/* Phone navigation keeps the workspace destinations in a reachable sheet. */
+@media (max-width: 767px) {
+  .mobile-discovery-bar {
+    height: auto;
+    min-height: 64px;
+    gap: 8px;
+    padding: calc(8px + env(safe-area-inset-top))
+      max(8px, env(safe-area-inset-right)) 8px
+      max(8px, env(safe-area-inset-left));
+  }
+  .mobile-discovery-bar .mobile-discovery-brand {
+    font-size: 13px;
+    line-height: 1.2;
+  }
+  .mobile-discovery-bar > .mobile-discovery-brand:first-child span {
+    display: block;
+  }
+  .mobile-discovery-brand .app-icon {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+  }
+  .mobile-discovery-actions :is(.mobile-create-button, .mobile-menu-button) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-width: 48px;
+    min-height: 48px;
+    padding: 0 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .mobile-menu-button:hover {
+    background: var(--color-surface-subtle);
+  }
+  .mobile-discovery-menu {
+    width: min(360px, 100%);
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow-y: auto;
+    padding: calc(24px + env(safe-area-inset-top))
+      max(16px, env(safe-area-inset-right))
+      calc(24px + env(safe-area-inset-bottom))
+      max(16px, env(safe-area-inset-left));
+  }
+  .mobile-discovery-menu > button {
+    top: calc(12px + env(safe-area-inset-top));
+    right: max(12px, env(safe-area-inset-right));
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+  }
+  .mobile-discovery-menu .sidebar-navigation {
+    margin-top: 24px;
+  }
+  .mobile-discovery-menu .sidebar-nav-link {
+    width: 100%;
+    min-height: 48px;
+    text-align: left;
+  }
+  .mobile-menu-theme {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 20px;
+    padding: 12px;
+    border-top: 1px solid var(--color-border);
+    font-size: 14px;
+  }
+  .mobile-menu-theme button {
+    width: 48px;
+    height: 48px;
+  }
+}
+
+/* Phones use separate header, canvas and bottom tool rows instead of
+ * placing the desktop toolbar over a narrow canvas. Keep drawer state intact. */
+@media (max-width: 767px) {
+  .editor-shell {
+    --mobile-rail-height: calc(72px + env(safe-area-inset-bottom));
+    min-width: 0;
+    height: 100dvh;
+    padding: 0;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+  .editor-shell > .editor-top {
+    grid-column: 1;
+    grid-row: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    justify-content: stretch;
+    width: 100%;
+    max-width: none;
+    gap: 6px;
+    min-width: 0;
+    padding: calc(8px + env(safe-area-inset-top))
+      max(8px, env(safe-area-inset-right)) 8px
+      max(8px, env(safe-area-inset-left));
+    pointer-events: auto;
+  }
+  .editor-shell .editor-chip--start {
+    width: 100%;
+    min-width: 0;
+  }
+  .editor-shell .project-name-field {
+    flex: 1;
+    min-height: 48px;
+  }
+  .editor-shell .project-name-autosize {
+    display: block;
+    width: 100%;
+    max-width: none;
+  }
+  .editor-shell .project-name-autosize::after {
+    content: none;
+  }
+  .editor-shell .editor-chip--end {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 4px;
+    border-radius: 20px;
+  }
+  .editor-shell
+    .editor-chip
+    :is(
+      .tool-button,
+      .editor-preview-button,
+      .editor-theme-button,
+      .editor-split-toggle
+    ) {
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+  }
+  .editor-shell .editor-chip .editor-split-main {
+    min-height: 48px;
+    padding-inline: 10px;
+  }
+  .editor-shell .editor-copy-label {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
+    white-space: nowrap;
+  }
+  .editor-shell .right-panel-launch {
+    display: flex;
+    flex-basis: 100%;
+    min-width: 0;
+    border-radius: 16px;
+  }
+  .editor-shell .right-panel-launch button {
+    flex: 1;
+    min-width: 0;
+    min-height: 48px;
+    font-size: 13px;
+  }
+  .editor-shell > .workspace {
+    grid-column: 1;
+    grid-row: 2;
+    min-width: 0;
+    min-height: 0;
+    margin: 0 8px;
+  }
+  .editor-shell > .tool-rail {
+    grid-column: 1;
+    grid-row: 3;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 4px;
+    width: 100%;
+    min-width: 0;
+    height: var(--mobile-rail-height);
+    margin: 0;
+    padding: 8px max(8px, env(safe-area-inset-right))
+      calc(8px + env(safe-area-inset-bottom))
+      max(8px, env(safe-area-inset-left));
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scroll-padding-inline: max(8px, env(safe-area-inset-left))
+      max(8px, env(safe-area-inset-right));
+    border-radius: 0;
+    scrollbar-width: none;
+  }
+  .editor-shell > .tool-rail::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+  .editor-shell .tool-rail button:not(#editor-toggle-left) {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 64px;
+    height: 56px;
+    margin: 0;
+    padding-inline: 6px;
+    scroll-margin-inline: 8px;
+    gap: 4px;
+  }
+  .editor-shell .tool-rail button > svg {
+    width: 15px;
+    height: 15px;
+  }
+  .editor-shell .tool-rail button:not(#editor-toggle-left) > span {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+    font-size: 11px;
+    line-height: 14px;
+  }
+  .editor-shell .tool-rail .tool-rail-connect::after {
+    top: 8px;
+    right: calc(50% - 13px);
+  }
+  .editor-shell > :is(.context-panel, .right-panel) {
+    grid-area: 1 / 1 / -1 / -1;
+    top: max(8px, env(safe-area-inset-top));
+    bottom: calc(var(--mobile-rail-height) + 8px);
+    left: max(8px, env(safe-area-inset-left));
+    right: max(8px, env(safe-area-inset-right));
+    width: auto;
+    max-width: none;
+    min-width: 0;
+    overflow-x: hidden;
+  }
+  .editor-shell .editor-drawer-backdrop {
+    bottom: var(--mobile-rail-height);
+  }
+  .editor-shell .right-panel-head {
+    flex-wrap: wrap;
+    height: auto;
+    gap: 6px;
+    padding: 8px;
+  }
+  .editor-shell :is(.right-panel-toggle, .right-panel-export) {
+    width: 48px;
+    height: 48px;
+    margin-left: 0;
+  }
+  .editor-shell .right-panel-export {
+    margin-left: auto;
+  }
+  .editor-shell .right-panel-head .segmented {
+    order: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 64px;
+    flex: 1 1 100%;
+    width: 100%;
+  }
+  .editor-shell .segmented-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    min-width: 0;
+  }
+  .editor-shell .segmented :is(button, [role="tab"]) {
+    min-width: 0;
+    min-height: 48px;
+    padding-inline: 6px;
+    font-size: 11px;
+  }
+  .editor-shell .segmented-chat-label {
+    position: static;
+    display: inline;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+  }
+  .editor-shell .prompt-actions {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) minmax(0, 1fr);
+    gap: 6px;
+    padding: 8px;
+  }
+  .editor-shell .prompt-actions:has(.prompt-tool-add) {
+    grid-template-columns: 44px 44px minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .editor-shell .prompt-actions button {
+    width: 100%;
+    min-width: 0;
+    height: 44px;
+    min-height: 44px;
+    padding-inline: 6px;
+    font-size: 12px;
+  }
+  .editor-shell .prompt-actions :is(.prompt-options-trigger, .prompt-tool-add) {
+    width: 44px;
+    height: 44px;
+  }
+  .editor-shell .de-card {
+    padding: 12px;
+  }
+  .editor-shell .de-card-head {
+    gap: 8px;
+  }
+  .editor-shell .de-card-toggle {
+    grid-template-columns: 36px minmax(0, 1fr);
+    gap: 8px;
+  }
+  .editor-shell .de-card-preview {
+    display: flex;
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    padding-left: 0;
+  }
+  .editor-shell .de-card-name {
+    font-size: 14px;
+  }
+  .editor-shell .de-card-summary {
+    font-size: 12px;
+  }
+  .editor-shell .de-pv-font {
+    flex: 0 0 64px;
+    width: 64px;
+    min-width: 0;
+  }
+  .editor-shell .de-pv-tile {
+    flex: 0 0 52px;
+    width: 52px;
+  }
+  .editor-shell :is(.de-pv-font, .de-pv-tile) > * {
+    white-space: nowrap;
+    overflow-wrap: normal;
+  }
+  .editor-shell .de-pv-font small {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  @container right-panel (max-width: 310px) {
+    .editor-shell .de-card-preview {
+      display: none;
+    }
+  }
+  .editor-shell :is(.zoom-controls, .floating-controls) {
+    left: 8px;
+    right: auto;
+    max-width: calc(100% - 16px);
+    transform: none;
+  }
+  .editor-shell .zoom-controls {
+    bottom: 8px;
+  }
+  .editor-shell .floating-controls {
+    top: auto;
+    bottom: 76px;
+  }
+  .editor-shell[data-right-panel="closed"] .floating-controls {
+    max-width: calc(100% - 16px);
+  }
+  .editor-shell :is(.zoom-controls, .floating-controls) .tool-button {
+    width: 48px;
+    height: 48px;
+  }
+  .editor-shell :is(input, select, textarea),
+  .mobile-discovery-bar ~ * :is(input, select, textarea),
+  .creation-dialog :is(input, select, textarea) {
+    font-size: 16px !important;
+  }
+  .creation-dialog {
+    max-height: min(92dvh, 720px);
+    padding-bottom: env(safe-area-inset-bottom);
+    overflow-y: auto;
+  }
+  .creation-dialog-header {
+    grid-template-columns: 36px minmax(0, 1fr) 48px;
+  }
+  .creation-dialog :is(.creation-dialog-close, .creation-swap-size) {
+    width: 48px;
+    height: 48px;
+  }
+  .creation-dialog .creation-size-toggle button {
+    min-height: 48px;
+  }
+  .editor-shell .dialog-panel {
+    max-height: calc(100dvh - env(safe-area-inset-top));
+    overflow-y: auto;
+    padding-bottom: calc(22px + env(safe-area-inset-bottom));
+  }
+  .editor-shell .dialog-panel button {
+    min-height: 48px;
+  }
+}
+
+/* Short phone landscape keeps actions on one row to leave room for
+ * selected-element controls and zoom within the canvas. */
+@media (min-width: 560px) and (max-width: 767px) and (max-height: 480px) {
+  .editor-shell {
+    --mobile-rail-height: calc(64px + env(safe-area-inset-bottom));
+  }
+  .editor-shell > .editor-top {
+    gap: 4px;
+    padding-top: calc(4px + env(safe-area-inset-top));
+    padding-bottom: 4px;
+  }
+  .editor-shell .editor-chip--end {
+    flex-wrap: nowrap;
+  }
+  .editor-shell .right-panel-launch {
+    flex: 1 1 auto;
+    min-width: 180px;
+  }
+  .editor-shell .right-panel-launch button {
+    min-width: 60px;
+    min-height: 48px;
+  }
+  .editor-shell .tool-rail button:not(#editor-toggle-left) {
+    height: 48px;
+  }
+}

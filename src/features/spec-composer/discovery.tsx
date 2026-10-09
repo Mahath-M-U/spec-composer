@@ -17,6 +17,7 @@ import {
   Grid2X2,
   Images,
   LayoutTemplate,
+  Menu,
   Palette,
   Plug,
   Plus,
@@ -28,6 +29,12 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -114,6 +121,7 @@ export function DiscoveryShell({
   const [createOpen, setCreateOpen] = useState(false);
   const [comingSoon, setComingSoon] = useState<"mcp" | "remix" | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <>
@@ -198,45 +206,124 @@ export function DiscoveryShell({
         </aside>
         <main className="min-w-0">
           <div className="mobile-discovery-bar">
-            <Link to="/" className="flex items-center gap-2 font-bold">
+            <Link
+              to="/"
+              className="mobile-discovery-brand flex min-w-0 items-center gap-2 font-bold"
+            >
               <Mark />
               <span>Spec Composer</span>
-              <span className="sidebar-soon-badge shrink-0">Beta</span>
             </Link>
-            <div className="flex items-center gap-1">
+            <div className="mobile-discovery-actions flex shrink-0 items-center gap-1">
               <button
                 type="button"
                 className="mobile-create-button"
-                onClick={() => setCreateOpen(true)}
+                onClick={() => {
+                  setMenuOpen(false);
+                  setCreateOpen(true);
+                }}
                 aria-label="Create a design"
               >
                 <Plus size={15} />
                 Create
               </button>
-              <Link to="/projects" className="mobile-projects-link">
-                My designs
-              </Link>
-              <Hint label="Prompt gallery">
-                <Link
-                  to="/prompt-gallery"
-                  className="mobile-brandkit-link"
-                  activeProps={{ className: "active" }}
-                  aria-label="Prompt gallery"
+              <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+                <SheetTrigger asChild>
+                  <button
+                    type="button"
+                    className="mobile-menu-button"
+                    aria-label="Open navigation menu"
+                  >
+                    <Menu size={20} aria-hidden="true" />
+                    <span>Menu</span>
+                  </button>
+                </SheetTrigger>
+                <SheetContent
+                  side="right"
+                  className="mobile-discovery-menu"
+                  aria-describedby={undefined}
                 >
-                  <Images size={16} />
-                </Link>
-              </Hint>
-              <Hint label="Design kits">
-                <Link
-                  to="/design-kit"
-                  className="mobile-brandkit-link"
-                  activeProps={{ className: "active" }}
-                  aria-label="Design kits"
-                >
-                  <Gem size={16} />
-                </Link>
-              </Hint>
-              <ThemeToggle />
+                  <SheetTitle>Workspace</SheetTitle>
+                  <nav
+                    className="sidebar-navigation"
+                    aria-label="Mobile navigation"
+                  >
+                    <Nav
+                      to="/"
+                      icon={<Sparkles />}
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      Home
+                    </Nav>
+                    <Nav
+                      to="/templates"
+                      icon={<LayoutTemplate />}
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      Templates
+                    </Nav>
+                    <Nav
+                      to="/prompt-gallery"
+                      icon={<Images />}
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      Prompt gallery
+                    </Nav>
+                    <Nav
+                      to="/projects"
+                      icon={<Folder />}
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      My designs
+                    </Nav>
+                    <Nav
+                      to="/design-kit"
+                      icon={<Gem />}
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      Design kits
+                    </Nav>
+                    <button
+                      type="button"
+                      className={navLinkClass}
+                      onClick={() => {
+                        setMenuOpen(false);
+                        setGuideOpen(true);
+                      }}
+                    >
+                      <Compass />
+                      Quick tour
+                    </button>
+                    <button
+                      type="button"
+                      className={navLinkClass}
+                      onClick={() => {
+                        setMenuOpen(false);
+                        setComingSoon("remix");
+                      }}
+                    >
+                      <Shuffle />
+                      Creative Remix
+                      <span className="sidebar-soon-badge ml-auto">Soon</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={navLinkClass}
+                      onClick={() => {
+                        setMenuOpen(false);
+                        setComingSoon("mcp");
+                      }}
+                    >
+                      <Plug />
+                      Connect via MCP
+                      <span className="sidebar-soon-badge ml-auto">Soon</span>
+                    </button>
+                  </nav>
+                  <div className="mobile-menu-theme">
+                    <span>Appearance</span>
+                    <ThemeToggle />
+                  </div>
+                </SheetContent>
+              </Sheet>
             </div>
           </div>
           {children}
@@ -314,14 +401,17 @@ function Nav({
   to,
   icon,
   children,
+  onClick,
 }: {
   to: "/" | "/templates" | "/projects" | "/design-kit" | "/prompt-gallery";
   icon: React.ReactNode;
   children: React.ReactNode;
+  onClick?: () => void;
 }) {
   return (
     <Link
       to={to}
+      onClick={onClick}
       activeProps={{
         className: "sidebar-nav-active font-bold",
       }}
