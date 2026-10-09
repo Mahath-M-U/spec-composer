@@ -134,10 +134,10 @@ describe("compileVisualPrompt", () => {
     expect(compileVisualPrompt(doc)).toContain("Scene: Marble countertop.");
   });
 
-  it("has no Mood, Typography direction, Scene or Lighting by default", () => {
+  it("has no Mood, Scene or Lighting by default, but always includes Typography direction", () => {
     const text = compileVisualPrompt(createDocument());
     expect(text).not.toContain("Mood:");
-    expect(text).not.toContain("Typography direction");
+    expect(text).toContain("Typography direction");
     expect(text).not.toContain("Scene:");
     expect(text).not.toContain("Lighting:");
   });
