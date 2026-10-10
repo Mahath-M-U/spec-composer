@@ -1486,8 +1486,6 @@ button:disabled {
   --hero-preview-ink: #342b3a;
   --hero-preview-muted: #746b7b;
   --hero-shadow: #29202e24;
-  --hero-flow: #d4679f;
-  --hero-flow-glow: #f3a6cf99;
 }
 .dark {
   --hero-bg-glow: #683332;
@@ -1508,8 +1506,6 @@ button:disabled {
   --hero-preview-ink: #eee8f4;
   --hero-preview-muted: #ada0bb;
   --hero-shadow: #100b1752;
-  --hero-flow: #f8aad2;
-  --hero-flow-glow: #ff9fd7;
 }
 .home-hero {
   position: relative;
@@ -1660,21 +1656,6 @@ button:disabled {
   min-width: 0;
   overflow: visible;
   pointer-events: none;
-}
-.home-hero-flow {
-  position: absolute;
-  inset: 0;
-  height: 100%;
-  width: 100%;
-  overflow: visible;
-  filter: drop-shadow(0 0 4px var(--hero-flow-glow));
-}
-.home-hero-flow path {
-  stroke: var(--hero-flow);
-  stroke-opacity: 0.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.25;
 }
 .home-hero-preview {
   position: absolute;
@@ -5460,17 +5441,6 @@ button:disabled {
 }
 .brandkit-card.active {
   border-color: var(--color-primary);
-}
-.brandkit-m3-badge {
-  margin-left: 0.35rem;
-  border-radius: 999px;
-  background: color-mix(in oklab, var(--color-primary) 18%, transparent);
-  color: var(--color-primary);
-  padding: 0.05rem 0.4rem;
-  font-size: 8px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  vertical-align: middle;
 }
 .brandkit-swatches {
   display: flex;
@@ -12747,7 +12717,6 @@ button.de-subrow-tag:focus-visible {
 
 .editor-shell
   :is(
-    .brandkit-m3-badge,
     .brandkit-section-head > button.active,
     .brandkit-section-head > button:hover
   ) {

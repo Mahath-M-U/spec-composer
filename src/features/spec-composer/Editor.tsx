@@ -15,7 +15,7 @@ import { CanvasWorkspace } from "./canvas-surface";
 import { AssetsPanel } from "./assets-panel/AssetsPanel";
 import { ResizePanel } from "./resize-panel";
 import { PanelHeader, PanelCollapseProvider } from "./panel-header";
-import { BrandKitPanel, brandKitPaint } from "./brand-kit-panel";
+import { BrandKitPanel } from "./brand-kit-panel";
 import {
   ArrowLeft,
   ArrowRight,
@@ -1233,30 +1233,10 @@ function DockNumberField({
 function StylePanel() {
   const s = useEditorStore();
   const d = s.doc;
-  const [brandKitOpen, setBrandKitOpen] = useState(false);
-  const brandKitPickerRef = useRef<HTMLDivElement>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [regenCopied, setRegenCopied] = useState(false);
   const tab = s.styleTab;
   const setTab = s.setStyleTab;
-
-  useEffect(() => {
-    if (!brandKitOpen) return;
-    const closeOnOutsideClick = (event: PointerEvent) => {
-      if (!brandKitPickerRef.current?.contains(event.target as Node)) {
-        setBrandKitOpen(false);
-      }
-    };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setBrandKitOpen(false);
-    };
-    document.addEventListener("pointerdown", closeOnOutsideClick);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("pointerdown", closeOnOutsideClick);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [brandKitOpen]);
 
   if (!d) return null;
 
@@ -1354,6 +1334,14 @@ function StylePanel() {
 
         {tab === "style" && (
           <>
+            {!firstElement && !s.backgroundSelected && (
+              <div className="asset-empty">
+                <Palette aria-hidden="true" />
+                <b>No element selected</b>
+                <span>Select an element on the canvas to edit its style.</span>
+              </div>
+            )}
+
             {firstElement && !s.backgroundSelected && (
               <div className="style-dock-section element-details-section">
                 <h3 className="style-dock-section-title element-details-heading">
@@ -1947,113 +1935,6 @@ function StylePanel() {
                 )}
               </div>
             )}
-
-            <div
-              ref={brandKitPickerRef}
-              className="style-dock-section style-dock-brandkit"
-            >
-              <h3 className="style-dock-section-title">Design kit</h3>
-              <button
-                className="font-trigger"
-                type="button"
-                aria-haspopup="listbox"
-                aria-expanded={brandKitOpen}
-                onClick={() => setBrandKitOpen((open) => !open)}
-              >
-                <Gem aria-hidden="true" />
-                <b>{activeBrandKit?.name ?? "No design kit"}</b>
-                <ChevronDown aria-hidden="true" />
-              </button>
-
-              {brandKitOpen && (
-                <div className="font-picker-popover brandkit-picker-popover">
-                  <div className="font-picker-head">
-                    <div>
-                      <Gem aria-hidden="true" />
-                      <div>
-                        <b>Design kit</b>
-                        <small>Apply colors and type to this poster</small>
-                      </div>
-                    </div>
-                    <Hint label="Close">
-                      <button
-                        type="button"
-                        aria-label="Close design kit picker"
-                        onClick={() => setBrandKitOpen(false)}
-                      >
-                        <X />
-                      </button>
-                    </Hint>
-                  </div>
-                  <div
-                    className="brandkit-list"
-                    role="listbox"
-                    aria-label="Design kits"
-                  >
-                    <button
-                      type="button"
-                      role="option"
-                      aria-selected={!activeBrandKit}
-                      className={`brandkit-option${!activeBrandKit ? " active" : ""}`}
-                      onClick={() => {
-                        if (activeBrandKit) s.deactivateBrandKit();
-                        setBrandKitOpen(false);
-                      }}
-                    >
-                      <span className="brandkit-swatches" aria-hidden="true">
-                        <i className="brandkit-swatch-empty" />
-                      </span>
-                      <span className="truncate">No design kit</span>
-                      {!activeBrandKit && <Check aria-hidden="true" />}
-                    </button>
-                    {s.brandKits.length ? (
-                      <>
-                        {s.brandKits.map((kit) => {
-                          const isActive = activeBrandKit?.id === kit.id;
-                          return (
-                            <button
-                              key={kit.id}
-                              type="button"
-                              role="option"
-                              aria-selected={isActive}
-                              className={`brandkit-option${isActive ? " active" : ""}`}
-                              onClick={() => {
-                                s.activateBrandKit(kit.id);
-                                setBrandKitOpen(false);
-                              }}
-                            >
-                              <span
-                                className="brandkit-swatches"
-                                aria-hidden="true"
-                              >
-                                {kit.colors.length ? (
-                                  kit.colors.slice(0, 5).map((c) => (
-                                    <i
-                                      key={c.id}
-                                      style={{
-                                        background: brandKitPaint(c),
-                                      }}
-                                    />
-                                  ))
-                                ) : (
-                                  <i className="brandkit-swatch-empty" />
-                                )}
-                              </span>
-                              <span className="truncate">{kit.name}</span>
-                              {isActive && <Check aria-hidden="true" />}
-                            </button>
-                          );
-                        })}
-                      </>
-                    ) : (
-                      <p className="font-empty brandkit-empty-inline">
-                        No saved design kits yet.
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
           </>
         )}
       </div>

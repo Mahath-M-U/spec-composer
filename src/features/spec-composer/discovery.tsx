@@ -906,15 +906,6 @@ function HomeHero({ onCreate }: { onCreate: () => void }) {
         </div>
       </div>
       <div className="home-hero-art" aria-hidden="true" inert>
-        <svg
-          className="home-hero-flow"
-          viewBox="0 0 600 244"
-          fill="none"
-          focusable="false"
-        >
-          <path d="M115 11c27-25 58-24 86-3m-12-2 14 4-4-13" />
-          <path d="M325 239c35 28 70 27 105 7m-12-2 15-1-5 13" />
-        </svg>
         <div
           className="home-hero-preview home-hero-preview--canvas"
           key={`canvas:${preview.doc.name}`}

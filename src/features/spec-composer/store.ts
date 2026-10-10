@@ -260,7 +260,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   selectedIds: [],
   backgroundSelected: false,
   panel: "assets",
-  styleTab: "style",
+  styleTab: "layout",
   tool: "select",
   zoom: 1,
   pan: { x: 0, y: 0 },

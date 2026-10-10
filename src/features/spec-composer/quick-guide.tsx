@@ -30,7 +30,7 @@ const STEPS: Record<GuidePage, GuideStep[]> = {
       target: "rail-style",
       section: "Left panel",
       title: "Style",
-      body: "Style the selected element's position, text and colors, or the background. Switch to Layout for one-click layouts, and apply a design kit. Selecting an element or the background on the canvas opens it automatically.",
+      body: "Style the selected element's position, text and colors, or the background. Switch to Layout for one-click layouts. Selecting an element or the background on the canvas opens it automatically.",
     },
     {
       target: "rail-layers",
