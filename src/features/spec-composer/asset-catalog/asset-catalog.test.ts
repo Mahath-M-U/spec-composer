@@ -9,6 +9,7 @@ import {
   isFreeFloat,
   ROLE_OVERRIDES,
   roleOf,
+  searchAssets,
 } from "./index.ts";
 import { MOTIF_KEYS } from "../motif-keys.ts";
 
@@ -123,5 +124,31 @@ describe("asset roles", () => {
     expect(percentOff!.kind).toBe("offer");
     expect(isFreeFloat(soldOut!)).toBe(true);
     expect(isFreeFloat(percentOff!)).toBe(false);
+  });
+});
+
+describe("searchAssets filter", () => {
+  it('returns only subject items for searchAssets("phone", i => roleOf(i) === "subject")', () => {
+    const results = searchAssets("phone", (item) => roleOf(item) === "subject");
+    expect(results.length).toBeGreaterThan(0);
+    for (const item of results) {
+      expect(roleOf(item), item.id).toBe("subject");
+    }
+  });
+
+  it("doesn't truncate a broad query to 80 before applying the filter", () => {
+    const unfiltered = searchAssets("imagery");
+    expect(unfiltered.length).toBe(80);
+
+    const allFood = ASSET_CATALOG.filter((item) => item.category === "food");
+    // At least one food item scores low enough to fall outside the
+    // unfiltered top 80, proving this query is actually broad.
+    const foodInUnfiltered = unfiltered.filter(
+      (item) => item.category === "food",
+    ).length;
+    expect(foodInUnfiltered).toBeLessThan(allFood.length);
+
+    const filtered = searchAssets("imagery", (item) => item.category === "food");
+    expect(filtered.length).toBe(allFood.length);
   });
 });

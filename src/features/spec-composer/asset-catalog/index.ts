@@ -1,4 +1,5 @@
 import { CATEGORIES } from "./categories.ts";
+import { roleOf } from "./roles.ts";
 import { textItems } from "./items/text.ts";
 import { promoItems } from "./items/promo.ts";
 import { uiItems } from "./items/ui.ts";
@@ -335,6 +336,7 @@ function scoreVariant(
   const categoryLabel = normalize(item.category);
   const collection = normalize(category?.collection ?? "");
   const kind = normalize(item.kind);
+  const role = normalize(roleOf(item));
 
   let score = 0;
   let matched = false;
@@ -358,17 +360,26 @@ function scoreVariant(
     score += 5;
     matched = true;
   }
+  if (role === variant || role.startsWith(variant)) {
+    score += 5;
+    matched = true;
+  }
   if (!matched && (collection === variant || kind === variant)) matched = true;
   return matched ? score : -1;
 }
 
 /**
- * Every query term must match (label, tags, category, collection or kind),
- * expanded through SEARCH_SYNONYMS. Results are ranked by the summed score
- * plus a curated-popularity bonus, capped at 80 items. An empty query
- * returns [].
+ * Every query term must match (label, tags, category, collection, kind or
+ * role), expanded through SEARCH_SYNONYMS. `filter`, when given, is applied
+ * before scoring and before the 80-item cap, so a broad filtered query isn't
+ * truncated away from matches the filter would have kept. Results are ranked
+ * by the summed score plus a curated-popularity bonus, capped at 80 items.
+ * An empty query returns [].
  */
-export function searchAssets(query: string): AssetItem[] {
+export function searchAssets(
+  query: string,
+  filter?: (item: AssetItem) => boolean,
+): AssetItem[] {
   const normalized = normalize(query).trim();
   if (!normalized) return [];
   const terms = normalized.split(/\s+/).filter(Boolean);
@@ -376,6 +387,7 @@ export function searchAssets(query: string): AssetItem[] {
 
   const results: { item: AssetItem; score: number }[] = [];
   for (const item of ASSET_CATALOG) {
+    if (filter && !filter(item)) continue;
     const category = categoryById.get(item.category);
     let total = 0;
     let matchesAllTerms = true;
