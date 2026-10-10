@@ -45,25 +45,14 @@ import {
   loadMaterialStyleKits,
   saveMaterialStyleKits,
 } from "./material-kits";
+import {
+  applyComposeLayout,
+  applyTidy,
+  type Box,
+  type ComposeLayout,
+} from "./compose-layouts";
 
-export type ComposeLayout =
-  | "copy-left"
-  | "copy-right"
-  | "stack-center"
-  | "split-top"
-  | "split-bottom"
-  | "grid-2up"
-  | "corner-badge"
-  | "layered-card"
-  | "diagonal"
-  | "full-bleed-overlay";
-
-export interface Box {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
+export type { Box, ComposeLayout } from "./compose-layouts";
 
 export interface Guide {
   axis: "x" | "y";
@@ -244,17 +233,6 @@ export function boundsOf(elements: SpecElement[]): Box {
   }
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
-
-const TEXTUAL: readonly ElementKind[] = [
-  "title",
-  "subheading",
-  "body",
-  "eyebrow",
-  "offer",
-  "price",
-  "badge",
-  "cta",
-];
 
 export const useEditorStore = create<EditorState>((set, get) => ({
   selectedIds: [],
@@ -732,53 +710,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     );
   },
 
-  tidy: () =>
-    get().mutate((d) => {
-      const margin = Math.round(
-        Math.min(d.format.width, d.format.height) * 0.06,
-      );
-      d.elements.forEach((e) => {
-        e.x = Math.round(
-          Math.max(
-            margin,
-            Math.min(
-              d.format.width - margin - e.width,
-              Math.round(e.x / 4) * 4,
-            ),
-          ),
-        );
-        e.y = Math.round(
-          Math.max(
-            margin,
-            Math.min(
-              d.format.height - margin - e.height,
-              Math.round(e.y / 4) * 4,
-            ),
-          ),
-        );
-      });
-      const text = d.elements
-        .filter((e) => TEXTUAL.includes(e.kind))
-        .sort((a, b) => a.y - b.y);
-      for (let i = 1; i < text.length; i++) {
-        const prev = text[i - 1]!;
-        const cur = text[i]!;
-        if (Math.abs(cur.x - prev.x) < 32) cur.x = prev.x;
-        if (cur.y < prev.y + prev.height + 20)
-          cur.y = prev.y + prev.height + 32;
-      }
-      const logos = d.elements.filter(
-        (e) => e.kind === "logo" || e.kind === "brandMark",
-      );
-      logos.forEach((logo) => {
-        const nearRight = logo.x + logo.width / 2 > d.format.width / 2;
-        logo.x = nearRight ? d.format.width - margin - logo.width : margin;
-        logo.y = Math.max(
-          margin,
-          Math.min(logo.y, d.format.height - margin - logo.height),
-        );
-      });
-    }),
+  tidy: () => get().mutate((d) => applyTidy(d, get().selectedIds)),
 
   compose: (layout) => {
     const doc = get().doc;
@@ -791,117 +723,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           ]),
         ),
       });
-    get().mutate((d) => {
-      const selected = get().selectedIds;
-      const pool = d.elements.filter((e) =>
-        selected.length ? selected.includes(e.id) : e.visible,
-      );
-      const copy = pool.filter(
-        (e) =>
-          !e.kind.toLowerCase().includes("image") &&
-          e.kind !== "shape" &&
-          e.kind !== "divider",
-      );
-      const visual = pool.find((e) => e.kind.toLowerCase().includes("image"));
-      const w = d.format.width;
-      const h = d.format.height;
-      const m = Math.round(w * 0.07);
-
-      const stackCopy = (x: number, y0: number, width: number, gap: number) => {
-        let y = y0;
-        copy.forEach((e) => {
-          e.x = Math.round(x);
-          e.y = Math.round(y);
-          e.width = Math.round(width);
-          y += e.height + gap;
-        });
-      };
-
-      if (layout === "copy-right") {
-        if (visual)
-          Object.assign(visual, {
-            x: m,
-            y: Math.round(h * 0.15),
-            width: Math.round(w * 0.48),
-            height: Math.round(h * 0.7),
-          });
-        stackCopy(w * 0.58, h * 0.16, w * 0.35, h * 0.03);
-      } else if (layout === "copy-left") {
-        stackCopy(m, h * 0.16, w * 0.38, h * 0.03);
-        if (visual)
-          Object.assign(visual, {
-            x: Math.round(w * 0.52),
-            y: Math.round(h * 0.12),
-            width: Math.round(w * 0.42),
-            height: Math.round(h * 0.72),
-          });
-      } else if (layout === "stack-center") {
-        let y = h * 0.12;
-        pool.forEach((e) => {
-          e.x = Math.round((w - e.width) / 2);
-          e.y = Math.round(y);
-          y += e.height + h * 0.025;
-        });
-      } else if (layout === "split-top") {
-        if (visual)
-          Object.assign(visual, {
-            x: 0,
-            y: 0,
-            width: w,
-            height: Math.round(h * 0.55),
-          });
-        stackCopy(m, h * 0.62, w - m * 2, h * 0.025);
-      } else if (layout === "split-bottom") {
-        if (visual)
-          Object.assign(visual, {
-            x: 0,
-            y: Math.round(h * 0.45),
-            width: w,
-            height: Math.round(h * 0.55),
-          });
-        stackCopy(m, h * 0.08, w - m * 2, h * 0.025);
-      } else if (layout === "grid-2up") {
-        if (visual)
-          Object.assign(visual, {
-            x: 0,
-            y: 0,
-            width: Math.round(w * 0.5),
-            height: h,
-          });
-        stackCopy(w * 0.58, h * 0.18, w * 0.36, h * 0.03);
-      } else if (layout === "corner-badge") {
-        const badge = pool.find(
-          (e) => e.kind === "badge" || e.kind === "eyebrow",
-        );
-        const cta = pool.find((e) => e.kind === "cta");
-        if (badge) Object.assign(badge, { x: m, y: m });
-        if (cta)
-          Object.assign(cta, { x: w - m - cta.width, y: h - m - cta.height });
-        const centerCopy = copy.filter((e) => e !== badge && e !== cta);
-        let y = h * 0.38;
-        centerCopy.forEach((e) => {
-          e.x = Math.round((w - Math.round(w * 0.7)) / 2);
-          e.width = Math.round(w * 0.7);
-          e.y = Math.round(y);
-          y += e.height + h * 0.02;
-        });
-      } else if (layout === "layered-card") {
-        if (visual) Object.assign(visual, { x: 0, y: 0, width: w, height: h });
-        const cardW = Math.round(w * 0.72);
-        const cardX = Math.round((w - cardW) / 2);
-        stackCopy(cardX, h * 0.32, cardW, h * 0.025);
-      } else if (layout === "diagonal") {
-        let y = h * 0.1;
-        pool.forEach((e, i) => {
-          e.x = Math.round(m + i * w * 0.06);
-          e.y = Math.round(y);
-          y += e.height + h * 0.05;
-        });
-      } else if (layout === "full-bleed-overlay") {
-        if (visual) Object.assign(visual, { x: 0, y: 0, width: w, height: h });
-        stackCopy(m, h * 0.68, w - m * 2, h * 0.02);
-      }
-    });
+    get().mutate((d) => applyComposeLayout(d, layout, get().selectedIds));
   },
 
   resetCompose: () => {

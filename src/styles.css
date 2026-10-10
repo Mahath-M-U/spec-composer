@@ -10119,6 +10119,19 @@ ol.md-list {
   background: var(--color-editor-surface);
   color: var(--color-editor-foreground);
 }
+.style-dock-tabs > .style-dock-tab-slot {
+  display: flex;
+  min-width: 0;
+}
+.style-dock-tab-slot > button {
+  flex: 1;
+}
+.style-dock-tabs button:disabled {
+  opacity: 0.45;
+}
+.style-dock-tabs button:disabled:hover {
+  color: var(--color-editor-muted);
+}
 .compose-list {
   display: flex;
   flex-direction: column;
@@ -10138,6 +10151,24 @@ ol.md-list {
   width: 0;
   height: 0;
   display: none;
+}
+.compose-scope {
+  margin: 0 2px;
+  color: var(--color-editor-muted);
+  font-size: 10px;
+}
+.compose-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.compose-group-label {
+  margin: 4px 2px 0;
+  color: var(--color-editor-muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 .compose-item {
   display: flex;
@@ -10166,6 +10197,12 @@ ol.md-list {
   cursor: default;
   opacity: 0.5;
   pointer-events: none;
+}
+/* The layout currently applied to the canvas — a solid border and tinted
+ * background only, no outer glow. */
+.compose-item[aria-pressed="true"] {
+  border-color: var(--color-primary);
+  background: color-mix(in oklab, var(--color-primary) 14%, var(--color-editor));
 }
 .compose-thumb {
   height: 42px;
@@ -12785,6 +12822,21 @@ button.de-subrow-tag:focus-visible {
     var(--editor-action) 14%,
     var(--color-editor-surface)
   );
+}
+
+/* The active layout: solid border and tinted background only — no outer
+ * glow, matching the design system's no-glow rule for focus/active chrome. */
+.editor-shell .compose-item[aria-pressed="true"] {
+  border-color: var(--editor-action);
+  background: color-mix(
+    in oklab,
+    var(--editor-action) 14%,
+    var(--color-editor-surface)
+  );
+}
+
+.editor-shell .compose-item[aria-pressed="true"] .compose-item-copy b {
+  color: var(--editor-action);
 }
 
 .editor-shell .compose-thumb {

@@ -89,6 +89,14 @@ import { AppIcon } from "@/components/app-icon";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useEditorStore, type Box, type ComposeLayout } from "./store";
 import {
+  COMPOSE_LAYOUTS,
+  composePool,
+  isComposeAvailable,
+  planComposeBoxes,
+  type ComposeGroup,
+  type ComposePool,
+} from "./compose-layouts";
+import {
   useSidebarLayout,
   focusSidebarControl,
   RIGHT_REOPEN_ID,
@@ -204,59 +212,6 @@ function aspectRatioLabel(width: number, height: number): string {
   const divisor = gcd(w, h) || 1;
   return `${w / divisor}:${h / divisor}`;
 }
-
-const COMPOSE_LAYOUTS: { id: ComposeLayout; label: string; hint: string }[] = [
-  {
-    id: "copy-left",
-    label: "Copy left",
-    hint: "Text block on the left, visual on the right",
-  },
-  {
-    id: "copy-right",
-    label: "Copy right",
-    hint: "Text block on the right, visual on the left",
-  },
-  {
-    id: "stack-center",
-    label: "Centered stack",
-    hint: "Everything centered, top to bottom",
-  },
-  {
-    id: "split-top",
-    label: "Visual on top",
-    hint: "Visual fills the top half, copy below",
-  },
-  {
-    id: "split-bottom",
-    label: "Visual on bottom",
-    hint: "Visual fills the bottom half, copy above",
-  },
-  {
-    id: "grid-2up",
-    label: "Two-up grid",
-    hint: "Equal visual and copy columns",
-  },
-  {
-    id: "corner-badge",
-    label: "Corner badge",
-    hint: "Badge and CTA pinned to opposite corners",
-  },
-  {
-    id: "layered-card",
-    label: "Layered card",
-    hint: "Full-bleed visual with copy on a centered card",
-  },
-  {
-    id: "diagonal",
-    label: "Diagonal cascade",
-    hint: "Elements cascade from corner to corner",
-  },
-  {
-    id: "full-bleed-overlay",
-    label: "Full-bleed overlay",
-    hint: "Visual fills the canvas, copy overlays the base",
-  },
-];
 
 const LEFT_PANEL_DEFAULT_WIDTH = 432;
 const RIGHT_PANEL_DEFAULT_WIDTH = 624;
@@ -1235,7 +1190,7 @@ function StylePanel() {
   const d = s.doc;
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [regenCopied, setRegenCopied] = useState(false);
-  const tab = s.styleTab;
+  const storedTab = s.styleTab;
   const setTab = s.setStyleTab;
 
   if (!d) return null;
@@ -1290,6 +1245,9 @@ function StylePanel() {
     (isTextKind(firstElement.kind) ||
       firstElement.kind === "shape" ||
       firstElement.kind === "divider");
+  // Keep the stored tab so selecting something returns to Style.
+  const canStyle = !!firstElement || s.backgroundSelected;
+  const tab = canStyle ? storedTab : "layout";
 
   return (
     <section className="style-panel" data-tab={tab} aria-label="Style controls">
@@ -1307,16 +1265,21 @@ function StylePanel() {
       />
       <div className="style-dock">
         <div className="style-dock-tabs" role="tablist">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === "style"}
-            className={tab === "style" ? "active" : ""}
-            onClick={() => setTab("style")}
-          >
-            <Palette aria-hidden="true" />
-            Style
-          </button>
+          <Hint label={canStyle ? undefined : "Select an element to edit its style"}>
+            <span className="style-dock-tab-slot">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === "style"}
+                className={tab === "style" ? "active" : ""}
+                disabled={!canStyle}
+                onClick={() => setTab("style")}
+              >
+                <Palette aria-hidden="true" />
+                Style
+              </button>
+            </span>
+          </Hint>
           <button
             type="button"
             role="tab"
@@ -1334,14 +1297,6 @@ function StylePanel() {
 
         {tab === "style" && (
           <>
-            {!firstElement && !s.backgroundSelected && (
-              <div className="asset-empty">
-                <Palette aria-hidden="true" />
-                <b>No element selected</b>
-                <span>Select an element on the canvas to edit its style.</span>
-              </div>
-            )}
-
             {firstElement && !s.backgroundSelected && (
               <div className="style-dock-section element-details-section">
                 <h3 className="style-dock-section-title element-details-heading">
@@ -2217,124 +2172,78 @@ function FloatingControls() {
 }
 
 type ThumbRect = [x: number, y: number, w: number, h: number];
-type ThumbSpec = { visual?: ThumbRect; blocks: ThumbRect[] };
+type ThumbSpec = { visual?: ThumbRect | ThumbRect[]; blocks: ThumbRect[] };
 
-// Rough 40x50 sketches of where compose() places the visual and copy.
-const COMPOSE_THUMBS: Record<ComposeLayout, ThumbSpec> = {
-  "copy-left": {
-    visual: [21, 6, 17, 36],
-    blocks: [
-      [3, 8, 14, 4],
-      [3, 16, 15, 2],
-      [3, 21, 13, 2],
-      [3, 26, 9, 3],
-    ],
-  },
-  "copy-right": {
-    visual: [3, 8, 19, 35],
-    blocks: [
-      [25, 8, 12, 4],
-      [25, 16, 12, 2],
-      [25, 21, 10, 2],
-      [25, 26, 8, 3],
-    ],
-  },
-  "stack-center": {
-    blocks: [
-      [10, 6, 20, 4],
-      [8, 14, 24, 12],
-      [12, 31, 16, 2],
-      [14, 36, 12, 2],
-      [15, 42, 10, 3],
-    ],
-  },
-  "split-top": {
-    visual: [0, 0, 40, 27],
-    blocks: [
-      [3, 31, 22, 4],
-      [3, 38, 32, 2],
-      [3, 43, 26, 2],
-    ],
-  },
-  "split-bottom": {
-    visual: [0, 22, 40, 28],
-    blocks: [
-      [3, 4, 22, 4],
-      [3, 11, 32, 2],
-      [3, 16, 26, 2],
-    ],
-  },
-  "grid-2up": {
-    visual: [0, 0, 20, 50],
-    blocks: [
-      [24, 9, 13, 4],
-      [24, 17, 13, 2],
-      [24, 22, 11, 2],
-      [24, 28, 8, 3],
-    ],
-  },
-  "corner-badge": {
-    blocks: [
-      [3, 3, 9, 4],
-      [7, 19, 26, 4],
-      [7, 27, 26, 2],
-      [10, 32, 20, 2],
-      [27, 43, 10, 4],
-    ],
-  },
-  "layered-card": {
-    visual: [0, 0, 40, 50],
-    blocks: [
-      [8, 17, 24, 4],
-      [8, 25, 24, 2],
-      [8, 30, 20, 2],
-    ],
-  },
-  diagonal: {
-    blocks: [
-      [3, 5, 16, 4],
-      [7, 15, 16, 8],
-      [11, 28, 16, 2],
-      [15, 35, 16, 2],
-      [19, 42, 10, 3],
-    ],
-  },
-  "full-bleed-overlay": {
-    visual: [0, 0, 40, 50],
-    blocks: [
-      [3, 34, 24, 4],
-      [3, 41, 32, 2],
-      [3, 45, 24, 2],
-    ],
-  },
-};
+/** ThumbRect is itself a 4-tuple array, so Array.isArray can't tell it apart
+ * from ThumbRect[] by narrowing alone — check the first entry's type instead. */
+function toVisualRects(visual: ThumbSpec["visual"]): ThumbRect[] {
+  if (!visual) return [];
+  return typeof visual[0] === "number" ? [visual as ThumbRect] : (visual as ThumbRect[]);
+}
 
-function ComposeThumb({ spec }: { spec: ThumbSpec }) {
+/** Builds a thumbnail sketch from a planned box map: the pool's visuals
+ * become the visual rect(s) (an array for multi-image layouts like
+ * collage), logos and copy become blocks. Elements the layout didn't touch
+ * (e.g. an unselected element, or a layout that found no visual) are
+ * omitted. */
+function thumbSpecFromBoxes(
+  pool: ComposePool,
+  boxes: Record<string, Box>,
+): ThumbSpec {
+  const spec: ThumbSpec = { blocks: [] };
+  const visualRects = pool.visuals
+    .map((e) => boxes[e.id])
+    .filter((b): b is Box => !!b)
+    .map((b): ThumbRect => [b.x, b.y, b.width, b.height]);
+  if (visualRects.length === 1) spec.visual = visualRects[0]!;
+  else if (visualRects.length > 1) spec.visual = visualRects;
+  for (const e of [...pool.logos, ...pool.copy]) {
+    const b = boxes[e.id];
+    if (b) spec.blocks.push([b.x, b.y, b.width, b.height]);
+  }
+  return spec;
+}
+
+/** Scales a spec's actual-px rects to fit a 40x50 viewBox without distorting
+ * the canvas's real aspect ratio (scale = min(40/w, 50/h)), so e.g. a wide
+ * landscape format renders as a short wide sketch instead of a square one. */
+function ComposeThumb({
+  format,
+  spec,
+}: {
+  format: { width: number; height: number };
+  spec: ThumbSpec;
+}) {
+  const scale = Math.min(40 / format.width, 50 / format.height);
+  const vw = format.width * scale;
+  const vh = format.height * scale;
+  const visuals = toVisualRects(spec.visual);
   return (
     <svg
       className="compose-thumb"
-      viewBox="0 0 40 50"
+      viewBox={`0 0 ${vw} ${vh}`}
       aria-hidden="true"
       focusable="false"
     >
-      <rect className="compose-thumb-page" width="40" height="50" />
-      {spec.visual && (
+      <rect className="compose-thumb-page" width={vw} height={vh} />
+      {visuals.map(([x, y, w, h], i) => (
         <rect
+          key={`visual-${i}`}
           className="compose-thumb-visual"
-          x={spec.visual[0]}
-          y={spec.visual[1]}
-          width={spec.visual[2]}
-          height={spec.visual[3]}
+          x={x * scale}
+          y={y * scale}
+          width={w * scale}
+          height={h * scale}
         />
-      )}
+      ))}
       {spec.blocks.map(([x, y, w, h], i) => (
         <rect
           key={i}
           className="compose-thumb-block"
-          x={x}
-          y={y}
-          width={w}
-          height={h}
+          x={x * scale}
+          y={y * scale}
+          width={w * scale}
+          height={h * scale}
           rx="1"
         />
       ))}
@@ -2348,50 +2257,134 @@ function originThumb(
   origin: Record<string, Box> | undefined,
 ): ThumbSpec {
   if (!doc) return { blocks: [] };
-  const sx = 40 / doc.format.width;
-  const sy = 50 / doc.format.height;
   const spec: ThumbSpec = { blocks: [] };
+  const visuals: ThumbRect[] = [];
   doc.elements
     .filter((e) => e.visible && e.kind !== "shape" && e.kind !== "divider")
     .forEach((e) => {
       const b = origin?.[e.id] ?? e;
-      const rect: ThumbRect = [b.x * sx, b.y * sy, b.width * sx, b.height * sy];
-      if (e.kind.toLowerCase().includes("image")) spec.visual ??= rect;
+      const rect: ThumbRect = [b.x, b.y, b.width, b.height];
+      if (e.kind.toLowerCase().includes("image")) visuals.push(rect);
       else spec.blocks.push(rect);
     });
+  if (visuals.length === 1) spec.visual = visuals[0]!;
+  else if (visuals.length > 1) spec.visual = visuals;
   return spec;
 }
 
+const COMPOSE_GROUPS: ComposeGroup[] = [
+  "split",
+  "overlay",
+  "centered",
+  "editorial",
+];
+const COMPOSE_GROUP_LABELS: Record<ComposeGroup, string> = {
+  split: "Split",
+  overlay: "Overlay",
+  centered: "Centered",
+  editorial: "Editorial",
+};
+
 function ComposeList() {
   const s = useEditorStore();
+  const doc = s.doc;
+  const selectedIds = s.selectedIds;
+  const { pool, plans, activeId } = useMemo(() => {
+    const emptyPool: ComposePool = {
+      visuals: [],
+      logos: [],
+      copy: [],
+      structure: [],
+    };
+    if (!doc)
+      return {
+        pool: emptyPool,
+        plans: {} as Record<ComposeLayout, Record<string, Box>>,
+        activeId: undefined as ComposeLayout | undefined,
+      };
+    const nextPool = composePool(doc, selectedIds);
+    const nextPlans = Object.fromEntries(
+      COMPOSE_LAYOUTS.map((l) => [
+        l.id,
+        planComposeBoxes(doc, l.id, selectedIds),
+      ]),
+    ) as Record<ComposeLayout, Record<string, Box>>;
+    const active = COMPOSE_LAYOUTS.find((l) => {
+      const ids = Object.keys(nextPlans[l.id]);
+      if (!ids.length) return false;
+      return ids.every((id) => {
+        const box = nextPlans[l.id][id]!;
+        const el = doc.elements.find((e) => e.id === id);
+        return (
+          !!el &&
+          Math.abs(el.x - box.x) <= 1 &&
+          Math.abs(el.y - box.y) <= 1 &&
+          Math.abs(el.width - box.width) <= 1 &&
+          Math.abs(el.height - box.height) <= 1
+        );
+      });
+    })?.id;
+    return { pool: nextPool, plans: nextPlans, activeId: active };
+  }, [doc, selectedIds]);
+
+  if (!doc) return null;
+
+  const scopeNote = selectedIds.length
+    ? `Applies to ${selectedIds.length} selected`
+    : "Applies to all visible layers";
+
   return (
     <div className="compose-list">
       <div className="compose-scroll">
+        <p className="compose-scope">{scopeNote}</p>
         <button
           type="button"
           className="compose-item"
           disabled={!s.composeOrigin}
           onClick={s.resetCompose}
         >
-          <ComposeThumb spec={originThumb(s.doc, s.composeOrigin)} />
+          <ComposeThumb
+            format={doc.format}
+            spec={originThumb(doc, s.composeOrigin)}
+          />
           <span className="compose-item-copy">
             <b>Original</b>
             <small>Restore positions from before any layout</small>
           </span>
         </button>
-        {COMPOSE_LAYOUTS.map((l) => (
-          <button
-            key={l.id}
-            type="button"
-            className="compose-item"
-            onClick={() => s.compose(l.id)}
-          >
-            <ComposeThumb spec={COMPOSE_THUMBS[l.id]} />
-            <span className="compose-item-copy">
-              <b>{l.label}</b>
-              <small>{l.hint}</small>
-            </span>
-          </button>
+        {COMPOSE_GROUPS.map((group) => (
+          <div className="compose-group" key={group}>
+            <h4 className="compose-group-label">
+              {COMPOSE_GROUP_LABELS[group]}
+            </h4>
+            {COMPOSE_LAYOUTS.filter((l) => l.group === group).map((l) => {
+              const available = isComposeAvailable(l.id, pool);
+              const reason =
+                l.requires === "twoVisuals"
+                  ? "Needs 2+ images"
+                  : "Add an image to use this layout";
+              return (
+                <button
+                  key={l.id}
+                  type="button"
+                  className="compose-item"
+                  aria-pressed={l.id === activeId}
+                  data-active={l.id === activeId || undefined}
+                  disabled={!available}
+                  onClick={() => s.compose(l.id)}
+                >
+                  <ComposeThumb
+                    format={doc.format}
+                    spec={thumbSpecFromBoxes(pool, plans[l.id] ?? {})}
+                  />
+                  <span className="compose-item-copy">
+                    <b>{l.label}</b>
+                    <small>{available ? l.hint : reason}</small>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         ))}
       </div>
       <button type="button" className="compose-tidy" onClick={s.tidy}>
