@@ -2,9 +2,9 @@
  * Every placeholder-art motif key, defined either in `illustrations.tsx`
  * (people figures and the original object motifs) or under `motifs/*.tsx`
  * (device, screen, AI, social, chart, object and sticker motifs added for
- * the asset library). `tests/asset-catalog.test.mjs` checks this list
- * against both sources with an fs regex, so every key here must resolve to
- * a real motif, and every motif must be listed here.
+ * the asset library). `asset-catalog/asset-catalog.test.ts` checks every
+ * catalog item's `art` key (minus an optional ":silhouette" suffix) against
+ * this list, so every key here must resolve to a real motif.
  */
 export const MOTIF_KEYS = [
   // Original set (illustrations.tsx)

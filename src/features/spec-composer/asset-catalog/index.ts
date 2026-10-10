@@ -32,7 +32,7 @@ export const ASSET_CATALOG: AssetItem[] = [
 
 export { CATEGORIES };
 
-/** Character-count rules enforced by tests/asset-catalog.test.mjs. */
+/** Character-count rules enforced by asset-catalog/asset-catalog.test.ts. */
 export const PROMPT_LIMITS = {
   aiDescription: { min: 60, max: 400 },
   positiveConstraint: { min: 40, max: 260 },
