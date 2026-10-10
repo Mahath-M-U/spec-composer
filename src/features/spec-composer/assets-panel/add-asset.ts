@@ -37,3 +37,26 @@ export function addCatalogAsset(
   }
   recordAssetUse(item.id);
 }
+
+/**
+ * Swaps an on-canvas element for a different catalog item via the selection
+ * context bar's swap strip: resolves the new item's patch against the
+ * document's format and brand colors, same as `addCatalogAsset`, then
+ * applies it with `swapAsset` instead of inserting a new element.
+ */
+export function swapCatalogAsset(elementId: string, item: AssetItem) {
+  const state = useEditorStore.getState();
+  const doc = state.doc;
+  if (!doc) return;
+
+  const { patch } = resolveAssetPatch(item, {
+    format: { width: doc.format.width, height: doc.format.height },
+    colors: {
+      primary: doc.creativeDirection.primaryColor,
+      secondary: doc.creativeDirection.secondaryColor,
+    },
+  });
+
+  state.swapAsset(elementId, item.kind, patch);
+  recordAssetUse(item.id);
+}

@@ -124,10 +124,23 @@ interface EditorState {
     patch: Partial<SpecElement>,
     options?: { atBack?: boolean },
   ) => string | undefined;
+  /** Swaps a slotted element for a different catalog item of the same kind:
+   * keeps its box, zIndex, lock, slot and detail, but refreshes its
+   * catalog-sourced fields (name, assetId, art, prompt) and drops typed
+   * copy unless both the old and new kind are text. Skips locked elements,
+   * one undo step. */
+  swapAsset: (
+    id: string,
+    kind: ElementKind,
+    patch: Partial<SpecElement>,
+  ) => void;
   updateElement: (id: string, patch: Partial<SpecElement>) => void;
   /** Sets a text (or text-like) element's content, dropping its frozen
    * prompt-section override so the live segment takes over. */
   setElementText: (id: string, content: string, history?: boolean) => void;
+  /** Sets an element's subject detail (see compiler.ts), compiled into its
+   * image-element prompt line. */
+  setElementDetail: (id: string, value: string, history?: boolean) => void;
   commitCanvasTransform: (
     original: SpecDocument,
     boxes: Record<string, Box>,
@@ -290,6 +303,16 @@ function insertElement(
     doc.elements.push(el);
   }
   return el;
+}
+
+/** Drops a constraint's `positiveConstraint` (a swapped-in item brings its
+ * own) while keeping `lock`, `negativeConstraint` and `brandLocked`. */
+function withoutPositiveConstraint(
+  constraint: SpecElement["constraint"],
+): SpecElement["constraint"] {
+  if (!constraint) return undefined;
+  const { positiveConstraint: _positiveConstraint, ...rest } = constraint;
+  return rest;
 }
 
 /** Text kinds that stretch to a copy stack's full width when auto-slotted;
@@ -638,6 +661,44 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     return id;
   },
 
+  swapAsset: (id, kind, patch) => {
+    const original = get().doc?.elements.find((e) => e.id === id);
+    if (!original || original.locked) return;
+    get().mutate((doc) => {
+      const el = doc.elements.find((e) => e.id === id);
+      if (!el) return;
+      const bothText = isTextKind(el.kind) && isTextKind(kind);
+      const {
+        x: _x,
+        y: _y,
+        width: _width,
+        height: _height,
+        rotation: _rotation,
+        zIndex: _zIndex,
+        groupId: _groupId,
+        slot: _slot,
+        detail: _detail,
+        content: _content,
+        style,
+        constraint,
+        ...rest
+      } = patch;
+      delete el.src;
+      delete el.aiDescription;
+      delete el.placeholderArt;
+      if (!bothText) delete el.content;
+      el.constraint = withoutPositiveConstraint(el.constraint);
+      el.kind = kind;
+      Object.assign(el, rest);
+      if (style) el.style = { ...el.style, ...style };
+      if (constraint?.positiveConstraint !== undefined)
+        el.constraint = {
+          ...el.constraint,
+          positiveConstraint: constraint.positiveConstraint,
+        };
+    });
+  },
+
   commitCanvasTransform: (original, boxes) => {
     const doc = get().doc;
     const entries = Object.entries(boxes);
@@ -698,6 +759,15 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const original = get().doc?.elements.find((el) => el.id === id);
     if (!original || original.locked) return;
     get().mutate((doc) => applyElementText(doc, id, content), history ?? true);
+  },
+
+  setElementDetail: (id, value, history) => {
+    const original = get().doc?.elements.find((el) => el.id === id);
+    if (!original || original.locked) return;
+    get().mutate((doc) => {
+      const el = doc.elements.find((e) => e.id === id);
+      if (el) el.detail = value;
+    }, history ?? true);
   },
 
   updateElementConstraint: (id, patch) =>

@@ -1,5 +1,5 @@
 import { CATEGORIES } from "./categories.ts";
-import { roleOf } from "./roles.ts";
+import { kindFamily, roleOf } from "./roles.ts";
 import { textItems } from "./items/text.ts";
 import { promoItems } from "./items/promo.ts";
 import { uiItems } from "./items/ui.ts";
@@ -306,6 +306,35 @@ export function resolveAssetPatch(
   }
 
   return { patch, atBack: false };
+}
+
+/**
+ * Up to `n` same-role, same-kind-family alternatives to `item` (never `item`
+ * itself), for the on-canvas swap strip. Ranked same category, then same
+ * kind, then curated popularity.
+ */
+export function swapAlternatives(item: AssetItem, n = 6): AssetItem[] {
+  const role = roleOf(item);
+  const family = kindFamily(item.kind);
+  return ASSET_CATALOG.filter(
+    (candidate) =>
+      candidate.id !== item.id &&
+      roleOf(candidate) === role &&
+      kindFamily(candidate.kind) === family,
+  )
+    .sort((a, b) => {
+      const categoryA = a.category === item.category ? 0 : 1;
+      const categoryB = b.category === item.category ? 0 : 1;
+      if (categoryA !== categoryB) return categoryA - categoryB;
+      const kindA = a.kind === item.kind ? 0 : 1;
+      const kindB = b.kind === item.kind ? 0 : 1;
+      if (kindA !== kindB) return kindA - kindB;
+      return (
+        (a.popularRank ?? Number.MAX_SAFE_INTEGER) -
+        (b.popularRank ?? Number.MAX_SAFE_INTEGER)
+      );
+    })
+    .slice(0, n);
 }
 
 /* ------------------------------ searchAssets ------------------------------ */

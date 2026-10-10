@@ -2,10 +2,16 @@ import "fake-indexeddb/auto";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { createDocument } from "./templates";
 import { useEditorStore } from "./store";
-import { findAssetItem } from "./asset-catalog";
-import { addCatalogAsset } from "./assets-panel/add-asset";
+import {
+  findAssetItem,
+  kindFamily,
+  roleOf,
+  swapAlternatives,
+} from "./asset-catalog";
+import { addCatalogAsset, swapCatalogAsset } from "./assets-panel/add-asset";
 import { layoutZones } from "./compose-layouts";
 import { createElement } from "./registry";
+import { compileVisualPrompt } from "./compiler";
 import type { BrandKit } from "./types";
 
 beforeAll(() => {
@@ -221,5 +227,79 @@ describe("slotElement / auto-slot on click", () => {
     expect(el.width).toBe(expected.width);
     expect(el.height).toBe(expected.height);
     useEditorStore.getState().closeDocument();
+  });
+});
+
+describe("swapAsset / selection context bar", () => {
+  it("keeps box and zIndex, changes assetId/name/placeholderArt, and adds exactly one history entry", () => {
+    useEditorStore.getState().setDocument(createDocument("instagram-post"));
+    addCatalogAsset(findAssetItem("people-woman")!);
+    const before = doc().elements.find((e) => e.assetId === "people-woman")!;
+    const box = { x: before.x, y: before.y, width: before.width, height: before.height };
+    const pastBefore = useEditorStore.getState().past.length;
+
+    swapCatalogAsset(before.id, findAssetItem("people-man")!);
+
+    expect(useEditorStore.getState().past.length).toBe(pastBefore + 1);
+    const after = doc().elements.find((e) => e.id === before.id)!;
+    expect(after).toMatchObject(box);
+    expect(after.zIndex).toBe(before.zIndex);
+    expect(after.assetId).toBe("people-man");
+    expect(after.name).toBe("Man");
+    expect(after.placeholderArt).toBe("person-man");
+    useEditorStore.getState().closeDocument();
+  });
+
+  it("text→image swap leaves no content", () => {
+    useEditorStore.getState().setDocument(createDocument("instagram-post"));
+    addCatalogAsset(findAssetItem("text-heading-bold")!);
+    const title = doc().elements.find((e) => e.kind === "title")!;
+    expect(title.content).not.toBe(undefined);
+
+    useEditorStore.getState().swapAsset(title.id, "heroImage", {});
+
+    const swapped = doc().elements.find((e) => e.id === title.id)!;
+    expect(swapped.kind).toBe("heroImage");
+    expect(swapped.content).toBeUndefined();
+    useEditorStore.getState().closeDocument();
+  });
+
+  it("title→title swap keeps user content", () => {
+    useEditorStore.getState().setDocument(createDocument("instagram-post"));
+    addCatalogAsset(findAssetItem("text-heading-bold")!);
+    const title = doc().elements.find((e) => e.kind === "title")!;
+    useEditorStore.getState().updateElement(title.id, { content: "Summer Sale" });
+
+    swapCatalogAsset(title.id, findAssetItem("text-editorial-serif")!);
+
+    const swapped = doc().elements.find((e) => e.id === title.id)!;
+    expect(swapped.kind).toBe("title");
+    expect(swapped.content).toBe("Summer Sale");
+    useEditorStore.getState().closeDocument();
+  });
+
+  it("compileVisualPrompt contains 'specifically red sneakers' after setElementDetail on an image element", () => {
+    useEditorStore.getState().setDocument(createDocument("instagram-post"));
+    addCatalogAsset(findAssetItem("fashion-bag")!);
+    const product = doc().elements.find((e) => e.kind === "productImage")!;
+
+    useEditorStore.getState().setElementDetail(product.id, "red sneakers");
+
+    expect(compileVisualPrompt(doc())).toContain("specifically red sneakers");
+    useEditorStore.getState().closeDocument();
+  });
+});
+
+describe("swapAlternatives", () => {
+  it("returns at most 6 items, all the same role and kind family, and never the item itself", () => {
+    const item = findAssetItem("people-woman")!;
+    const alternatives = swapAlternatives(item);
+
+    expect(alternatives.length).toBeLessThanOrEqual(6);
+    expect(alternatives.some((alt) => alt.id === item.id)).toBe(false);
+    for (const alt of alternatives) {
+      expect(roleOf(alt)).toBe(roleOf(item));
+      expect(kindFamily(alt.kind)).toBe(kindFamily(item.kind));
+    }
   });
 });

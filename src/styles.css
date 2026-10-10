@@ -13135,6 +13135,65 @@ button.de-subrow-tag:focus-visible {
   color: var(--color-editor-muted);
   transform: translateY(-100%);
 }
+/* Floating bar under (or above) the single selected element: the swap strip
+ * and subject-detail field from Phase 8. Border/background/shadow match the
+ * other floating toolbars (.zoom-controls, .floating-controls) via the
+ * shared glass rule below. */
+.selection-context-bar {
+  position: absolute;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+}
+.selection-context-swap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.selection-context-swap-button {
+  display: flex;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid var(--color-editor-border);
+  border-radius: 6px;
+  background: var(--color-editor);
+  padding: 0;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease;
+}
+.selection-context-swap-button:hover {
+  border-color: var(--editor-action);
+  background: var(--color-editor-hover);
+}
+.selection-context-swap-button:focus-visible {
+  outline: 2px solid var(--editor-focus);
+  outline-offset: 1px;
+}
+.selection-context-swap-button .asset-tile-media {
+  width: 100%;
+  height: 100%;
+  padding: 3px;
+}
+.selection-context-detail {
+  min-width: 160px;
+  border: 1px solid var(--color-editor-border);
+  border-radius: 6px;
+  background: var(--color-editor);
+  padding: 5px 8px;
+  color: var(--color-editor-foreground);
+  font-size: 12px;
+}
+.selection-context-detail:focus-visible {
+  outline: 2px solid var(--editor-focus);
+  outline-offset: 1px;
+}
 .context-panel,
 .right-panel,
 .compose-scroll,
@@ -13425,6 +13484,7 @@ button.de-subrow-tag:focus-visible {
 .editor-chip,
 .zoom-controls,
 .floating-controls,
+.selection-context-bar,
 .tool-rail {
   border: 1px solid var(--editor-glass-border);
   background: var(--editor-glass);
@@ -13442,6 +13502,10 @@ button.de-subrow-tag:focus-visible {
 .zoom-controls,
 .floating-controls {
   border-radius: 999px;
+}
+
+.selection-context-bar {
+  border-radius: 10px;
 }
 
 .tool-rail {
