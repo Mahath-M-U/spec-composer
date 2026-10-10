@@ -47,6 +47,25 @@ describe("slotElement / auto-slot on click", () => {
     useEditorStore.getState().closeDocument();
   });
 
+  it("slotting the upload patch into a doc with a subject replaces it in one history step and keeps src", () => {
+    useEditorStore.getState().setDocument(createDocument("instagram-post"));
+    addCatalogAsset(findAssetItem("people-woman")!);
+    const pastBefore = useEditorStore.getState().past.length;
+
+    const id = useEditorStore.getState().slotElement("subject", "heroImage", {
+      src: "data:image/png;base64,AAAA",
+      name: "Your photo",
+      slot: "subject",
+      aiDescription: "the subject shown in the attached reference image",
+    });
+
+    expect(doc().elements.filter((e) => e.slot === "subject")).toHaveLength(1);
+    expect(useEditorStore.getState().past.length).toBe(pastBefore + 1);
+    const el = doc().elements.find((e) => e.id === id)!;
+    expect(el.src).toBe("data:image/png;base64,AAAA");
+    useEditorStore.getState().closeDocument();
+  });
+
   it("a title then a body both remain (headline replaces by kind, not role)", () => {
     useEditorStore.getState().setDocument(createDocument("instagram-post"));
 

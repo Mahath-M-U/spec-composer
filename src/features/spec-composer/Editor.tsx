@@ -108,7 +108,7 @@ import { Sep, Tool } from "./toolbar-controls";
 import { loadProjectVersion } from "./persistence";
 import { LS_KEYS } from "./storage";
 import { reportStorageError } from "./storage/errors";
-import { validateImageUpload } from "./image-validation";
+import { readImageUpload } from "./image-upload";
 import {
   createDocument,
   matchesTemplateQuery,
@@ -1397,24 +1397,18 @@ function StylePanel() {
                             event.target.value = "";
                             if (!f) return;
                             try {
-                              await validateImageUpload(f);
+                              const src = await readImageUpload(f);
+                              updateFirstElement({
+                                src,
+                                aiDescription: f.name,
+                              });
                             } catch (error) {
                               toast.error(
                                 error instanceof Error
                                   ? error.message
                                   : "Image is invalid",
                               );
-                              return;
                             }
-                            const reader = new FileReader();
-                            reader.onload = () => {
-                              if (typeof reader.result === "string")
-                                updateFirstElement({
-                                  src: reader.result,
-                                  aiDescription: f.name,
-                                });
-                            };
-                            reader.readAsDataURL(f);
                           }}
                         />
                       </label>

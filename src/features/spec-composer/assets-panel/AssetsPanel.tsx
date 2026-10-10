@@ -37,6 +37,7 @@ import { addCatalogAsset } from "./add-asset";
 import { AssetSection } from "./AssetSection";
 import { AssetTile } from "./AssetTile";
 import { CATEGORY_ICONS } from "./category-icons";
+import { UploadTile } from "./UploadTile";
 
 /** Keep home rows short; "See all" opens the role's own tab. */
 const ROW_PREVIEW_COUNT = 10;
@@ -142,6 +143,12 @@ export function AssetsPanel() {
       ? ""
       : (ASSET_ROLES.find((role) => role.id === activeTab)?.label ??
         activeTab);
+  // "Use your photo / your logo" leads the Subject and Brand tab grids and
+  // auto-slots, same as a catalog click.
+  const uploadLeading =
+    activeTab === "subject" || activeTab === "brand" ? (
+      <UploadTile role={activeTab} />
+    ) : undefined;
 
   const onSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key !== "Escape") return;
@@ -328,7 +335,7 @@ export function AssetsPanel() {
               </button>
             ))}
           </div>
-          {roleItems.length ? (
+          {roleItems.length || uploadLeading ? (
             <AssetSection
               icon={ROLE_ICONS[activeTab]}
               label={activeRoleLabel}
@@ -340,6 +347,7 @@ export function AssetsPanel() {
               onAdd={handleAdd}
               mode="grid"
               columns={3}
+              leading={uploadLeading}
             />
           ) : (
             <div className="asset-empty">
