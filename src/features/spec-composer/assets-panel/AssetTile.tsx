@@ -11,13 +11,12 @@ import { AssetPreview } from "./asset-previews";
 const ROLE_LABELS = new Map(ASSET_ROLES.map((role) => [role.id, role.label]));
 
 /**
- * A draggable, clickable catalog tile. Leads with the asset's role and the
- * prompt words it contributes (a sentence fragment, not a picture) so the
- * library reads as prompt vocabulary; the rendered preview is now a small
- * secondary icon. Dragging sets both "spec/asset" (the item id, preferred by
- * the canvas) and "spec/kind" (a plain-kind fallback for legacy drop
- * targets). A "+" appears on hover/focus, with an optional usage badge (e.g.
- * "×4") in the corner.
+ * A draggable, clickable catalog tile. Preview-first: the rendered asset
+ * fills the tile, with its role and prompt snippet exposed via aria-label
+ * and title rather than shown as text. Dragging sets both "spec/asset" (the
+ * item id, preferred by the canvas) and "spec/kind" (a plain-kind fallback
+ * for legacy drop targets). A "+" appears on hover/focus, with an optional
+ * usage badge (e.g. "×4") in the top-left corner.
  */
 export function AssetTile({
   item,
@@ -49,19 +48,15 @@ export function AssetTile({
         event.dataTransfer.setData("spec/kind", item.kind);
       }}
       onClick={() => onAdd(item)}
-      title={item.label}
+      title={`${item.label} (${roleLabel})\n${snippet}`}
       aria-label={`Add ${item.label} (${roleLabel}): ${snippet}`}
     >
-      <span className="asset-tile-head">
-        <span className="asset-role-badge">{roleLabel}</span>
-        <AssetPreview
-          item={item}
-          colors={colors}
-          paper={paper}
-          baseTextColor={baseTextColor}
-        />
-      </span>
-      <span className="asset-tile-snippet">{snippet}</span>
+      <AssetPreview
+        item={item}
+        colors={colors}
+        paper={paper}
+        baseTextColor={baseTextColor}
+      />
       <span className="asset-tile-label">{item.label}</span>
       <Plus className="asset-tile-add" aria-hidden="true" />
       {badge && <span className="asset-tile-badge">{badge}</span>}
