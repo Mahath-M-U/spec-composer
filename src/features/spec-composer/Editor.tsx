@@ -121,6 +121,7 @@ import {
   compileVisualPrompt,
   compileVisualSegments,
   defaultExternalToolRequirement,
+  MOCKUP_FRAMING,
   segText,
   validateExternalToolRequirement,
   type PromptLine,
@@ -3162,6 +3163,9 @@ function PromptPanel({
                   </p>
                 )}
               </div>
+            )}
+            {!isSkill && (
+              <p className="prompt-framing-note">{MOCKUP_FRAMING}</p>
             )}
             {sectionView && !briefAfterFormat && briefSection}
             {edit != null ? (

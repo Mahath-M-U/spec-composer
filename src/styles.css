@@ -12288,6 +12288,18 @@ button.de-subrow-tag:focus-visible {
   line-height: 1.6;
 }
 
+/* Read-only note: the always-on mockup framing line shown above the prompt. */
+.editor-shell .prompt-framing-note {
+  margin: 0 0 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--color-editor-border);
+  color: var(--color-editor-muted);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
 .editor-shell .prompt-tool-error {
   display: flex;
   align-items: center;
