@@ -18,6 +18,8 @@ import type { ElementKind, SpecElement } from "../types.ts";
 
 export type { AssetCategory, AssetCategoryId, AssetCollectionId, AssetItem };
 
+export * from "./roles.ts";
+
 /** The full built-in catalog, in display order within each category. */
 export const ASSET_CATALOG: AssetItem[] = [
   ...textItems,

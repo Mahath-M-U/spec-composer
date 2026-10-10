@@ -14,7 +14,7 @@ export const uiItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["phone", "device", "mockup", "blank", "smartphone"],
     prompt:
-      "Blank smartphone mockup in straight-on front view with thin even bezels and a softly rounded screen, minimal flat vector illustration style, gentle drop shadow beneath the device, screen tinted with the primary brand color",
+      "Blank smartphone mockup in straight-on front view with thin even bezels and a softly rounded screen, gentle drop shadow beneath the device, screen tinted with the primary brand color",
     art: "devices-phone-blank",
     size: PHONE_SIZE,
   },
@@ -37,7 +37,7 @@ export const uiItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["tablet", "device", "mockup", "ipad-style", "screen"],
     prompt:
-      "Blank tablet mockup in straight-on front view with slim bezels and a rounded-corner screen, minimal flat vector illustration style, soft shadow beneath the device, screen tinted with the secondary brand color",
+      "Blank tablet mockup in straight-on front view with slim bezels and a rounded-corner screen, soft shadow beneath the device, screen tinted with the secondary brand color",
     art: "devices-tablet",
     size: { h: 0.55, aspect: 360 / 420 },
   },
@@ -48,7 +48,7 @@ export const uiItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["laptop", "device", "mockup", "computer", "screen"],
     prompt:
-      "Laptop mockup in a three-quarter desk view with an open hinge and a wide screen, minimal flat vector illustration style, soft shadow beneath the base, screen tinted with the primary brand color",
+      "Laptop mockup in a three-quarter desk view with an open hinge and a wide screen, soft shadow beneath the base, screen tinted with the primary brand color",
     art: "laptop-screen",
     size: { w: 0.55, aspect: 400 / 300 },
   },
@@ -59,7 +59,7 @@ export const uiItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["monitor", "device", "mockup", "desktop", "screen"],
     prompt:
-      "Desktop monitor mockup on a slim stand in straight-on front view, minimal flat vector illustration style, generous bezel and a short cable hint below the stand, screen tinted with the secondary brand color",
+      "Desktop monitor mockup on a slim stand in straight-on front view, generous bezel and a short cable hint below the stand, screen tinted with the secondary brand color",
     art: "devices-desktop-monitor",
     size: { w: 0.55, aspect: 400 / 320 },
   },
@@ -70,7 +70,7 @@ export const uiItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["watch", "device", "mockup", "wearable", "screen"],
     prompt:
-      "Smartwatch mockup in straight-on front view with a rounded-square face and a slim strap top and bottom, minimal flat vector illustration style, primary brand color accents on the watch face",
+      "Smartwatch mockup in straight-on front view with a rounded-square face and a slim strap top and bottom, primary brand color accents on the watch face",
     art: "devices-smartwatch",
     size: { h: 0.42, aspect: 240 / 320 },
   },
@@ -81,7 +81,7 @@ export const uiItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["browser", "device", "mockup", "window", "blank"],
     prompt:
-      "Blank browser window mockup with a minimal top toolbar and three tab dots, flat vector illustration style, generous white page area below, soft outer shadow, secondary brand color toolbar accent",
+      "Blank browser window mockup with a minimal top toolbar and three tab dots, generous white page area below, soft outer shadow, secondary brand color toolbar accent",
     art: "devices-browser-blank",
     size: BROWSER_SIZE,
   },
@@ -92,7 +92,7 @@ export const uiItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["phone", "laptop", "device", "mockup", "scene"],
     prompt:
-      "Paired device mockup with an open laptop behind a smaller smartphone overlapping its lower corner, three-quarter desk view, minimal flat vector illustration style, primary brand color accents on both screens",
+      "Paired device mockup with an open laptop behind a smaller smartphone overlapping its lower corner, three-quarter desk view, primary brand color accents on both screens",
     art: "devices-phone-laptop",
     size: { w: 0.68, aspect: 460 / 380 },
   },
@@ -240,7 +240,7 @@ export const uiItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["web", "browser", "landing", "homepage", "screen"],
     prompt:
-      "Desktop browser window mockup with a minimal tab bar, page showing a bold headline, a short supporting line and a rounded call-to-action button beside a large image panel, flat modern SaaS style, primary brand color button",
+      "Desktop browser window mockup with a minimal tab bar, page showing a bold headline, a short supporting line and a rounded call-to-action button beside a large image panel, primary brand color button",
     art: "browser-landing",
     size: BROWSER_SIZE,
     popularRank: 4,
@@ -252,7 +252,7 @@ export const uiItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["web", "browser", "pricing", "plans", "screen"],
     prompt:
-      "Desktop browser window mockup with a minimal tab bar, page showing a three-tier pricing table where the middle plan is raised and highlighted, each card with a large price, a short checklist and a pill button, flat modern SaaS style on a soft neutral page, highlighted plan filled with the primary brand color",
+      "Desktop browser window mockup with a minimal tab bar, page showing a three-tier pricing table where the middle plan is raised and highlighted, each card with a large price, a short checklist and a pill button, on a soft neutral page, highlighted plan filled with the primary brand color",
     art: "browser-pricing",
     size: BROWSER_SIZE,
   },
@@ -263,7 +263,7 @@ export const uiItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["web", "browser", "features", "grid", "screen"],
     prompt:
-      "Desktop browser window mockup with a minimal tab bar, page showing a three-column feature grid with a round icon and two text lines under each column, flat modern SaaS style, secondary brand color icon accents",
+      "Desktop browser window mockup with a minimal tab bar, page showing a three-column feature grid with a round icon and two text lines under each column, secondary brand color icon accents",
     art: "browser-features",
     size: BROWSER_SIZE,
   },
@@ -274,7 +274,7 @@ export const uiItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["web", "browser", "testimonial", "review", "screen"],
     prompt:
-      "Desktop browser window mockup with a minimal tab bar, page showing a centered quote panel above a small circular avatar and a name line, flat modern SaaS style on a soft neutral page, secondary brand color quote panel",
+      "Desktop browser window mockup with a minimal tab bar, page showing a centered quote panel above a small circular avatar and a name line, on a soft neutral page, secondary brand color quote panel",
     art: "browser-testimonial",
     size: BROWSER_SIZE,
   },
@@ -285,7 +285,7 @@ export const uiItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["web", "browser", "dashboard", "analytics", "screen"],
     prompt:
-      "Desktop browser window mockup with a minimal tab bar, page showing a left sidebar, three small stat cards in a row and a large chart panel below, flat modern SaaS style, primary and secondary brand color stat cards",
+      "Desktop browser window mockup with a minimal tab bar, page showing a left sidebar, three small stat cards in a row and a large chart panel below, primary and secondary brand color stat cards",
     art: "browser-dashboard",
     size: BROWSER_SIZE,
   },
@@ -296,7 +296,7 @@ export const uiItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["web", "browser", "blog", "article", "screen"],
     prompt:
-      "Desktop browser window mockup with a minimal tab bar, page showing a bold article title, three body text lines and a tinted image panel in the right column, flat editorial style, secondary brand color image panel",
+      "Desktop browser window mockup with a minimal tab bar, page showing a bold article title, three body text lines and a tinted image panel in the right column, secondary brand color image panel",
     art: "browser-blog",
     size: BROWSER_SIZE,
   },
@@ -307,7 +307,7 @@ export const uiItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["web", "browser", "404", "error", "screen"],
     prompt:
-      "Desktop browser window mockup with a minimal tab bar, page showing a large centered error mark, a short apology line and a rounded button back to the homepage, flat modern SaaS style, primary brand color button",
+      "Desktop browser window mockup with a minimal tab bar, page showing a large centered error mark, a short apology line and a rounded button back to the homepage, primary brand color button",
     art: "browser-404",
     size: BROWSER_SIZE,
   },
@@ -318,7 +318,7 @@ export const uiItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["web", "browser", "signup", "form", "screen"],
     prompt:
-      "Desktop browser window mockup with a minimal tab bar, page showing a centered card with two input fields stacked above a rounded sign-up button, flat modern SaaS style on a soft neutral page, primary brand color button",
+      "Desktop browser window mockup with a minimal tab bar, page showing a centered card with two input fields stacked above a rounded sign-up button, on a soft neutral page, primary brand color button",
     art: "browser-signup",
     size: BROWSER_SIZE,
   },
@@ -329,7 +329,7 @@ export const uiItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["web", "browser", "store", "ecommerce", "screen"],
     prompt:
-      "Desktop browser window mockup with a minimal tab bar, page showing a six-tile product grid with a tinted image and a price line under each tile, flat modern ecommerce style, secondary brand color tile accents",
+      "Desktop browser window mockup with a minimal tab bar, page showing a six-tile product grid with a tinted image and a price line under each tile, secondary brand color tile accents",
     art: "browser-store",
     size: BROWSER_SIZE,
   },
@@ -340,7 +340,7 @@ export const uiItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["web", "browser", "portfolio", "gallery", "screen"],
     prompt:
-      "Desktop browser window mockup with a minimal tab bar, page showing an asymmetric masonry gallery of tinted image tiles at varying heights, flat modern portfolio style, secondary brand color tile accents",
+      "Desktop browser window mockup with a minimal tab bar, page showing an asymmetric masonry gallery of tinted image tiles at varying heights, secondary brand color tile accents",
     art: "browser-portfolio",
     size: BROWSER_SIZE,
   },
@@ -443,7 +443,7 @@ export const uiItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["chart", "bar", "data", "graph"],
     prompt:
-      "Bar chart mockup with five vertical bars of varying height on a thin baseline, flat vector illustration style, one bar highlighted in the primary brand color against neutral grey bars",
+      "Bar chart mockup with five vertical bars of varying height on a thin baseline, one bar highlighted in the primary brand color against neutral grey bars",
     art: "chart-bar",
     size: { w: 0.55, aspect: 300 / 220 },
     popularRank: 13,
@@ -455,7 +455,7 @@ export const uiItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["chart", "line", "data", "graph"],
     prompt:
-      "Line chart mockup with a smooth rising-and-falling polyline and small round data markers on a thin baseline, flat vector illustration style, primary brand color line and markers",
+      "Line chart mockup with a smooth rising-and-falling polyline and small round data markers on a thin baseline, primary brand color line and markers",
     art: "chart-line",
     size: { w: 0.55, aspect: 300 / 220 },
   },
@@ -466,7 +466,7 @@ export const uiItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["chart", "pie", "data", "graph"],
     prompt:
-      "Pie chart mockup with three unequal wedges, flat vector illustration style, primary brand color for the largest wedge and neutral tints for the rest",
+      "Pie chart mockup with three unequal wedges, primary brand color for the largest wedge and neutral tints for the rest",
     art: "chart-pie",
     size: { w: 0.45, aspect: 1 },
   },
@@ -477,7 +477,7 @@ export const uiItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["chart", "donut", "data", "graph"],
     prompt:
-      "Donut chart mockup with three ring segments of varying length around an empty center, flat vector illustration style, primary brand color for the largest segment",
+      "Donut chart mockup with three ring segments of varying length around an empty center, primary brand color for the largest segment",
     art: "chart-donut",
     size: { w: 0.45, aspect: 1 },
   },
@@ -488,7 +488,7 @@ export const uiItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["chart", "area", "data", "graph"],
     prompt:
-      "Area chart mockup with a filled rising curve above a thin baseline, flat vector illustration style, primary brand color fill at partial opacity beneath the line",
+      "Area chart mockup with a filled rising curve above a thin baseline, primary brand color fill at partial opacity beneath the line",
     art: "chart-area",
     size: { w: 0.55, aspect: 300 / 220 },
   },
@@ -499,7 +499,7 @@ export const uiItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["chart", "kpi", "stat", "metric"],
     prompt:
-      "KPI stat card mockup with a bold number block, a small upward arrow and a mini sparkline beneath, flat vector illustration style, primary brand color arrow and sparkline",
+      "KPI stat card mockup with a bold number block, a small upward arrow and a mini sparkline beneath, primary brand color arrow and sparkline",
     art: "chart-kpi",
     size: { w: 0.45, aspect: 260 / 180 },
   },
@@ -510,7 +510,7 @@ export const uiItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["chart", "growth", "trend", "graph"],
     prompt:
-      "Growth chart mockup with a smooth upward-sloping line over faint grid guides, flat vector illustration style, primary brand color line with a soft gradient fill beneath",
+      "Growth chart mockup with a smooth upward-sloping line over faint grid guides, primary brand color line with a soft gradient fill beneath",
     art: "chart-growth",
     size: { w: 0.55, aspect: 400 / 300 },
   },
