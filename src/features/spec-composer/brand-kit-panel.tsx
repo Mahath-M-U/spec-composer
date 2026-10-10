@@ -38,7 +38,7 @@ import {
 import { BrandKitBuilder, type BrandKitBuilderMode } from "./brand-kit-builder";
 import { getBrandKitColor } from "./brand-kits";
 import { matchesBrandKitQuery } from "./brand-kit-search";
-import { nearestColorName } from "./color-names";
+import { brandKitTileForeground, nearestColorName } from "./color-names";
 import { FEATURED_FONTS, MORE_FONTS } from "./fonts";
 import { Label } from "./field-label";
 import { PanelHeader } from "./panel-header";
@@ -49,15 +49,6 @@ export function brandKitPaint(color: BrandKitColor): string {
   return color.type === "gradient"
     ? `linear-gradient(${color.angle}deg, ${color.hex}, ${color.secondaryHex ?? color.hex})`
     : color.hex;
-}
-
-function brandKitTileForeground(hex: string): "#111311" | "#FFFFFF" {
-  const value = Number.parseInt(hex.replace("#", ""), 16);
-  const red = (value >> 16) & 255;
-  const green = (value >> 8) & 255;
-  const blue = value & 255;
-  const luminance = (red * 299 + green * 587 + blue * 114) / 255000;
-  return luminance > 0.58 ? "#111311" : "#FFFFFF";
 }
 
 /** The roles used to render a design kit's showcase preview, with fallbacks
@@ -75,7 +66,7 @@ function brandKitPreviewColors(kit: BrandKit) {
   return { primary, secondary, accent, background, text };
 }
 
-async function copyBrandColorHex(hex: string) {
+export async function copyBrandColorHex(hex: string) {
   try {
     await navigator.clipboard.writeText(hex.toUpperCase());
     toast.success(`Copied ${hex.toUpperCase()}`);
@@ -85,7 +76,13 @@ async function copyBrandColorHex(hex: string) {
 }
 
 /** A small sample poster showing a kit's colors and typography in use. */
-export function BrandKitPreview({ kit }: { kit: BrandKit }) {
+export function BrandKitPreview({
+  kit,
+  variant = "card",
+}: {
+  kit: BrandKit;
+  variant?: "card" | "builder";
+}) {
   const { primary, secondary, accent, background, text } =
     brandKitPreviewColors(kit);
 
@@ -106,7 +103,17 @@ export function BrandKitPreview({ kit }: { kit: BrandKit }) {
   const accentColor = accent ?? secondary;
 
   return (
-    <div className="bk-preview" style={{ background: backgroundPaint }}>
+    <div
+      className={
+        variant === "builder" ? "bk-preview bk-preview--builder" : "bk-preview"
+      }
+      style={{
+        background: backgroundPaint,
+        ...(variant === "builder"
+          ? { fontFamily: kit.typography || undefined, color: headlineColor }
+          : {}),
+      }}
+    >
       {kit.style && <span className="bk-preview-style">{kit.style}</span>}
       <strong
         className="bk-preview-headline"
@@ -117,18 +124,68 @@ export function BrandKitPreview({ kit }: { kit: BrandKit }) {
       >
         {kit.name || "Your headline"}
       </strong>
+      {variant === "builder" && (
+        <span className="bk-preview-specimen">Aa Bb 0123</span>
+      )}
       <span
         className="bk-preview-cta"
         style={{ background: ctaPaint, color: ctaForeground }}
       >
         Get started
       </span>
-      {accentColor && (
-        <i
-          className="bk-preview-accent"
+      {variant === "builder" ? (
+        <svg
+          className="bk-preview-shapes"
+          viewBox="0 0 132 104"
           aria-hidden="true"
-          style={{ background: brandKitPaint(accentColor) }}
-        />
+          focusable="false"
+        >
+          <circle
+            cx="40"
+            cy="30"
+            r="22"
+            fill="none"
+            strokeWidth="10"
+            stroke={primary?.hex ?? "var(--color-editor-muted)"}
+          />
+          <circle
+            cx="38"
+            cy="28"
+            r="4"
+            fill={headlineColor}
+            opacity="0.4"
+          />
+          <rect
+            x="70"
+            y="15"
+            width="44"
+            height="28"
+            rx="8"
+            fill={secondary?.hex ?? primary?.hex ?? "var(--color-editor-muted)"}
+          />
+          <polygon
+            points="76,58 106,98 46,98"
+            fill={
+              accentColor?.hex ?? primary?.hex ?? "var(--color-editor-muted)"
+            }
+          />
+          <polygon
+            points="26,65 38,79 26,93 14,79"
+            fill={secondary?.hex ?? primary?.hex ?? "var(--color-editor-muted)"}
+          />
+          <path
+            d="M104 68 A12 12 0 0 1 128 68 Z"
+            fill={primary?.hex ?? "var(--color-editor-muted)"}
+          />
+        </svg>
+      ) : (
+        accentColor && (
+          <i
+            className="bk-preview-accent"
+            aria-hidden="true"
+            style={{ background: brandKitPaint(accentColor) }}
+          />
+        )
       )}
     </div>
   );
@@ -153,14 +210,14 @@ const BRAND_COLOR_USECASES: Record<BrandKitColor["role"], readonly string[]> = {
   accent: ["Badges", "Icons", "Details"],
 };
 
-function brandColorRoleLabel(role: BrandKitColor["role"]): string {
+export function brandColorRoleLabel(role: BrandKitColor["role"]): string {
   return (
     BRAND_COLOR_ROLES.find((candidate) => candidate.value === role)?.label ??
     "Brand color"
   );
 }
 
-function defaultBrandColorUsecase(role: BrandKitColor["role"]): string {
+export function defaultBrandColorUsecase(role: BrandKitColor["role"]): string {
   return BRAND_COLOR_USECASES[role][0] ?? "Headlines";
 }
 

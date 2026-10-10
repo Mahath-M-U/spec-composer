@@ -283,6 +283,62 @@ export const PALETTE_PRESETS: PalettePreset[] = [
     text: "#2B2420",
     accent: "#6B8E6E",
   }),
+  palette("Clean Mono", {
+    primary: "#171717",
+    secondary: "#737373",
+    background: "#FAFAFA",
+    text: "#171717",
+    accent: "#C55454",
+  }),
+  palette("Slate Studio", {
+    primary: "#93C5FD",
+    secondary: "#94A3B8",
+    background: "#151B26",
+    text: "#F1F5F9",
+    accent: "#FBBF24",
+  }),
+  palette("Crimson Ink", {
+    primary: "#B91C1C",
+    secondary: "#78716C",
+    background: "#FAF7F5",
+    text: "#201A1A",
+    accent: "#D97706",
+  }),
+  palette("Citrus Fresh", {
+    primary: "#3F6212",
+    secondary: "#A3E635",
+    background: "#F7FEE7",
+    text: "#1A2E05",
+    accent: "#F97316",
+  }),
+  palette("Lavender Editorial", {
+    primary: "#6D28D9",
+    secondary: "#A78BFA",
+    background: "#F5F3FF",
+    text: "#2E1065",
+    accent: "#DB2777",
+  }),
+  palette("Coastal Sand", {
+    primary: "#0F766E",
+    secondary: "#D6B78C",
+    background: "#FAF5EC",
+    text: "#203632",
+    accent: "#E76F51",
+  }),
+  palette("Midnight Berry", {
+    primary: "#F472B6",
+    secondary: "#C4B5FD",
+    background: "#211526",
+    text: "#FAF5FF",
+    accent: "#FBBF24",
+  }),
+  palette("Terracotta Sky", {
+    primary: "#C65D3B",
+    secondary: "#7CA6B8",
+    background: "#FFF7ED",
+    text: "#35251F",
+    accent: "#667A45",
+  }),
 ];
 
 const toStringArray = (value: unknown): string[] | undefined => {

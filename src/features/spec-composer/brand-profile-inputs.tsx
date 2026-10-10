@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { Copy } from "lucide-react";
 import {
   ARCHETYPES,
   AUDIENCE_AGES,
@@ -22,6 +23,7 @@ import {
   type SelectOption,
 } from "./brand-select";
 import { materialRoleColors } from "./material-kits";
+import { brandKitTileForeground } from "./color-names";
 import type { BrandKitColor, BrandProfile } from "./types";
 
 /** A native range input with pole labels and a live descriptor, so it never
@@ -108,15 +110,21 @@ const isHex = (value: string) => /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(value);
 export function SeedSwatchPicker({
   seed,
   onChange,
+  showRolePreview = true,
 }: {
   seed: string;
   onChange: (hex: string) => void;
+  showRolePreview?: boolean;
 }) {
   const valid = isHex(seed);
   const roles = materialRoleColors(valid ? seed : "#6750A4");
   return (
     <div className="bk-seed-preview">
-      <div className="bk-seed-dots" role="group" aria-label="Seed color presets">
+      <div
+        className="bk-seed-dots"
+        role="group"
+        aria-label="Seed color presets"
+      >
         {SEED_PRESETS.map((hex) => (
           <button
             key={hex}
@@ -144,44 +152,88 @@ export function SeedSwatchPicker({
           onChange={(event) => onChange(event.target.value)}
         />
       </div>
-      <div className="bk-swatch-row bk-swatch-row-strip" aria-hidden="true">
-        {roles.map((role) => (
-          <i key={role.role} style={{ background: role.hex }} />
-        ))}
-      </div>
+      {showRolePreview && (
+        <div className="bk-swatch-row bk-swatch-row-strip" aria-hidden="true">
+          {roles.map((role) => (
+            <i key={role.role} style={{ background: role.hex }} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-/** Role swatch tiles for create mode: a palette preset's (or the default
- * kit's) colors, each individually editable via a native color input. */
+/** Adjoining role tiles, optionally editable through a native color input.
+ * Copy stays separate from the edit label so it never opens the picker. */
 export function PaletteSwatchTiles({
   colors,
   onChange,
+  onCopy,
+  roleLabel = (role) => role,
 }: {
   colors: BrandKitColor[];
-  onChange: (colors: BrandKitColor[]) => void;
+  onChange?: ((colors: BrandKitColor[]) => void) | undefined;
+  onCopy?: (hex: string) => void;
+  roleLabel?: (role: BrandKitColor["role"]) => string;
 }) {
   const updateColor = (id: string, hex: string) =>
-    onChange(
+    onChange?.(
       colors.map((color) =>
         color.id === id ? { ...color, hex, secondaryHex: hex } : color,
       ),
     );
   return (
-    <div className="bk-swatch-row">
-      {colors.map((color) => (
-        <label key={color.id} className="bk-swatch-tile">
-          <input
-            type="color"
-            className="bk-swatch"
-            value={color.hex}
-            aria-label={`${color.role} color`}
-            onChange={(event) => updateColor(color.id, event.target.value)}
-          />
-          <small>{color.role}</small>
-        </label>
-      ))}
+    <div className="bk-palette-tiles" role="group" aria-label="Palette colors">
+      {colors.map((color) => {
+        const label = roleLabel(color.role);
+        const colorLabel = label.toLowerCase().endsWith("color")
+          ? label.toLowerCase()
+          : `${label.toLowerCase()} color`;
+        const content = (
+          <>
+            <span className="bk-tile-role">{label}</span>
+            <span className="bk-tile-hex">
+              {color.hex.replace("#", "").toUpperCase()}
+            </span>
+          </>
+        );
+        return (
+          <div
+            key={color.id}
+            className="bk-swatch-tile"
+            style={{
+              background: color.hex,
+              color: brandKitTileForeground(color.hex),
+            }}
+          >
+            {onChange ? (
+              <label className="bk-tile-content bk-tile-edit">
+                <input
+                  type="color"
+                  value={color.hex}
+                  aria-label={`Edit ${colorLabel}`}
+                  onChange={(event) =>
+                    updateColor(color.id, event.target.value)
+                  }
+                />
+                {content}
+              </label>
+            ) : (
+              <div className="bk-tile-content">{content}</div>
+            )}
+            {onCopy && (
+              <button
+                type="button"
+                className="bk-tile-copy"
+                aria-label={`Copy ${colorLabel} ${color.hex.toUpperCase()}`}
+                onClick={() => onCopy(color.hex)}
+              >
+                <Copy aria-hidden="true" />
+              </button>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
