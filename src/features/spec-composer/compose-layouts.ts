@@ -1,4 +1,5 @@
 import type { ElementKind, SpecDocument, SpecElement } from "./types";
+import type { AssetRole } from "./asset-catalog/roles";
 
 /** A rectangle in canvas px. Shared with the store so canvas-transform code
  * and compose() planning speak the same shape. */
@@ -159,6 +160,16 @@ export const COMPOSE_LAYOUTS: ComposeLayoutInfo[] = [
   },
 ];
 
+/** Every ComposeLayout id, in display order. */
+export const COMPOSE_LAYOUT_IDS: readonly ComposeLayout[] = COMPOSE_LAYOUTS.map(
+  (l) => l.id,
+);
+const COMPOSE_LAYOUT_ID_SET = new Set<string>(COMPOSE_LAYOUT_IDS);
+
+export function isComposeLayout(value: unknown): value is ComposeLayout {
+  return typeof value === "string" && COMPOSE_LAYOUT_ID_SET.has(value);
+}
+
 /** Image kinds compose() treats as the "visual" — logo/brandMark are brand
  * marks, not photography, so they're placed separately (see composePool). */
 const VISUAL_IMAGE_KINDS: readonly ElementKind[] = [
@@ -183,13 +194,42 @@ const FILL_TEXT_KINDS: readonly ElementKind[] = [
 const HEADLINE_KINDS: readonly ElementKind[] = ["eyebrow", "badge", "title"];
 
 export interface ComposePool {
+  /** Visual photography, subject slot first (stable), then reading order. */
   visuals: SpecElement[];
   logos: SpecElement[];
-  /** Everything else that isn't structure, sorted in reading order
-   * (top to bottom, then left to right). */
+  /** Everything else that isn't structure, sorted by copy rank (offer, then
+   * cta, then everything else), then reading order (top to bottom, then
+   * left to right). */
   copy: SpecElement[];
-  /** Shapes and dividers — compose() never moves these. */
+  /** Shapes, dividers and slot background/decor elements; compose() never
+   * moves these. */
   structure: SpecElement[];
+}
+
+/** slot "offer"/"cta" sort after the rest of the copy, so a slotted offer or
+ * cta keeps compose()'s usual placement regardless of where it sits in
+ * `doc.elements` — unslotted elements (rank 0) keep today's reading order. */
+function copyRank(e: SpecElement): number {
+  if (e.slot === "offer") return 1;
+  if (e.slot === "cta") return 2;
+  return 0;
+}
+
+/** Which ComposePool bucket an element belongs to: a slot background/decor
+ * element is structure (compose() never moves it) regardless of kind; a slot
+ * subject is the visual and a slot brand is the logo, even if their kind
+ * says otherwise (e.g. a slotted "use your photo" upload); everything else
+ * falls back to the kind-based rules compose() has always used. */
+function composeBucket(
+  e: SpecElement,
+): "visual" | "logo" | "structure" | "copy" {
+  if (e.slot === "background" || e.slot === "decor") return "structure";
+  if (e.slot === "subject") return "visual";
+  if (e.slot === "brand") return "logo";
+  if (VISUAL_IMAGE_KINDS.includes(e.kind)) return "visual";
+  if (LOGO_KINDS.includes(e.kind)) return "logo";
+  if (STRUCTURE_KINDS.includes(e.kind)) return "structure";
+  return "copy";
 }
 
 /** The elements compose() is allowed to move: the selection if there is one,
@@ -203,17 +243,14 @@ export function composePool(
       (selectedIds.length ? selectedIds.includes(e.id) : e.visible) &&
       !e.locked,
   );
-  const visuals = base.filter((e) => VISUAL_IMAGE_KINDS.includes(e.kind));
-  const logos = base.filter((e) => LOGO_KINDS.includes(e.kind));
-  const structure = base.filter((e) => STRUCTURE_KINDS.includes(e.kind));
+  const visuals = base
+    .filter((e) => composeBucket(e) === "visual")
+    .sort((a, b) => Number(b.slot === "subject") - Number(a.slot === "subject"));
+  const logos = base.filter((e) => composeBucket(e) === "logo");
+  const structure = base.filter((e) => composeBucket(e) === "structure");
   const copy = base
-    .filter(
-      (e) =>
-        !VISUAL_IMAGE_KINDS.includes(e.kind) &&
-        !LOGO_KINDS.includes(e.kind) &&
-        !STRUCTURE_KINDS.includes(e.kind),
-    )
-    .sort((a, b) => a.y - b.y || a.x - b.x);
+    .filter((e) => composeBucket(e) === "copy")
+    .sort((a, b) => copyRank(a) - copyRank(b) || a.y - b.y || a.x - b.x);
   return { visuals, logos, copy, structure };
 }
 
@@ -294,204 +331,338 @@ function stackCopy(
   }
 }
 
-type Corner = "tl" | "tr" | "bl" | "br";
+export type Corner = "tl" | "tr" | "bl" | "br";
 
-/** Logos keep their own size and pin to a canvas corner rather than join
- * the copy stack (which would stretch them to column width). */
-function placeLogos(
+/** A vertical run of copy, as passed to `stackCopy`: where it starts, how
+ * wide it is, the gap between items, how it aligns inside that width, and
+ * the bounds it overflows-shifts against. */
+export interface StackZone {
+  x: number;
+  y: number;
+  width: number;
+  gap: number;
+  align: "start" | "center";
+  bounds: { top: number; bottom: number };
+}
+
+/** The geometry a compose layout places its elements into. Every placement
+ * function reads its numbers from here instead of hard-coding them, so
+ * auto-slot (`roleZone`) can share the exact same geometry. */
+export interface LayoutZones {
+  margin: number;
+  logoCorner: Corner;
+  visual?: Box;
+  copy?: StackZone;
+  /** The headline block, for layouts that place it apart from the rest of
+   * the copy (visual-band, spotlight, zigzag). */
+  headline?: StackZone;
+  badgeAt?: { x: number; y: number };
+  ctaCorner?: Corner;
+}
+
+/** The geometry `planComposeBoxes` uses for `layout` at `format`'s size —
+ * every number here is copied exactly from the placement functions below
+ * (now rewritten to read from it) so this is a description of existing
+ * behaviour, not a new design. */
+export function layoutZones(
+  layout: ComposeLayout,
+  format: { width: number; height: number },
+): LayoutZones {
+  const w = format.width;
+  const h = format.height;
+  const m = Math.round(w * 0.07);
+  const bounds = { top: m, bottom: h - m };
+  switch (layout) {
+    case "copy-left":
+      return {
+        margin: m,
+        logoCorner: "br",
+        visual: {
+          x: Math.round(w * 0.52),
+          y: Math.round(h * 0.12),
+          width: Math.round(w * 0.42),
+          height: Math.round(h * 0.72),
+        },
+        copy: { x: m, y: h * 0.16, width: w * 0.38, gap: h * 0.03, align: "start", bounds },
+      };
+    case "copy-right":
+      return {
+        margin: m,
+        logoCorner: "bl",
+        visual: {
+          x: m,
+          y: Math.round(h * 0.15),
+          width: Math.round(w * 0.48),
+          height: Math.round(h * 0.7),
+        },
+        copy: { x: w * 0.58, y: h * 0.16, width: w * 0.35, gap: h * 0.03, align: "start", bounds },
+      };
+    case "grid-2up":
+      return {
+        margin: m,
+        logoCorner: "bl",
+        visual: { x: 0, y: 0, width: Math.round(w * 0.5), height: h },
+        copy: { x: w * 0.58, y: h * 0.18, width: w * 0.36, gap: h * 0.03, align: "start", bounds },
+      };
+    case "split-top":
+      return {
+        margin: m,
+        logoCorner: "tr",
+        visual: { x: 0, y: 0, width: w, height: Math.round(h * 0.55) },
+        copy: { x: m, y: h * 0.62, width: w - m * 2, gap: h * 0.025, align: "start", bounds },
+      };
+    case "split-bottom":
+      return {
+        margin: m,
+        logoCorner: "br",
+        visual: {
+          x: 0,
+          y: Math.round(h * 0.45),
+          width: w,
+          height: Math.round(h * 0.55),
+        },
+        copy: { x: m, y: h * 0.08, width: w - m * 2, gap: h * 0.025, align: "start", bounds },
+      };
+    case "sidebar-left":
+      return {
+        margin: m,
+        logoCorner: "br",
+        visual: {
+          x: Math.round(w * 0.38),
+          y: 0,
+          width: Math.round(w * 0.62),
+          height: h,
+        },
+        copy: { x: m, y: h * 0.14, width: w * 0.28, gap: h * 0.03, align: "start", bounds },
+      };
+    case "framed": {
+      const visualHeight = Math.round(h * 0.55);
+      const gap = Math.round(h * 0.03);
+      return {
+        margin: m,
+        logoCorner: "tr",
+        visual: { x: m, y: m, width: w - 2 * m, height: visualHeight },
+        copy: {
+          x: m,
+          y: m + visualHeight + gap,
+          width: w - 2 * m,
+          gap,
+          align: "start",
+          bounds,
+        },
+      };
+    }
+    case "collage": {
+      const bandH = Math.round(h * 0.6);
+      const gap = Math.round(h * 0.03);
+      return {
+        margin: m,
+        logoCorner: "tr",
+        visual: { x: 0, y: 0, width: w, height: bandH },
+        copy: {
+          x: m,
+          y: bandH + gap,
+          width: w - 2 * m,
+          gap,
+          align: "start",
+          bounds: { top: bandH, bottom: h - m },
+        },
+      };
+    }
+    case "layered-card": {
+      const cardW = Math.round(w * 0.72);
+      const cardX = Math.round((w - cardW) / 2);
+      return {
+        margin: m,
+        logoCorner: "tl",
+        visual: { x: 0, y: 0, width: w, height: h },
+        copy: { x: cardX, y: h * 0.32, width: cardW, gap: h * 0.025, align: "start", bounds },
+      };
+    }
+    case "full-bleed-overlay":
+      return {
+        margin: m,
+        logoCorner: "tr",
+        visual: { x: 0, y: 0, width: w, height: h },
+        copy: { x: m, y: h * 0.68, width: w - m * 2, gap: h * 0.02, align: "start", bounds },
+      };
+    case "overlay-top":
+      return {
+        margin: m,
+        logoCorner: "br",
+        visual: { x: 0, y: 0, width: w, height: h },
+        copy: { x: m, y: h * 0.08, width: w - 2 * m, gap: h * 0.025, align: "start", bounds },
+      };
+    case "stack-center":
+      return { margin: m, logoCorner: "tl" };
+    case "corner-badge": {
+      const centerWidth = Math.round(w * 0.7);
+      return {
+        margin: m,
+        logoCorner: "tr",
+        ctaCorner: "br",
+        badgeAt: { x: m, y: m },
+        copy: {
+          x: Math.round((w - centerWidth) / 2),
+          y: h * 0.38,
+          width: centerWidth,
+          gap: h * 0.02,
+          align: "start",
+          bounds,
+        },
+      };
+    }
+    case "spotlight": {
+      const s = Math.round(Math.min(w, h) * 0.5);
+      const sx = Math.round((w - s) / 2);
+      const sy = Math.round(h * 0.26);
+      const colW = Math.round(w * 0.7);
+      const colX = Math.round((w - colW) / 2);
+      return {
+        margin: m,
+        logoCorner: "tl",
+        visual: { x: sx, y: sy, width: s, height: s },
+        headline: {
+          x: colX,
+          y: m,
+          width: colW,
+          gap: h * 0.025,
+          align: "center",
+          bounds: { top: m, bottom: sy },
+        },
+        copy: {
+          x: colX,
+          y: sy + s + Math.round(h * 0.03),
+          width: colW,
+          gap: h * 0.025,
+          align: "center",
+          bounds: { top: sy + s, bottom: h - m },
+        },
+      };
+    }
+    case "diagonal":
+      return { margin: m, logoCorner: "tl" };
+    case "visual-band":
+      return {
+        margin: m,
+        logoCorner: "tr",
+        visual: {
+          x: 0,
+          y: Math.round(h * 0.3),
+          width: w,
+          height: Math.round(h * 0.38),
+        },
+        headline: {
+          x: m,
+          y: h * 0.07,
+          width: w - 2 * m,
+          gap: h * 0.025,
+          align: "start",
+          bounds: { top: m, bottom: h * 0.3 },
+        },
+        copy: {
+          x: m,
+          y: h * 0.72,
+          width: w - 2 * m,
+          gap: h * 0.025,
+          align: "start",
+          bounds: { top: h * 0.72, bottom: h - m },
+        },
+      };
+    case "zigzag":
+      return {
+        margin: m,
+        logoCorner: "tr",
+        ctaCorner: "br",
+        visual: {
+          x: Math.round(w * 0.42),
+          y: Math.round(h * 0.3),
+          width: Math.round(w * 0.58 - m),
+          height: Math.round(h * 0.4),
+        },
+        headline: {
+          x: m,
+          y: m,
+          width: w * 0.6,
+          gap: h * 0.025,
+          align: "start",
+          bounds: { top: m, bottom: h * 0.3 },
+        },
+        copy: {
+          x: m,
+          y: h * 0.74,
+          width: w * 0.5,
+          gap: h * 0.025,
+          align: "start",
+          bounds: { top: h * 0.74, bottom: h - m },
+        },
+      };
+  }
+}
+
+/** Logos (or a single cta) keep their own size and pin to a canvas corner
+ * rather than join the copy stack (which would stretch them to column
+ * width). */
+function pinToCorner(
   boxes: Record<string, Box>,
-  logos: readonly SpecElement[],
+  items: readonly SpecElement[],
   corner: Corner,
   w: number,
   h: number,
   m: number,
 ): void {
-  for (const logo of logos) {
-    const x = corner === "tl" || corner === "bl" ? m : w - m - logo.width;
-    const y = corner === "tl" || corner === "tr" ? m : h - m - logo.height;
-    boxes[logo.id] = {
+  for (const item of items) {
+    const x = corner === "tl" || corner === "bl" ? m : w - m - item.width;
+    const y = corner === "tl" || corner === "tr" ? m : h - m - item.height;
+    boxes[item.id] = {
       x: Math.round(x),
       y: Math.round(y),
-      width: logo.width,
-      height: logo.height,
+      width: item.width,
+      height: item.height,
     };
   }
 }
 
-function copyLeft(
-  pool: ComposePool,
-  w: number,
-  h: number,
-  m: number,
-): Record<string, Box> {
-  const boxes: Record<string, Box> = {};
-  stackCopy(boxes, pool.copy, m, h * 0.16, w * 0.38, h * 0.03, "start", {
-    top: m,
-    bottom: h - m,
-  });
-  const visual = pool.visuals[0];
-  if (visual)
-    boxes[visual.id] = {
-      x: Math.round(w * 0.52),
-      y: Math.round(h * 0.12),
-      width: Math.round(w * 0.42),
-      height: Math.round(h * 0.72),
-    };
-  placeLogos(boxes, pool.logos, "br", w, h, m);
-  return boxes;
-}
-
-function copyRight(
-  pool: ComposePool,
-  w: number,
-  h: number,
-  m: number,
-): Record<string, Box> {
-  const boxes: Record<string, Box> = {};
-  const visual = pool.visuals[0];
-  if (visual)
-    boxes[visual.id] = {
-      x: m,
-      y: Math.round(h * 0.15),
-      width: Math.round(w * 0.48),
-      height: Math.round(h * 0.7),
-    };
-  stackCopy(boxes, pool.copy, w * 0.58, h * 0.16, w * 0.35, h * 0.03, "start", {
-    top: m,
-    bottom: h - m,
-  });
-  placeLogos(boxes, pool.logos, "bl", w, h, m);
-  return boxes;
-}
-
-function grid2up(
-  pool: ComposePool,
-  w: number,
-  h: number,
-  m: number,
-): Record<string, Box> {
-  const boxes: Record<string, Box> = {};
-  const visual = pool.visuals[0];
-  if (visual)
-    boxes[visual.id] = { x: 0, y: 0, width: Math.round(w * 0.5), height: h };
-  stackCopy(boxes, pool.copy, w * 0.58, h * 0.18, w * 0.36, h * 0.03, "start", {
-    top: m,
-    bottom: h - m,
-  });
-  placeLogos(boxes, pool.logos, "bl", w, h, m);
-  return boxes;
-}
-
-function splitTop(
-  pool: ComposePool,
-  w: number,
-  h: number,
-  m: number,
-): Record<string, Box> {
-  const boxes: Record<string, Box> = {};
-  const visual = pool.visuals[0];
-  if (visual)
-    boxes[visual.id] = { x: 0, y: 0, width: w, height: Math.round(h * 0.55) };
+/** Stacks `items` into `zone` via `stackCopy`. */
+function stackInZone(
+  boxes: Record<string, Box>,
+  items: readonly SpecElement[],
+  zone: StackZone,
+): void {
   stackCopy(
     boxes,
-    pool.copy,
-    m,
-    h * 0.62,
-    w - m * 2,
-    h * 0.025,
-    "start",
-    { top: m, bottom: h - m },
+    items,
+    zone.x,
+    zone.y,
+    zone.width,
+    zone.gap,
+    zone.align,
+    zone.bounds,
   );
-  placeLogos(boxes, pool.logos, "tr", w, h, m);
-  return boxes;
 }
 
-function splitBottom(
+/** The ten layouts that are just a visual box, a copy stack and a pinned
+ * logo — split-top/bottom, copy-left/right, grid-2up, sidebar-left, framed,
+ * layered-card, full-bleed-overlay and overlay-top all share this shape. */
+function columnLayout(
   pool: ComposePool,
+  z: LayoutZones,
   w: number,
   h: number,
   m: number,
 ): Record<string, Box> {
   const boxes: Record<string, Box> = {};
   const visual = pool.visuals[0];
-  if (visual)
-    boxes[visual.id] = {
-      x: 0,
-      y: Math.round(h * 0.45),
-      width: w,
-      height: Math.round(h * 0.55),
-    };
-  stackCopy(
-    boxes,
-    pool.copy,
-    m,
-    h * 0.08,
-    w - m * 2,
-    h * 0.025,
-    "start",
-    { top: m, bottom: h - m },
-  );
-  placeLogos(boxes, pool.logos, "br", w, h, m);
-  return boxes;
-}
-
-function sidebarLeft(
-  pool: ComposePool,
-  w: number,
-  h: number,
-  m: number,
-): Record<string, Box> {
-  const boxes: Record<string, Box> = {};
-  stackCopy(boxes, pool.copy, m, h * 0.14, w * 0.28, h * 0.03, "start", {
-    top: m,
-    bottom: h - m,
-  });
-  const visual = pool.visuals[0];
-  if (visual)
-    boxes[visual.id] = {
-      x: Math.round(w * 0.38),
-      y: 0,
-      width: Math.round(w * 0.62),
-      height: h,
-    };
-  placeLogos(boxes, pool.logos, "br", w, h, m);
-  return boxes;
-}
-
-function framed(
-  pool: ComposePool,
-  w: number,
-  h: number,
-  m: number,
-): Record<string, Box> {
-  const boxes: Record<string, Box> = {};
-  const visualHeight = Math.round(h * 0.55);
-  const visual = pool.visuals[0];
-  if (visual)
-    boxes[visual.id] = {
-      x: m,
-      y: m,
-      width: w - 2 * m,
-      height: visualHeight,
-    };
-  const gap = Math.round(h * 0.03);
-  stackCopy(
-    boxes,
-    pool.copy,
-    m,
-    m + visualHeight + gap,
-    w - 2 * m,
-    gap,
-    "start",
-    { top: m, bottom: h - m },
-  );
-  placeLogos(boxes, pool.logos, "tr", w, h, m);
+  if (visual && z.visual) boxes[visual.id] = { ...z.visual };
+  stackInZone(boxes, pool.copy, z.copy!);
+  pinToCorner(boxes, pool.logos, z.logoCorner, w, h, m);
   return boxes;
 }
 
 /** 2-4 images fill a grid in the canvas's top 60%; copy stacks below it. */
 function collage(
   pool: ComposePool,
+  z: LayoutZones,
   w: number,
   h: number,
   m: number,
@@ -499,7 +670,7 @@ function collage(
   const boxes: Record<string, Box> = {};
   const images = pool.visuals;
   const gutter = Math.round(m / 2);
-  const bandH = Math.round(h * 0.6);
+  const bandH = z.visual!.height;
   if (images.length === 2) {
     const cellW = Math.round((w - gutter) / 2);
     boxes[images[0]!.id] = { x: 0, y: 0, width: cellW, height: bandH };
@@ -536,65 +707,8 @@ function collage(
       };
     });
   }
-  const gap = Math.round(h * 0.03);
-  stackCopy(boxes, pool.copy, m, bandH + gap, w - 2 * m, gap, "start", {
-    top: bandH,
-    bottom: h - m,
-  });
-  placeLogos(boxes, pool.logos, "tr", w, h, m);
-  return boxes;
-}
-
-function layeredCard(
-  pool: ComposePool,
-  w: number,
-  h: number,
-  m: number,
-): Record<string, Box> {
-  const boxes: Record<string, Box> = {};
-  const visual = pool.visuals[0];
-  if (visual) boxes[visual.id] = { x: 0, y: 0, width: w, height: h };
-  const cardW = Math.round(w * 0.72);
-  const cardX = Math.round((w - cardW) / 2);
-  stackCopy(boxes, pool.copy, cardX, h * 0.32, cardW, h * 0.025, "start", {
-    top: m,
-    bottom: h - m,
-  });
-  placeLogos(boxes, pool.logos, "tl", w, h, m);
-  return boxes;
-}
-
-function fullBleedOverlay(
-  pool: ComposePool,
-  w: number,
-  h: number,
-  m: number,
-): Record<string, Box> {
-  const boxes: Record<string, Box> = {};
-  const visual = pool.visuals[0];
-  if (visual) boxes[visual.id] = { x: 0, y: 0, width: w, height: h };
-  stackCopy(boxes, pool.copy, m, h * 0.68, w - m * 2, h * 0.02, "start", {
-    top: m,
-    bottom: h - m,
-  });
-  placeLogos(boxes, pool.logos, "tr", w, h, m);
-  return boxes;
-}
-
-function overlayTop(
-  pool: ComposePool,
-  w: number,
-  h: number,
-  m: number,
-): Record<string, Box> {
-  const boxes: Record<string, Box> = {};
-  const visual = pool.visuals[0];
-  if (visual) boxes[visual.id] = { x: 0, y: 0, width: w, height: h };
-  stackCopy(boxes, pool.copy, m, h * 0.08, w - 2 * m, h * 0.025, "start", {
-    top: m,
-    bottom: h - m,
-  });
-  placeLogos(boxes, pool.logos, "br", w, h, m);
+  stackInZone(boxes, pool.copy, z.copy!);
+  pinToCorner(boxes, pool.logos, z.logoCorner, w, h, m);
   return boxes;
 }
 
@@ -609,6 +723,7 @@ function readingOrderPool(pool: ComposePool): SpecElement[] {
 
 function stackCenter(
   pool: ComposePool,
+  z: LayoutZones,
   w: number,
   h: number,
   m: number,
@@ -624,12 +739,13 @@ function stackCenter(
     };
     y += e.height + h * 0.025;
   }
-  placeLogos(boxes, pool.logos, "tl", w, h, m);
+  pinToCorner(boxes, pool.logos, z.logoCorner, w, h, m);
   return boxes;
 }
 
 function cornerBadge(
   pool: ComposePool,
+  z: LayoutZones,
   w: number,
   h: number,
   m: number,
@@ -640,65 +756,39 @@ function cornerBadge(
   );
   const cta = pool.copy.find((e) => e.kind === "cta");
   if (badge)
-    boxes[badge.id] = { x: m, y: m, width: badge.width, height: badge.height };
-  if (cta)
-    boxes[cta.id] = {
-      x: Math.round(w - m - cta.width),
-      y: Math.round(h - m - cta.height),
-      width: cta.width,
-      height: cta.height,
+    boxes[badge.id] = {
+      x: z.badgeAt!.x,
+      y: z.badgeAt!.y,
+      width: badge.width,
+      height: badge.height,
     };
+  if (cta) pinToCorner(boxes, [cta], z.ctaCorner!, w, h, m);
   const centerCopy = pool.copy.filter((e) => e !== badge && e !== cta);
-  const centerWidth = Math.round(w * 0.7);
-  stackCopy(
-    boxes,
-    centerCopy,
-    Math.round((w - centerWidth) / 2),
-    h * 0.38,
-    centerWidth,
-    h * 0.02,
-    "start",
-    { top: m, bottom: h - m },
-  );
-  placeLogos(boxes, pool.logos, "tr", w, h, m);
+  stackInZone(boxes, centerCopy, z.copy!);
+  pinToCorner(boxes, pool.logos, z.logoCorner, w, h, m);
   return boxes;
 }
 
 function spotlight(
   pool: ComposePool,
+  z: LayoutZones,
   w: number,
   h: number,
   m: number,
 ): Record<string, Box> {
   const boxes: Record<string, Box> = {};
-  const s = Math.round(Math.min(w, h) * 0.5);
-  const sx = Math.round((w - s) / 2);
-  const sy = Math.round(h * 0.26);
   const visual = pool.visuals[0];
-  if (visual) boxes[visual.id] = { x: sx, y: sy, width: s, height: s };
+  if (visual && z.visual) boxes[visual.id] = { ...z.visual };
   const { headline, rest } = splitHeadline(pool.copy);
-  const colW = Math.round(w * 0.7);
-  const colX = Math.round((w - colW) / 2);
-  stackCopy(boxes, headline, colX, m, colW, h * 0.025, "center", {
-    top: m,
-    bottom: sy,
-  });
-  stackCopy(
-    boxes,
-    rest,
-    colX,
-    sy + s + Math.round(h * 0.03),
-    colW,
-    h * 0.025,
-    "center",
-    { top: sy + s, bottom: h - m },
-  );
-  placeLogos(boxes, pool.logos, "tl", w, h, m);
+  stackInZone(boxes, headline, z.headline!);
+  stackInZone(boxes, rest, z.copy!);
+  pinToCorner(boxes, pool.logos, z.logoCorner, w, h, m);
   return boxes;
 }
 
 function diagonal(
   pool: ComposePool,
+  z: LayoutZones,
   w: number,
   h: number,
   m: number,
@@ -714,40 +804,30 @@ function diagonal(
     };
     y += e.height + h * 0.05;
   });
-  placeLogos(boxes, pool.logos, "tl", w, h, m);
+  pinToCorner(boxes, pool.logos, z.logoCorner, w, h, m);
   return boxes;
 }
 
 function visualBand(
   pool: ComposePool,
+  z: LayoutZones,
   w: number,
   h: number,
   m: number,
 ): Record<string, Box> {
   const boxes: Record<string, Box> = {};
   const { headline, rest } = splitHeadline(pool.copy);
-  stackCopy(boxes, headline, m, h * 0.07, w - 2 * m, h * 0.025, "start", {
-    top: m,
-    bottom: h * 0.3,
-  });
+  stackInZone(boxes, headline, z.headline!);
   const visual = pool.visuals[0];
-  if (visual)
-    boxes[visual.id] = {
-      x: 0,
-      y: Math.round(h * 0.3),
-      width: w,
-      height: Math.round(h * 0.38),
-    };
-  stackCopy(boxes, rest, m, h * 0.72, w - 2 * m, h * 0.025, "start", {
-    top: h * 0.72,
-    bottom: h - m,
-  });
-  placeLogos(boxes, pool.logos, "tr", w, h, m);
+  if (visual && z.visual) boxes[visual.id] = { ...z.visual };
+  stackInZone(boxes, rest, z.copy!);
+  pinToCorner(boxes, pool.logos, z.logoCorner, w, h, m);
   return boxes;
 }
 
 function zigzag(
   pool: ComposePool,
+  z: LayoutZones,
   w: number,
   h: number,
   m: number,
@@ -756,32 +836,27 @@ function zigzag(
   const { headline, rest } = splitHeadline(pool.copy);
   const cta = rest.find((e) => e.kind === "cta");
   const body = rest.filter((e) => e !== cta);
-  stackCopy(boxes, headline, m, m, w * 0.6, h * 0.025, "start", {
-    top: m,
-    bottom: h * 0.3,
-  });
+  stackInZone(boxes, headline, z.headline!);
   const visual = pool.visuals[0];
-  if (visual)
-    boxes[visual.id] = {
-      x: Math.round(w * 0.42),
-      y: Math.round(h * 0.3),
-      width: Math.round(w * 0.58 - m),
-      height: Math.round(h * 0.4),
-    };
-  stackCopy(boxes, body, m, h * 0.74, w * 0.5, h * 0.025, "start", {
-    top: h * 0.74,
-    bottom: h - m,
-  });
-  if (cta)
-    boxes[cta.id] = {
-      x: Math.round(w - m - cta.width),
-      y: Math.round(h - m - cta.height),
-      width: cta.width,
-      height: cta.height,
-    };
-  placeLogos(boxes, pool.logos, "tr", w, h, m);
+  if (visual && z.visual) boxes[visual.id] = { ...z.visual };
+  stackInZone(boxes, body, z.copy!);
+  if (cta) pinToCorner(boxes, [cta], z.ctaCorner!, w, h, m);
+  pinToCorner(boxes, pool.logos, z.logoCorner, w, h, m);
   return boxes;
 }
+
+const COLUMN_LAYOUTS: readonly ComposeLayout[] = [
+  "copy-left",
+  "copy-right",
+  "grid-2up",
+  "split-top",
+  "split-bottom",
+  "sidebar-left",
+  "framed",
+  "layered-card",
+  "full-bleed-overlay",
+  "overlay-top",
+];
 
 /** Computes where `applyComposeLayout` would move each element, without
  * mutating anything — used both to apply a layout and to preview it (active
@@ -794,42 +869,24 @@ export function planComposeBoxes(
   const pool = composePool(doc, selectedIds);
   const w = doc.format.width;
   const h = doc.format.height;
-  const m = Math.round(w * 0.07);
+  const z = layoutZones(layout, doc.format);
+  const m = z.margin;
+  if (COLUMN_LAYOUTS.includes(layout)) return columnLayout(pool, z, w, h, m);
   switch (layout) {
-    case "copy-left":
-      return copyLeft(pool, w, h, m);
-    case "copy-right":
-      return copyRight(pool, w, h, m);
-    case "grid-2up":
-      return grid2up(pool, w, h, m);
-    case "split-top":
-      return splitTop(pool, w, h, m);
-    case "split-bottom":
-      return splitBottom(pool, w, h, m);
-    case "sidebar-left":
-      return sidebarLeft(pool, w, h, m);
-    case "framed":
-      return framed(pool, w, h, m);
     case "collage":
-      return collage(pool, w, h, m);
-    case "layered-card":
-      return layeredCard(pool, w, h, m);
-    case "full-bleed-overlay":
-      return fullBleedOverlay(pool, w, h, m);
-    case "overlay-top":
-      return overlayTop(pool, w, h, m);
+      return collage(pool, z, w, h, m);
     case "stack-center":
-      return stackCenter(pool, w, h, m);
+      return stackCenter(pool, z, w, h, m);
     case "corner-badge":
-      return cornerBadge(pool, w, h, m);
+      return cornerBadge(pool, z, w, h, m);
     case "spotlight":
-      return spotlight(pool, w, h, m);
+      return spotlight(pool, z, w, h, m);
     case "diagonal":
-      return diagonal(pool, w, h, m);
+      return diagonal(pool, z, w, h, m);
     case "visual-band":
-      return visualBand(pool, w, h, m);
+      return visualBand(pool, z, w, h, m);
     case "zigzag":
-      return zigzag(pool, w, h, m);
+      return zigzag(pool, z, w, h, m);
     default:
       return {};
   }
@@ -846,6 +903,81 @@ export function applyComposeLayout(
     const box = boxes[e.id];
     if (box) Object.assign(e, box);
   });
+}
+
+/** Where auto-slot (Phase 6) should put a newly-slotted element of `role`.
+ * Mirrors `layoutZones` exactly, so a slotted element lands exactly where
+ * compose() would have put an element of that role. */
+export type RoleZone =
+  | ({ type: "box" } & Box)
+  | {
+      type: "stack";
+      x: number;
+      y: number;
+      width: number;
+      gap: number;
+      align: "start" | "center";
+    }
+  | { type: "point"; x: number; y: number }
+  | { type: "corner"; corner: Corner; margin: number };
+
+function stackToRoleZone(zone: StackZone): RoleZone {
+  return {
+    type: "stack",
+    x: Math.round(zone.x),
+    y: Math.round(zone.y),
+    width: Math.round(zone.width),
+    gap: Math.round(zone.gap),
+    align: zone.align,
+  };
+}
+
+export function roleZone(
+  role: AssetRole,
+  layout: ComposeLayout | undefined,
+  format: { width: number; height: number },
+): RoleZone | undefined {
+  if (role === "background")
+    return { type: "box", x: 0, y: 0, width: format.width, height: format.height };
+  if (role === "decor") return undefined;
+  if (role === "brand") {
+    if (!layout)
+      return {
+        type: "corner",
+        corner: "tr",
+        margin: Math.round(format.width * 0.07),
+      };
+    const z = layoutZones(layout, format);
+    return { type: "corner", corner: z.logoCorner, margin: z.margin };
+  }
+  if (!layout) return undefined;
+  const z = layoutZones(layout, format);
+  if (role === "subject")
+    return z.visual ? { type: "box", ...z.visual } : undefined;
+  if (role === "headline") {
+    const stack = z.headline ?? z.copy;
+    return stack ? stackToRoleZone(stack) : undefined;
+  }
+  if (role === "offer") {
+    if (z.badgeAt) return { type: "point", x: z.badgeAt.x, y: z.badgeAt.y };
+    return z.copy ? stackToRoleZone(z.copy) : undefined;
+  }
+  if (role === "cta") {
+    if (z.ctaCorner)
+      return { type: "corner", corner: z.ctaCorner, margin: z.margin };
+    return z.copy ? stackToRoleZone(z.copy) : undefined;
+  }
+  return undefined;
+}
+
+/** The layout a blank canvas gets on its first auto-slot: wide formats read
+ * as landscape posters (copy beside the visual), the rest as portrait/square
+ * ones (visual on top, copy below). */
+export function defaultLayoutFor(format: {
+  width: number;
+  height: number;
+}): ComposeLayout {
+  return format.width / format.height >= 1.6 ? "copy-left" : "split-top";
 }
 
 const TIDY_TEXT_KINDS: readonly ElementKind[] = [

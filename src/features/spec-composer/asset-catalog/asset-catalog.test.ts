@@ -4,6 +4,7 @@ import {
   BANNED_TERMS,
   PROMPT_LIMITS,
   promptFieldFor,
+  elementRole,
   findAssetItem,
   isAssetRole,
   isFreeFloat,
@@ -12,6 +13,8 @@ import {
   searchAssets,
 } from "./index.ts";
 import { MOTIF_KEYS } from "../motif-keys.ts";
+import { createElement } from "../registry.ts";
+import type { Format } from "../types.ts";
 
 /** Render-style wording kept out of aiDescription-field prompts: subject and
  * composition come from the catalog, visual style from the document. */
@@ -150,5 +153,52 @@ describe("searchAssets filter", () => {
 
     const filtered = searchAssets("imagery", (item) => item.category === "food");
     expect(filtered.length).toBe(allFood.length);
+  });
+});
+
+describe("elementRole", () => {
+  const FORMAT: Format = {
+    id: "test-1080x1080",
+    label: "Test square",
+    subtitle: "",
+    width: 1080,
+    height: 1080,
+    category: "Test",
+  };
+
+  it("a valid el.slot wins over everything else", () => {
+    const el = createElement("body", FORMAT, 0);
+    expect(elementRole({ ...el, slot: "cta" })).toBe("cta");
+  });
+
+  it("an unrecognized el.slot falls through to the kind/assetId rules", () => {
+    const el = createElement("cta", FORMAT, 0);
+    expect(elementRole({ ...el, slot: "bogus" })).toBe("cta");
+  });
+
+  it("resolves via el.assetId when no valid slot is set", () => {
+    const item = findAssetItem("text-url")!;
+    const el = createElement("cta", FORMAT, 0);
+    expect(
+      elementRole({ ...el, assetId: item.id }, findAssetItem),
+    ).toBe(roleOf(item));
+    expect(roleOf(item)).toBe("cta");
+  });
+
+  it("a full-canvas image kind is 'background' only when a format is given", () => {
+    const el = {
+      ...createElement("heroImage", FORMAT, 0),
+      x: 0,
+      y: 0,
+      width: FORMAT.width,
+      height: FORMAT.height,
+    };
+    expect(elementRole(el, undefined, FORMAT)).toBe("background");
+    expect(elementRole(el)).toBe("subject");
+  });
+
+  it("falls back to roleOfKind for a logo", () => {
+    const el = createElement("logo", FORMAT, 0);
+    expect(elementRole(el)).toBe("brand");
   });
 });

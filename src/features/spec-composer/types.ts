@@ -128,6 +128,13 @@ const specElementSchema = z.object({
   aiDescription: z.string().optional(),
   /** Material and texture, compiled into the element's prompt/slot line (see art-direction.ts). */
   material: z.string().optional(),
+  /** Auto-slot role (an AssetRole id) this element was dropped into; a plain
+   * string so unrecognized values still parse (see asset-catalog/roles.ts). */
+  slot: z.string().optional(),
+  /** Catalog item id this element was created or last slotted from. */
+  assetId: z.string().optional(),
+  /** User-entered subject detail, compiled into the prompt (see Phase 8). */
+  detail: z.string().optional(),
   x: z.number(),
   y: z.number(),
   width: z.number(),
@@ -265,6 +272,8 @@ const specDocumentShape = z.object({
   visualEdit: z.string().optional(),
   visualEditRevision: z.number().optional(),
   promptParts: z.record(z.string(), z.string()).optional(),
+  /** Last applied Compose layout id (see compose-layouts.ts isComposeLayout). */
+  layout: z.string().optional(),
   revision: z.number(),
 });
 
@@ -492,12 +501,20 @@ export function validateWritableDocument(value: unknown): SpecDocument {
     if (
       (element.content?.length ?? 0) > 20_000 ||
       (element.aiDescription?.length ?? 0) > 20_000 ||
-      (element.material?.length ?? 0) > 20_000
+      (element.material?.length ?? 0) > 20_000 ||
+      (element.detail?.length ?? 0) > 20_000
     )
       throw new Error("An element's text is too long.");
+    if (
+      (element.slot?.length ?? 0) > 200 ||
+      (element.assetId?.length ?? 0) > 200
+    )
+      throw new Error("An element's asset reference is too long.");
     if (element.src?.startsWith("data:") && element.src.length > 7_000_000)
       throw new Error("An embedded image is too large.");
   }
+  if ((doc.layout?.length ?? 0) > 200)
+    throw new Error("The design's layout id is too long.");
   const serialized = JSON.stringify(doc);
   if (serialized.length > 24_000_000)
     throw new Error("Design exceeds the 24 MB project limit.");

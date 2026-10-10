@@ -296,7 +296,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     );
     if (kit) applyBrandKitToDocument(next, kit);
     else delete next.creativeDirection.brandKitId;
-    get().mutate((doc) => Object.assign(doc, next));
+    get().mutate((doc) => {
+      delete doc.layout;
+      Object.assign(doc, next);
+    });
   },
 
   closeDocument: () => {
@@ -723,18 +726,22 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           ]),
         ),
       });
-    get().mutate((d) => applyComposeLayout(d, layout, get().selectedIds));
+    get().mutate((d) => {
+      applyComposeLayout(d, layout, get().selectedIds);
+      d.layout = layout;
+    });
   },
 
   resetCompose: () => {
     const origin = get().composeOrigin;
     if (!origin) return;
-    get().mutate((d) =>
+    get().mutate((d) => {
       d.elements.forEach((e) => {
         const box = origin[e.id];
         if (box) Object.assign(e, box);
-      }),
-    );
+      });
+      delete d.layout;
+    });
     set({ composeOrigin: undefined });
   },
 

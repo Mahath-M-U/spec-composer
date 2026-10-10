@@ -1,5 +1,10 @@
 import type { AssetCategoryId, AssetItem } from "./types.ts";
-import { isImageKind, isTextKind, type ElementKind } from "../types.ts";
+import {
+  isImageKind,
+  isTextKind,
+  type ElementKind,
+  type SpecElement,
+} from "../types.ts";
 
 /** Role tab in the redesigned Assets panel; also drives auto-slot targeting. */
 export type AssetRole =
@@ -113,6 +118,39 @@ export function kindFamily(
   if (isTextKind(kind)) return "text";
   if (isImageKind(kind)) return "image";
   return "structure";
+}
+
+/** Image kinds compose() treats as the "visual" photography, as opposed to
+ * brand marks or structure — mirrors compose-layouts.ts's VISUAL_IMAGE_KINDS. */
+const VISUAL_IMAGE_KINDS: readonly ElementKind[] = [
+  "heroImage",
+  "productImage",
+  "humanModelImage",
+  "supportingImage",
+];
+
+/** The role an element plays for auto-slot purposes: its own `slot` wins,
+ * then the catalog item it was created from (if still findable), then a
+ * full-canvas visual image is treated as a background, then the role implied
+ * by its kind alone. */
+export function elementRole(
+  el: Pick<SpecElement, "kind" | "slot" | "assetId" | "x" | "y" | "width" | "height">,
+  find?: (id: string) => AssetItem | undefined,
+  format?: { width: number; height: number },
+): AssetRole {
+  if (el.slot && isAssetRole(el.slot)) return el.slot;
+  if (el.assetId && find) {
+    const item = find(el.assetId);
+    if (item) return roleOf(item);
+  }
+  if (
+    format &&
+    VISUAL_IMAGE_KINDS.includes(el.kind) &&
+    el.width >= 0.9 * format.width &&
+    el.height >= 0.9 * format.height
+  )
+    return "background";
+  return roleOfKind(el.kind);
 }
 
 /** A short, prompt-forward tile caption: the subject up to the first comma

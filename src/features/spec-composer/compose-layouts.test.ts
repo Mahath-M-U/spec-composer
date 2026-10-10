@@ -3,10 +3,15 @@ import {
   applyComposeLayout,
   applyTidy,
   composePool,
+  defaultLayoutFor,
   isComposeAvailable,
+  isComposeLayout,
   isFullBleed,
+  layoutZones,
   planComposeBoxes,
+  roleZone,
   COMPOSE_LAYOUTS,
+  COMPOSE_LAYOUT_IDS,
   type Box,
   type ComposeLayout,
 } from "./compose-layouts";
@@ -48,6 +53,52 @@ function buildDoc(format: Format, kinds: ElementKind[] = DEFAULT_KINDS): SpecDoc
   doc.elements = kinds.map((kind, i) => createElement(kind, format, i));
   return doc;
 }
+
+/** Plans every compose layout for `doc`/`ids` and reduces each to the boxes
+ * for `doc.elements` in element-index order (not id — ids are random) so the
+ * snapshot is a stable fingerprint of every placement function's geometry. */
+function plan(doc: SpecDocument, ids: string[]) {
+  return Object.fromEntries(
+    COMPOSE_LAYOUTS.map((l) => [
+      l.id,
+      doc.elements.map((e) => planComposeBoxes(doc, l.id, ids)[e.id] ?? null),
+    ]),
+  );
+}
+
+describe("compose regression snapshot", () => {
+  it("instagram-post Product Launch, no selection", () => {
+    const doc = createDocument("instagram-post", "Product Launch", {
+      brandKit: false,
+    });
+    expect(plan(doc, [])).toMatchSnapshot();
+  });
+
+  it("instagram-post Product Launch, title + cta selected", () => {
+    const doc = createDocument("instagram-post", "Product Launch", {
+      brandKit: false,
+    });
+    const title = doc.elements.find((e) => e.kind === "title")!;
+    const cta = doc.elements.find((e) => e.kind === "cta")!;
+    expect(plan(doc, [title.id, cta.id])).toMatchSnapshot();
+  });
+
+  it("blank portrait with the default kind pool", () => {
+    const doc = buildDoc(FORMAT_PORTRAIT);
+    expect(plan(doc, [])).toMatchSnapshot();
+  });
+
+  it("blank landscape with an extended kind pool", () => {
+    const doc = buildDoc(FORMAT_LANDSCAPE, [
+      ...DEFAULT_KINDS,
+      "supportingImage",
+      "badge",
+      "eyebrow",
+      "offer",
+    ]);
+    expect(plan(doc, [])).toMatchSnapshot();
+  });
+});
 
 /** Layouts whose planned boxes are expected to stay fully on-canvas for the
  * default pool. stack-center and diagonal stack the full pool (not just
@@ -508,5 +559,140 @@ describe("tidy", () => {
       expect(gap).toBeLessThanOrEqual(32);
       expect(gap).toBe(20);
     }
+  });
+});
+
+describe("slot-aware composePool / placement", () => {
+  it("excludes a full-canvas heroImage slotted 'background' and gives the layout's visual zone to the product image instead", () => {
+    const format = FORMAT_PORTRAIT;
+    const doc = createDocument(format);
+    const hero = {
+      ...createElement("heroImage", format, 0),
+      x: 0,
+      y: 0,
+      width: format.width,
+      height: format.height,
+      slot: "background",
+    };
+    const product = createElement("productImage", format, 1);
+    doc.elements = [hero, product];
+    const boxes = planComposeBoxes(doc, "copy-left", []);
+    expect(boxes[hero.id]).toBeUndefined();
+    expect(boxes[product.id]).toEqual(layoutZones("copy-left", format).visual);
+  });
+
+  it("excludes a supportingImage slotted 'decor' from the plan", () => {
+    const format = FORMAT_PORTRAIT;
+    const doc = createDocument(format);
+    const product = createElement("productImage", format, 0);
+    const decor = { ...createElement("supportingImage", format, 1), slot: "decor" };
+    doc.elements = [product, decor];
+    const boxes = planComposeBoxes(doc, "copy-left", []);
+    expect(boxes[decor.id]).toBeUndefined();
+  });
+
+  it("gives the visual box to the later image once it's slotted 'subject'", () => {
+    const format = FORMAT_PORTRAIT;
+    const doc = createDocument(format);
+    const product = createElement("productImage", format, 0);
+    const subject = { ...createElement("supportingImage", format, 1), slot: "subject" };
+    doc.elements = [product, subject];
+    const boxes = planComposeBoxes(doc, "copy-left", []);
+    expect(boxes[subject.id]).toEqual(layoutZones("copy-left", format).visual);
+    expect(boxes[product.id]).toBeUndefined();
+  });
+
+  it("pins a body element slotted 'brand' to the layout's logo corner at its own size", () => {
+    const format = FORMAT_PORTRAIT;
+    const doc = createDocument(format);
+    const product = createElement("productImage", format, 0);
+    const brandBody = { ...createElement("body", format, 1), slot: "brand" };
+    doc.elements = [product, brandBody];
+    const boxes = planComposeBoxes(doc, "copy-left", []); // copy-left pins logos "br"
+    const w = format.width;
+    const h = format.height;
+    const m = layoutZones("copy-left", format).margin;
+    expect(boxes[brandBody.id]).toEqual({
+      x: w - m - brandBody.width,
+      y: h - m - brandBody.height,
+      width: brandBody.width,
+      height: brandBody.height,
+    });
+  });
+
+  it("stacks a slot:'cta' element after a slot:'headline' element regardless of array/y order", () => {
+    const format = FORMAT_PORTRAIT;
+    const doc = createDocument(format);
+    const product = createElement("productImage", format, 0);
+    const cta = { ...createElement("cta", format, 1), y: 100, slot: "cta" };
+    const title = { ...createElement("title", format, 2), y: 900, slot: "headline" };
+    doc.elements = [product, cta, title];
+    const boxes = planComposeBoxes(doc, "copy-left", []);
+    expect(boxes[cta.id]!.y).toBeGreaterThanOrEqual(
+      boxes[title.id]!.y + boxes[title.id]!.height,
+    );
+  });
+});
+
+describe("layout zones and role zones", () => {
+  it("isComposeLayout accepts every COMPOSE_LAYOUT_IDS entry and rejects an unknown string", () => {
+    for (const id of COMPOSE_LAYOUT_IDS) expect(isComposeLayout(id)).toBe(true);
+    expect(isComposeLayout("nope")).toBe(false);
+  });
+
+  it("places the product image exactly at roleZone('subject')'s box for every layout that has one (collage excluded)", () => {
+    const format = FORMAT_PORTRAIT;
+    const doc = buildDoc(format);
+    const product = doc.elements.find((e) => e.kind === "productImage")!;
+    for (const layout of COMPOSE_LAYOUT_IDS) {
+      if (layout === "collage") continue; // collage tiles multiple images into a grid, not a single visual box
+      const zone = roleZone("subject", layout, format);
+      if (!zone || zone.type !== "box") continue; // stack-center, diagonal, corner-badge have no subject box
+      const boxes = planComposeBoxes(doc, layout, []);
+      expect(boxes[product.id], layout).toEqual({
+        x: zone.x,
+        y: zone.y,
+        width: zone.width,
+        height: zone.height,
+      });
+    }
+  });
+
+  it("returns undefined for roles a layout doesn't place", () => {
+    const format = FORMAT_PORTRAIT;
+    expect(roleZone("headline", "stack-center", format)).toBeUndefined();
+    expect(roleZone("decor", "copy-left", format)).toBeUndefined();
+  });
+
+  it("background is always the full canvas, even with no layout", () => {
+    const format = FORMAT_PORTRAIT;
+    expect(roleZone("background", undefined, format)).toEqual({
+      type: "box",
+      x: 0,
+      y: 0,
+      width: format.width,
+      height: format.height,
+    });
+  });
+
+  it("corner-badge: offer is the badge point, cta is the bottom-right corner", () => {
+    const format = FORMAT_PORTRAIT;
+    const m = layoutZones("corner-badge", format).margin;
+    expect(roleZone("offer", "corner-badge", format)).toEqual({
+      type: "point",
+      x: m,
+      y: m,
+    });
+    expect(roleZone("cta", "corner-badge", format)).toEqual({
+      type: "corner",
+      corner: "br",
+      margin: m,
+    });
+  });
+
+  it("defaultLayoutFor picks copy-left for wide formats, split-top otherwise", () => {
+    expect(defaultLayoutFor({ width: 1920, height: 1080 })).toBe("copy-left");
+    expect(defaultLayoutFor({ width: 1080, height: 1920 })).toBe("split-top");
+    expect(defaultLayoutFor({ width: 1080, height: 1080 })).toBe("split-top");
   });
 });
