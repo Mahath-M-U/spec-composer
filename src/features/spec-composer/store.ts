@@ -7,6 +7,7 @@ import {
   validBox,
 } from "./canvas-geometry";
 import {
+  isTextKind,
   type BrandKit,
   type ElementConstraint,
   type ElementKind,
@@ -21,6 +22,12 @@ import {
 import { defaultExternalToolRequirement } from "./compiler";
 import { applyElementText } from "./text-edit";
 import { createElement } from "./registry";
+import {
+  elementRole,
+  findAssetItem,
+  ROLE_REPLACE,
+  type AssetRole,
+} from "./asset-catalog";
 import {
   loadProjects,
   loadProjectVersion,
@@ -48,6 +55,9 @@ import {
 import {
   applyComposeLayout,
   applyTidy,
+  defaultLayoutFor,
+  isComposeLayout,
+  roleZone,
   type Box,
   type ComposeLayout,
 } from "./compose-layouts";
@@ -103,6 +113,17 @@ interface EditorState {
     patch?: Partial<SpecElement>,
     options?: { atBack?: boolean; preservePatchStyle?: boolean },
   ) => void;
+  /** Auto-slots a catalog asset of `role` into the document: replaces the
+   * current occupant of that role (per ROLE_REPLACE), or — on a blank
+   * canvas, the format's default Compose layout — places it in that
+   * layout's zone for the role. One undo step. Returns the new element's
+   * id, or undefined if there is no open document. */
+  slotElement: (
+    role: AssetRole,
+    kind: ElementKind,
+    patch: Partial<SpecElement>,
+    options?: { atBack?: boolean },
+  ) => string | undefined;
   updateElement: (id: string, patch: Partial<SpecElement>) => void;
   /** Sets a text (or text-like) element's content, dropping its frozen
    * prompt-section override so the live segment takes over. */
@@ -233,6 +254,61 @@ export function boundsOf(elements: SpecElement[]): Box {
   }
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
+
+/** The mutate-body of `addElement`, factored out so `slotElement` can build
+ * an element with identical behaviour (kit-before-patch ordering, the
+ * no-drop-point clamp, atBack renumbering) before placing it itself. */
+function insertElement(
+  doc: SpecDocument,
+  kit: BrandKit | undefined,
+  kind: ElementKind,
+  x: number | undefined,
+  y: number | undefined,
+  patch: Partial<SpecElement> | undefined,
+  options?: { atBack?: boolean; preservePatchStyle?: boolean },
+): SpecElement {
+  const hasPoint = x !== undefined && y !== undefined;
+  const el = createElement(kind, doc.format, doc.elements.length, x, y);
+  if (kit && options?.preservePatchStyle) applyBrandKitToElement(el, kit);
+  if (patch) {
+    const { style, ...rest } = patch;
+    Object.assign(el, rest);
+    if (style) el.style = { ...el.style, ...style };
+  }
+  if (kit && !options?.preservePatchStyle) applyBrandKitToElement(el, kit);
+  // A patch (e.g. from an asset preset) can resize the element after
+  // createElement picked a default position, so without an explicit
+  // drop point, clamp it inside the canvas using its final size.
+  if (!hasPoint) {
+    el.x = Math.max(0, Math.min(el.x, doc.format.width - el.width));
+    el.y = Math.max(0, Math.min(el.y, doc.format.height - el.height));
+  }
+  if (options?.atBack) {
+    doc.elements.unshift(el);
+    doc.elements.forEach((e, i) => (e.zIndex = i + 1));
+  } else {
+    doc.elements.push(el);
+  }
+  return el;
+}
+
+/** Text kinds that stretch to a copy stack's full width when auto-slotted;
+ * the rest (cta, badge, price) keep their own width, capped at the stack's
+ * width. Mirrors compose-layouts.ts's FILL_TEXT_KINDS / stackCopy sizing
+ * rule exactly, so a slotted element lands at the same width compose()
+ * would give it. */
+const SLOT_STACK_FILL_KINDS: readonly ElementKind[] = [
+  "title",
+  "subheading",
+  "body",
+  "eyebrow",
+  "offer",
+];
+
+/** The AssetRoles stackCopy-style zones treat as copy, for the "largest
+ * bottom" scan `slotElement` does when placing a new stack item below
+ * whatever's already there. */
+const STACK_ROLES: readonly AssetRole[] = ["headline", "offer", "cta"];
 
 export const useEditorStore = create<EditorState>((set, get) => ({
   selectedIds: [],
@@ -417,37 +493,149 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const d = get().doc;
     if (!d) return;
     let id = "";
-    const hasPoint = x !== undefined && y !== undefined;
     get().mutate((doc) => {
-      const el = createElement(kind, doc.format, doc.elements.length, x, y);
       const activeKit = get().brandKits.find(
         (kit) => kit.id === doc.creativeDirection.brandKitId,
       );
-      if (activeKit && options?.preservePatchStyle)
-        applyBrandKitToElement(el, activeKit);
-      if (patch) {
-        const { style, ...rest } = patch;
-        Object.assign(el, rest);
-        if (style) el.style = { ...el.style, ...style };
-      }
-      if (activeKit && !options?.preservePatchStyle)
-        applyBrandKitToElement(el, activeKit);
-      // A patch (e.g. from an asset preset) can resize the element after
-      // createElement picked a default position, so without an explicit
-      // drop point, clamp it inside the canvas using its final size.
-      if (!hasPoint) {
-        el.x = Math.max(0, Math.min(el.x, doc.format.width - el.width));
-        el.y = Math.max(0, Math.min(el.y, doc.format.height - el.height));
-      }
+      const el = insertElement(doc, activeKit, kind, x, y, patch, options);
       id = el.id;
-      if (options?.atBack) {
-        doc.elements.unshift(el);
-        doc.elements.forEach((e, i) => (e.zIndex = i + 1));
-      } else {
-        doc.elements.push(el);
-      }
     });
     set({ selectedIds: [id], backgroundSelected: false });
+  },
+
+  slotElement: (role, kind, patch, options) => {
+    const d = get().doc;
+    if (!d) return undefined;
+    let id = "";
+    get().mutate((doc) => {
+      // 1. Layout: keep the doc's own layout if it has one; otherwise, on a
+      // blank canvas (nothing but background/decor elements), start the
+      // format's default Compose layout so the first slot has geometry to
+      // land in.
+      let layout: ComposeLayout | undefined = isComposeLayout(doc.layout)
+        ? doc.layout
+        : undefined;
+      if (!layout) {
+        const isBlank = !doc.elements.some((e) => {
+          const r = elementRole(e, findAssetItem, doc.format);
+          return r !== "decor" && r !== "background";
+        });
+        if (isBlank) {
+          layout = defaultLayoutFor(doc.format);
+          doc.layout = layout;
+        }
+      }
+
+      // 2. Target: the element this slot replaces, if any.
+      const policy = ROLE_REPLACE[role];
+      let target: SpecElement | undefined;
+      if (policy !== "none") {
+        target = doc.elements
+          .filter(
+            (e) =>
+              e.visible &&
+              !e.locked &&
+              elementRole(e, findAssetItem, doc.format) === role &&
+              (policy !== "kind" || e.kind === kind),
+          )
+          .reduce<SpecElement | undefined>((largest, e) => {
+            if (!largest) return e;
+            return e.width * e.height > largest.width * largest.height
+              ? e
+              : largest;
+          }, undefined);
+      }
+
+      // 3. Build: insert like addElement, then tag the slot.
+      const activeKit = get().brandKits.find(
+        (kit) => kit.id === doc.creativeDirection.brandKitId,
+      );
+      const el = insertElement(doc, activeKit, kind, undefined, undefined, patch, {
+        ...(options?.atBack !== undefined ? { atBack: options.atBack } : {}),
+        preservePatchStyle: true,
+      });
+      el.slot = role;
+      id = el.id;
+
+      // 4. Keep typed copy: slotting over existing text keeps what the user
+      // already typed, regardless of the new asset's own copy.
+      if (
+        target &&
+        isTextKind(target.kind) &&
+        isTextKind(el.kind) &&
+        target.content !== undefined
+      )
+        el.content = target.content;
+
+      // 5. Box.
+      if (target) {
+        el.x = target.x;
+        el.y = target.y;
+        el.width = target.width;
+        el.rotation = target.rotation;
+        if (!isTextKind(el.kind)) el.height = target.height;
+        const elIndex = doc.elements.indexOf(el);
+        doc.elements.splice(elIndex, 1);
+        const targetIndex = doc.elements.indexOf(target);
+        doc.elements.splice(targetIndex, 1, el);
+        doc.elements.forEach((e, i) => (e.zIndex = i + 1));
+      } else {
+        const zone = roleZone(role, layout, doc.format);
+        if (zone?.type === "box") {
+          const scale = Math.min(
+            zone.width / el.width,
+            zone.height / el.height,
+          );
+          el.width = Math.round(el.width * scale);
+          el.height = Math.round(el.height * scale);
+          el.x = Math.round(zone.x + (zone.width - el.width) / 2);
+          el.y = Math.round(zone.y + (zone.height - el.height) / 2);
+        } else if (zone?.type === "stack") {
+          const isFill = SLOT_STACK_FILL_KINDS.includes(el.kind);
+          const itemWidth = isFill
+            ? zone.width
+            : Math.min(el.width, zone.width);
+          el.width = Math.round(itemWidth);
+          el.x =
+            zone.align === "center" && itemWidth < zone.width
+              ? Math.round(zone.x + (zone.width - itemWidth) / 2)
+              : Math.round(zone.x);
+          let maxBottom: number | undefined;
+          for (const e of doc.elements) {
+            if (e === el) continue;
+            if (!STACK_ROLES.includes(elementRole(e, findAssetItem, doc.format)))
+              continue;
+            if (e.x >= zone.x + zone.width || e.x + e.width <= zone.x)
+              continue;
+            const bottom = e.y + e.height;
+            if (maxBottom === undefined || bottom > maxBottom)
+              maxBottom = bottom;
+          }
+          el.y = Math.round(
+            maxBottom !== undefined ? maxBottom + zone.gap : zone.y,
+          );
+        } else if (zone?.type === "point") {
+          el.x = zone.x;
+          el.y = zone.y;
+        } else if (zone?.type === "corner") {
+          el.x =
+            zone.corner === "tl" || zone.corner === "bl"
+              ? zone.margin
+              : doc.format.width - zone.margin - el.width;
+          el.y =
+            zone.corner === "tl" || zone.corner === "tr"
+              ? zone.margin
+              : doc.format.height - zone.margin - el.height;
+        }
+        // zone undefined: keep insertElement's default position.
+      }
+
+      // 6. Clamp inside canvas.
+      el.x = Math.max(0, Math.min(el.x, doc.format.width - el.width));
+      el.y = Math.max(0, Math.min(el.y, doc.format.height - el.height));
+    });
+    set({ selectedIds: [id], backgroundSelected: false });
+    return id;
   },
 
   commitCanvasTransform: (original, boxes) => {

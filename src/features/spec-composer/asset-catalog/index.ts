@@ -262,7 +262,11 @@ export function resolveAssetPatch(
   item: AssetItem,
   ctx: AssetContext,
 ): ResolvedAsset {
-  const patch: Partial<SpecElement> = { name: item.label };
+  const patch: Partial<SpecElement> = {
+    name: item.label,
+    assetId: item.id,
+    slot: roleOf(item),
+  };
 
   if (item.art !== undefined) patch.placeholderArt = item.art;
   if (item.content !== undefined) patch.content = item.content;
