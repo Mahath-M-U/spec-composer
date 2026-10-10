@@ -1429,6 +1429,7 @@ const GENERIC_ICONS: Record<string, LucideIcon> = {
   "skill:mood": Type,
   "skill:scene": Mountain,
   "skill:lighting": Lightbulb,
+  "skill:brand": Sparkles,
 };
 const iconFor = (key: string): LucideIcon => GENERIC_ICONS[key] ?? FileText;
 
@@ -1563,6 +1564,7 @@ const PROMPT_ICONS: Record<string, LucideIcon> = {
   imageStyle: ImageIcon,
   colors: Palette,
   brand: Sparkles,
+  identity: Sparkles,
   mood: Type,
   typography: Type,
   scene: Mountain,

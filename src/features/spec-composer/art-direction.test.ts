@@ -232,7 +232,63 @@ describe("compileDesignSkill", () => {
   });
 });
 
+describe("brand identity", () => {
+  it("compileVisualSegments has no identity line by default", () => {
+    const doc = createDocument();
+    const keys = compileVisualSegments(doc).map((l) => l.key);
+    expect(keys).not.toContain("identity");
+  });
+
+  it("compileVisualSegments has an identity line with a brandKitId and profile", () => {
+    const doc = {
+      ...createDocument(),
+      creativeDirection: {
+        ...createDocument().creativeDirection,
+        brandKitId: "brandkit_1",
+        brandProfile: { vision: "See far" },
+      },
+    };
+    const line = compileVisualSegments(doc).find((l) => l.key === "identity");
+    expect(line?.segs).toEqual(["Brand identity: Vision: See far."]);
+  });
+
+  it("compileDesignSkill contains ## Brand Identity only with a kit and profile", () => {
+    const withIdentity = {
+      ...createDocument(),
+      creativeDirection: {
+        ...createDocument().creativeDirection,
+        brandKitId: "brandkit_1",
+        brandProfile: { vision: "See far" },
+      },
+    };
+    expect(compileDesignSkill(createDocument())).not.toContain(
+      "## Brand Identity",
+    );
+    expect(compileDesignSkill(withIdentity)).toContain("## Brand Identity");
+  });
+});
+
 describe("parseSpecDocument", () => {
+  it("keeps creativeDirection.brandProfile", () => {
+    const doc = {
+      ...createDocument(),
+      creativeDirection: {
+        ...createDocument().creativeDirection,
+        brandProfile: { vision: "See far" },
+      },
+    };
+    const parsed = parseSpecDocument(doc);
+    expect(parsed?.creativeDirection.brandProfile).toEqual({
+      vision: "See far",
+    });
+  });
+
+  it("still parses docs without a brandProfile", () => {
+    const parsed = parseSpecDocument(createDocument());
+    expect(parsed).toBeDefined();
+    expect(parsed?.creativeDirection.brandProfile).toBeUndefined();
+  });
+
   it("accepts scene, lighting and element material", () => {
     const { doc } = withElement({ material: "Stainless steel" });
     const parsed = parseSpecDocument({

@@ -7,6 +7,7 @@ import {
   type PromptLine,
   type PromptSeg,
 } from "./compiler.ts";
+import { brandProfileLines } from "./brand-profile.ts";
 import {
   ART_FIELD_KEYS,
   artValue,
@@ -33,6 +34,7 @@ export const DESIGN_SKILL_HEADER: Record<string, string> = {
 /** Section headings of the DESIGN.md, keyed by line. Slot lines
  * (`skill:el:*`) have none: they're bullets under "Layout". */
 export const DESIGN_SKILL_SECTIONS: Record<string, string> = {
+  "skill:brand": "Brand Identity",
   "skill:colors": "Colors",
   "skill:type": "Typography",
   "skill:spacing": "Spacing & Shapes",
@@ -466,6 +468,13 @@ export function compileDesignSkillSegments(
     ],
   ];
 
+  const identity = brandMandatory ? brandProfileLines(cd.brandProfile) : [];
+  if (identity.length)
+    lines.push([
+      "skill:brand",
+      [identity.map((line) => `- ${line}`).join("\n")],
+    ]);
+
   if (o.colors)
     lines.push([
       "skill:colors",
@@ -580,6 +589,14 @@ export function compileDesignSkillSegments(
       : []),
     `Keep the ${m.safeMargin}px safe margin and ~${m.gap}px rhythm between stacked slots on a ${m.base}px base unit`,
     `Keep text ${m.align}-aligned${moodOn ? ` and the mood ${mood}` : ""}`,
+    ...(() => {
+      const voiceLine = identity.find((line) => line.startsWith("Voice:"));
+      return voiceLine
+        ? [
+            `Keep copy in the brand voice: ${voiceLine.replace(/^Voice: /, "").replace(/\.$/, "")}`,
+          ]
+        : [];
+    })(),
     ...(o.elementConstraints
       ? visible
           .filter((e) => e.constraint?.positiveConstraint)

@@ -1,6 +1,7 @@
 import { notifyStorageChange } from "@/lib/storage/events";
 import { readRaw, removeKey, writeRaw } from "@/lib/storage/local";
 import { getStorage, KV_KEYS, LS_KEYS } from "./storage";
+import { normalizeBrandProfile } from "./brand-profile";
 import { recolorScrimGradient } from "./gradient-recolor";
 import {
   isTextKind,
@@ -24,22 +25,26 @@ export function normalizeBrandKits(value: unknown): BrandKit[] {
       (kit): kit is BrandKit =>
         !!kit && typeof kit === "object" && typeof kit.id === "string",
     )
-    .map((kit) => ({
-      ...kit,
-      emotions: Array.isArray(kit.emotions) ? kit.emotions : [],
-      colors: Array.isArray(kit.colors)
-        ? kit.colors.map((color, index) => ({
-            ...color,
-            type: color.type === "gradient" ? "gradient" : "solid",
-            role: normalizeColorRole(color, index),
-            secondaryHex: color.secondaryHex ?? color.hex,
-            angle: Number.isFinite(color.angle) ? color.angle : 135,
-            usecase:
-              color.usecase ??
-              (index === 0 ? "Primary brand color" : "Brand color"),
-          }))
-        : [],
-    }));
+    .map(({ profile, ...kit }) => {
+      const normalizedProfile = normalizeBrandProfile(profile);
+      return {
+        ...kit,
+        emotions: Array.isArray(kit.emotions) ? kit.emotions : [],
+        ...(normalizedProfile ? { profile: normalizedProfile } : {}),
+        colors: Array.isArray(kit.colors)
+          ? kit.colors.map((color, index) => ({
+              ...color,
+              type: color.type === "gradient" ? "gradient" : "solid",
+              role: normalizeColorRole(color, index),
+              secondaryHex: color.secondaryHex ?? color.hex,
+              angle: Number.isFinite(color.angle) ? color.angle : 135,
+              usecase:
+                color.usecase ??
+                (index === 0 ? "Primary brand color" : "Brand color"),
+            }))
+          : [],
+      };
+    });
 }
 
 export async function loadBrandKits(): Promise<BrandKit[]> {
@@ -160,6 +165,9 @@ export function applyBrandKitToDocument(doc: SpecDocument, kit: BrandKit) {
   if (kit.typography) {
     doc.creativeDirection.typography = kit.typography;
   }
+  const profile = normalizeBrandProfile(kit.profile);
+  if (profile) doc.creativeDirection.brandProfile = structuredClone(profile);
+  else delete doc.creativeDirection.brandProfile;
   doc.elements.forEach((element) => applyBrandKitToElement(element, kit));
 }
 

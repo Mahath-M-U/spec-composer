@@ -31,8 +31,9 @@ document format may change between 0.x releases.
 - **Starter templates** that clone into editable designs.
 - **Canvas editing**: multi-select, drag, resize, snapping guides, zoom, pan,
   layers, grouping and one-click layouts.
-- **Design kits**: reusable colours, typeface, style and mood, including a kit
-  generated from a single seed colour.
+- **Design kits**: create, generate and edit reusable colours, typography,
+  style, mood and brand strategy in one dialog with a live preview. Extract
+  palettes from images locally in your browser.
 - **Live output**: a DESIGN.md spec and a natural-language image prompt that
   regenerate as you edit, with toggles for what to include.
 - **Export** to DESIGN.md, JSON, or PNG at the target resolution.

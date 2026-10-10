@@ -150,16 +150,26 @@ interface EditorState {
   reorder: (ids: string[]) => void;
   /** Persists the open document now; resolves once the write settles. */
   saveNow: () => Promise<void>;
-  createBrandKit: (name: string) => string;
+  createBrandKit: (name: string, draft?: BrandKitDraft) => string;
   updateBrandKit: (id: string, patch: Partial<BrandKit>) => void;
   deleteBrandKit: (id: string) => void;
   activateBrandKit: (id: string) => void;
   deactivateBrandKit: () => void;
   setDefaultBrandKit: (id: string) => void;
   clearDefaultBrandKit: () => void;
-  createMaterialKit: (name: string, seedHex: string) => string;
+  createMaterialKit: (
+    name: string,
+    seedHex: string,
+    draft?: BrandKitDraft,
+  ) => string;
   deleteMaterialKit: (id: string) => void;
 }
+
+/** Fields the brand kit builder can prefill a new kit with; name and seed
+ * color are passed separately since create/generate collect them differently. */
+export type BrandKitDraft = Partial<
+  Pick<BrandKit, "colors" | "emotions" | "style" | "typography" | "profile">
+>;
 
 const clone = (d: SpecDocument): SpecDocument => structuredClone(d);
 const historyLimit = (doc: SpecDocument) =>
@@ -1015,7 +1025,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }
   },
 
-  createBrandKit: (name) => {
+  createBrandKit: (name, draft) => {
     const now = new Date().toISOString();
     const kit: BrandKit = {
       id: `brandkit_${crypto.randomUUID().slice(0, 8)}`,
@@ -1059,6 +1069,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       typography: "Manrope",
       createdAt: now,
       updatedAt: now,
+      ...draft,
     };
     const brandKits = [kit, ...get().brandKits];
     set({ brandKits });
@@ -1080,9 +1091,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set({ brandKits });
     persistKits(saveBrandKits(brandKits), "save-brand-kits");
 
-    const changesDesign = ["colors", "emotions", "style", "typography"].some(
-      (key) => key in patch,
-    );
+    const changesDesign = [
+      "colors",
+      "emotions",
+      "style",
+      "typography",
+      "profile",
+    ].some((key) => key in patch);
     if (!changesDesign) return;
 
     // Only the poster open in the editor follows kit edits; saved posters keep
@@ -1123,6 +1138,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   deactivateBrandKit: () => {
     get().mutate((doc) => {
       delete doc.creativeDirection.brandKitId;
+      delete doc.creativeDirection.brandProfile;
     });
   },
 
@@ -1139,9 +1155,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set({ defaultBrandKitId: undefined });
   },
 
-  createMaterialKit: (name, seedHex) => {
+  createMaterialKit: (name, seedHex, draft) => {
     const styleKit = createStyleKit(name, seedHex);
-    const brandKit = brandKitFromMaterialKit(styleKit);
+    const brandKit = brandKitFromMaterialKit(styleKit, draft);
     const materialKits = [styleKit, ...get().materialKits];
     const brandKits = [brandKit, ...get().brandKits];
     set({ materialKits, brandKits });

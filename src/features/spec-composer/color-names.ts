@@ -79,6 +79,17 @@ const namedRgb = NAMED_COLORS.map((entry) => ({
   rgb: hexToRgb(entry.hex) ?? [0, 0, 0],
 }));
 
+/** Picks readable ink ("#111311" or "#FFFFFF") for text/icons drawn over a
+ * brand kit swatch, by relative luminance. */
+export function brandKitTileForeground(hex: string): "#111311" | "#FFFFFF" {
+  const value = Number.parseInt(hex.replace("#", ""), 16);
+  const red = (value >> 16) & 255;
+  const green = (value >> 8) & 255;
+  const blue = value & 255;
+  const luminance = (red * 299 + green * 587 + blue * 114) / 255000;
+  return luminance > 0.58 ? "#111311" : "#FFFFFF";
+}
+
 /** Returns the closest named color to a hex value, or "Custom" if the hex is invalid. */
 export function nearestColorName(hex: string): string {
   const rgb = hexToRgb(hex);
