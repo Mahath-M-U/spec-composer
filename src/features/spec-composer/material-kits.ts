@@ -170,7 +170,7 @@ export function materialRoleColors(seedHex: string): BrandKitColor[] {
  * builder carry its emotions/style/typography/profile picks through. */
 export function brandKitFromMaterialKit(
   kit: StyleKit,
-  overrides?: Partial<Pick<BrandKit, "emotions" | "style" | "typography" | "profile">>,
+  overrides?: Partial<Pick<BrandKit, "colors" | "emotions" | "style" | "typography" | "profile">>,
 ): BrandKit {
   const colors = materialRoleColors(kit.materialColors.seedHex).map(
     (color) => ({ ...color, id: crypto.randomUUID().slice(0, 8) }),

@@ -160,7 +160,7 @@ interface EditorState {
   createMaterialKit: (
     name: string,
     seedHex: string,
-    draft?: Omit<BrandKitDraft, "colors">,
+    draft?: BrandKitDraft,
   ) => string;
   deleteMaterialKit: (id: string) => void;
 }

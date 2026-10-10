@@ -36,7 +36,6 @@ export function PanelHeader({
   icon: Icon,
   badge,
   meta,
-  actions,
   id,
 }: {
   title: ReactNode;
@@ -44,7 +43,6 @@ export function PanelHeader({
   icon?: LucideIcon;
   badge?: ReactNode;
   meta?: ReactNode;
-  actions?: ReactNode;
   id?: string;
 }) {
   const onCollapse = useContext(PanelCollapseContext);
@@ -60,10 +58,9 @@ export function PanelHeader({
           </h2>
         </div>
       </div>
-      {(meta || actions || onCollapse) && (
+      {(meta || onCollapse) && (
         <div className="panel-header-actions">
           {meta && <span className="panel-header-meta">{meta}</span>}
-          {actions}
           {onCollapse && (
             <Hint label="Hide panel">
               <button

@@ -226,6 +226,31 @@ describe("applyBrandKitToDocument", () => {
 });
 
 describe("materialRoleColors", () => {
+  it("accepts the complete edited palette while preserving Material source metadata", () => {
+    const styleKit = createStyleKit("Edited starter", "#6750A4");
+    const colors: BrandKit["colors"] = [
+      {
+        id: "authored",
+        hex: "#123456",
+        secondaryHex: "#ABCDEF",
+        angle: 65,
+        type: "gradient",
+        role: "primary",
+        usecase: "Custom use",
+      },
+    ];
+    const brandKit = brandKitFromMaterialKit(styleKit, {
+      colors,
+      style: "Tech",
+      profile: {},
+    });
+    expect(brandKit.colors).toEqual(colors);
+    expect(brandKit.style).toBe("Tech");
+    expect(brandKit.sourceKind).toBe("material3");
+    expect(brandKit.styleKitId).toBe(styleKit.id);
+    expect(brandKit.profile).toEqual({});
+  });
+
   it("matches the hexes produced by brandKitFromMaterialKit for the same seed", () => {
     const seed = "#6750A4";
     const styleKit = createStyleKit("Seed kit", seed);

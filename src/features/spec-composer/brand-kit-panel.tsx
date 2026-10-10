@@ -1,46 +1,21 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 import {
   Check,
-  ChevronDown,
   ChevronRight,
   Gem,
   Pencil,
   Plus,
   Search,
   Sparkles,
-  Star,
-  Trash2,
-  Type,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Hint } from "@/components/ui/tooltip";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { CREATIVE_STYLES, EMOTION_PRESETS } from "./brand-profile";
-import {
-  AudienceField,
-  MissionField,
-  PersonalityVoiceField,
-  PositioningField,
-  ValuesField,
-  VisionField,
-} from "./brand-profile-inputs";
 import { BrandKitBuilder, type BrandKitBuilderMode } from "./brand-kit-builder";
 import { getBrandKitColor } from "./brand-kits";
 import { matchesBrandKitQuery } from "./brand-kit-search";
 import { brandKitTileForeground, nearestColorName } from "./color-names";
-import { FEATURED_FONTS, MORE_FONTS } from "./fonts";
-import { Label } from "./field-label";
 import { PanelHeader } from "./panel-header";
 import { useEditorStore } from "./store";
 import type { BrandKit, BrandKitColor } from "./types";
@@ -191,7 +166,7 @@ export function BrandKitPreview({
   );
 }
 
-const BRAND_COLOR_ROLES: Array<{
+export const BRAND_COLOR_ROLES: Array<{
   value: BrandKitColor["role"];
   label: string;
 }> = [
@@ -202,7 +177,10 @@ const BRAND_COLOR_ROLES: Array<{
   { value: "accent", label: "Accent" },
 ];
 
-const BRAND_COLOR_USECASES: Record<BrandKitColor["role"], readonly string[]> = {
+export const BRAND_COLOR_USECASES: Record<
+  BrandKitColor["role"],
+  readonly string[]
+> = {
   primary: ["Headlines", "Buttons", "Key shapes"],
   secondary: ["Subheadings", "Highlights", "Supporting shapes"],
   background: ["Canvas", "Sections", "Cards"],
@@ -221,7 +199,7 @@ export function defaultBrandColorUsecase(role: BrandKitColor["role"]): string {
   return BRAND_COLOR_USECASES[role][0] ?? "Headlines";
 }
 
-function selectedBrandColorUsecases(color: BrandKitColor): string[] {
+export function selectedBrandColorUsecases(color: BrandKitColor): string[] {
   const options = BRAND_COLOR_USECASES[color.role];
   const selected = color.usecase
     .split(/[,|]/)
@@ -253,10 +231,10 @@ export function BrandKitPanel({
 }) {
   const s = useEditorStore();
   const d = s.doc;
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [builderMode, setBuilderMode] = useState<BrandKitBuilderMode | null>(
-    null,
-  );
+  const [dialogSession, setDialogSession] = useState<{
+    mode: BrandKitBuilderMode;
+    initialKit?: BrandKit;
+  } | null>(null);
   const [kitQuery, setKitQuery] = useState("");
 
   if (!standalone && !d) return null;
@@ -319,7 +297,7 @@ export function BrandKitPanel({
           size="sm"
           className="brandkit-newkit-button"
           data-tour="kit-new"
-          onClick={() => setBuilderMode("create")}
+          onClick={() => setDialogSession({ mode: "create" })}
         >
           <Plus size={14} />
           New design kit
@@ -332,7 +310,7 @@ export function BrandKitPanel({
             className="brandkit-m3-trigger-button"
             aria-label="Generate from Material 3"
             data-tour="kit-generate"
-            onClick={() => setBuilderMode("generate")}
+            onClick={() => setDialogSession({ mode: "generate" })}
           >
             <Sparkles size={14} />
           </Button>
@@ -340,14 +318,15 @@ export function BrandKitPanel({
       </div>
 
       <BrandKitBuilder
-        open={builderMode !== null}
-        mode={builderMode ?? "create"}
+        open={dialogSession !== null}
+        mode={dialogSession?.mode ?? "create"}
+        initialKit={dialogSession?.initialKit}
         onOpenChange={(next) => {
-          if (!next) setBuilderMode(null);
+          if (!next) setDialogSession(null);
         }}
-        onCreated={(id) => {
-          setBuilderMode(null);
-          setExpandedId(id);
+        onSaved={() => {
+          setDialogSession(null);
+          setKitQuery("");
         }}
       />
 
@@ -381,9 +360,11 @@ export function BrandKitPanel({
             onDeactivate={() =>
               standalone ? s.clearDefaultBrandKit() : s.deactivateBrandKit()
             }
-            expanded={expandedId === kit.id}
-            onToggleExpand={() =>
-              setExpandedId((current) => (current === kit.id ? null : kit.id))
+            onEdit={() =>
+              setDialogSession({
+                mode: "edit",
+                initialKit: structuredClone(kit),
+              })
             }
             applyMode={!standalone}
           />
@@ -398,162 +379,17 @@ function BrandKitCard({
   active,
   onActivate,
   onDeactivate,
-  expanded,
-  onToggleExpand,
+  onEdit,
   applyMode = false,
 }: {
   kit: BrandKit;
   active: boolean;
   onActivate: () => void;
   onDeactivate: () => void;
-  expanded: boolean;
-  onToggleExpand: () => void;
+  onEdit: () => void;
   /** The toggle applies the kit to the open poster rather than setting the default. */
   applyMode?: boolean;
 }) {
-  const s = useEditorStore();
-  const [emotionCustom, setEmotionCustom] = useState("");
-  const [fontOpen, setFontOpen] = useState(false);
-  const [fontQuery, setFontQuery] = useState("");
-  const [emotionOptionsOpen, setEmotionOptionsOpen] = useState(false);
-  const [strategyOpen, setStrategyOpen] = useState(false);
-  const [selectedColorId, setSelectedColorId] = useState<string | null>(null);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const fontPickerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!fontOpen) return;
-    const closeOnOutsideClick = (event: PointerEvent) => {
-      if (!fontPickerRef.current?.contains(event.target as Node)) {
-        setFontOpen(false);
-      }
-    };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setFontOpen(false);
-    };
-    document.addEventListener("pointerdown", closeOnOutsideClick);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("pointerdown", closeOnOutsideClick);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [fontOpen]);
-
-  const patch = (p: Partial<BrandKit>) => s.updateBrandKit(kit.id, p);
-
-  const normalizedFontQuery = fontQuery.trim().toLowerCase();
-  const matchesFontQuery = (font: string) =>
-    !normalizedFontQuery || font.toLowerCase().includes(normalizedFontQuery);
-  const featuredFonts = FEATURED_FONTS.filter(matchesFontQuery);
-  const moreFonts = MORE_FONTS.filter(matchesFontQuery);
-
-  const chooseFont = (font: string) => {
-    patch({ typography: font });
-    setFontOpen(false);
-    setFontQuery("");
-  };
-
-  const addColor = () => {
-    if (kit.colors.length >= 5) return;
-    const role =
-      BRAND_COLOR_ROLES.find(
-        (candidate) =>
-          !kit.colors.some((color) => color.role === candidate.value),
-      )?.value ?? "accent";
-    const defaults: Record<BrandKitColor["role"], string> = {
-      primary: "#C55454",
-      secondary: "#D9A15B",
-      background: "#EFE9DE",
-      text: "#141413",
-      accent: "#8B5CF6",
-    };
-    const id = crypto.randomUUID().slice(0, 8);
-    patch({
-      colors: [
-        ...kit.colors,
-        {
-          id,
-          hex: defaults[role],
-          secondaryHex: defaults[role],
-          angle: 135,
-          type: "solid",
-          role,
-          usecase: defaultBrandColorUsecase(role),
-        },
-      ],
-    });
-    setSelectedColorId(id);
-  };
-
-  const updateColor = (id: string, p: Partial<BrandKitColor>) =>
-    patch({
-      colors: kit.colors.map((c) => (c.id === id ? { ...c, ...p } : c)),
-    });
-
-  const updateColorRole = (id: string, role: BrandKitColor["role"]) =>
-    patch({
-      colors: kit.colors.map((color) => {
-        if (color.id === id)
-          return { ...color, role, usecase: defaultBrandColorUsecase(role) };
-        if (color.role === role)
-          return {
-            ...color,
-            role: "accent",
-            usecase: defaultBrandColorUsecase("accent"),
-          };
-        return color;
-      }),
-    });
-
-  const toggleColorUsecase = (color: BrandKitColor, usecase: string) => {
-    const selected = selectedBrandColorUsecases(color);
-    const next = selected.includes(usecase)
-      ? selected.filter((value) => value !== usecase)
-      : [...selected, usecase];
-    updateColor(color.id, { usecase: next.join(", ") });
-  };
-
-  const removeColor = (id: string) => {
-    const remainingColors = kit.colors.filter((color) => color.id !== id);
-    patch({ colors: remainingColors });
-    if (selectedColorId === id)
-      setSelectedColorId(remainingColors[0]?.id ?? null);
-  };
-
-  const toggleEmotion = (value: string) => {
-    const has = kit.emotions.includes(value);
-    patch({
-      emotions: has
-        ? kit.emotions.filter((e) => e !== value)
-        : [...kit.emotions, value],
-    });
-  };
-
-  const addCustomEmotion = () => {
-    const value = emotionCustom.trim();
-    if (!value || kit.emotions.includes(value)) {
-      setEmotionCustom("");
-      return;
-    }
-    patch({ emotions: [...kit.emotions, value] });
-    setEmotionCustom("");
-  };
-
-  const removeEmotion = (value: string) =>
-    patch({ emotions: kit.emotions.filter((e) => e !== value) });
-
-  const selectedColor = selectedColorId
-    ? kit.colors.find((color) => color.id === selectedColorId)
-    : undefined;
-  const selectedColorUsecases = selectedColor
-    ? selectedBrandColorUsecases(selectedColor)
-    : [];
-
-  const toggleCard = () => {
-    if (expanded) setSelectedColorId(null);
-    onToggleExpand();
-  };
-
   return (
     <div
       className={`brandkit-card bk-showcase-card${active ? " active" : ""}`}
@@ -622,7 +458,7 @@ function BrandKitCard({
             <button
               type="button"
               className="bk-palette-block bk-palette-empty"
-              onClick={toggleCard}
+              onClick={onEdit}
             >
               <Plus size={14} aria-hidden="true" />
               <span>Add colors</span>
@@ -669,547 +505,13 @@ function BrandKitCard({
           type="button"
           className="bk-edit-button"
           data-tour="kit-edit"
-          onClick={toggleCard}
-          aria-expanded={expanded}
+          onClick={onEdit}
         >
           <Pencil size={14} aria-hidden="true" />
-          {expanded ? "Close editor" : "Edit kit"}
-          {expanded ? (
-            <ChevronDown aria-hidden="true" />
-          ) : (
-            <ChevronRight aria-hidden="true" />
-          )}
+          Edit kit
+          <ChevronRight aria-hidden="true" />
         </button>
       </div>
-
-      {expanded && (
-        <div className="brandkit-card-body">
-          <div className="brandkit-card-content">
-            <div className="brandkit-identity-grid">
-              <Label text="Name">
-                <input
-                  value={kit.name}
-                  onChange={(event) => patch({ name: event.target.value })}
-                />
-              </Label>
-
-              <Label text="Creative style">
-                <select
-                  value={kit.style}
-                  onChange={(event) => patch({ style: event.target.value })}
-                >
-                  {CREATIVE_STYLES.map((style) => (
-                    <option key={style}>{style}</option>
-                  ))}
-                </select>
-              </Label>
-
-              <Label text="Typography" className="brandkit-field-wide">
-                <div ref={fontPickerRef} className="brandkit-typography">
-                  <button
-                    className="font-trigger"
-                    type="button"
-                    aria-haspopup="listbox"
-                    aria-expanded={fontOpen}
-                    onClick={() => setFontOpen((open) => !open)}
-                  >
-                    <Type aria-hidden="true" />
-                    <b style={{ fontFamily: kit.typography }}>
-                      {kit.typography || "Choose a font"}
-                    </b>
-                    <ChevronDown aria-hidden="true" />
-                  </button>
-
-                  {fontOpen && (
-                    <div className="font-picker-popover">
-                      <div className="font-picker-head">
-                        <div>
-                          <Type aria-hidden="true" />
-                          <div>
-                            <b>Typography</b>
-                            <small>Choose a font for every text layer</small>
-                          </div>
-                        </div>
-                        <Hint label="Close">
-                          <button
-                            type="button"
-                            aria-label="Close font picker"
-                            onClick={() => setFontOpen(false)}
-                          >
-                            <X />
-                          </button>
-                        </Hint>
-                      </div>
-                      <label className="font-search">
-                        <Search aria-hidden="true" />
-                        <input
-                          autoFocus
-                          value={fontQuery}
-                          onChange={(event) => setFontQuery(event.target.value)}
-                          placeholder="Search fonts"
-                        />
-                      </label>
-                      <div
-                        className="font-list"
-                        role="listbox"
-                        aria-label="Fonts"
-                      >
-                        {featuredFonts.length > 0 && (
-                          <>
-                            <div className="font-list-label">
-                              <span>Top 10</span>
-                              <span>
-                                <Star /> Popular
-                              </span>
-                            </div>
-                            {featuredFonts.map((font, index) => (
-                              <button
-                                key={font}
-                                type="button"
-                                role="option"
-                                aria-selected={kit.typography === font}
-                                className="font-option featured"
-                                onClick={() => chooseFont(font)}
-                              >
-                                <span className="font-rank">{index + 1}</span>
-                                <span style={{ fontFamily: font }}>{font}</span>
-                                {kit.typography === font && <Check />}
-                              </button>
-                            ))}
-                          </>
-                        )}
-                        {moreFonts.length > 0 && (
-                          <>
-                            <div className="font-list-label">All fonts</div>
-                            {moreFonts.map((font) => (
-                              <button
-                                key={font}
-                                type="button"
-                                role="option"
-                                aria-selected={kit.typography === font}
-                                className="font-option"
-                                onClick={() => chooseFont(font)}
-                              >
-                                <span style={{ fontFamily: font }}>{font}</span>
-                                {kit.typography === font && <Check />}
-                              </button>
-                            ))}
-                          </>
-                        )}
-                        {!featuredFonts.length && !moreFonts.length && (
-                          <p className="font-empty">
-                            No fonts match “{fontQuery}”
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </Label>
-            </div>
-
-            <div className="brandkit-colors">
-              <div className="brandkit-colors-head">
-                <div>
-                  <span>Brand palette</span>
-                  <small>Select a swatch to edit · {kit.colors.length}/5</small>
-                </div>
-              </div>
-
-              <div
-                className="brandkit-palette-selector"
-                role="group"
-                aria-label="Brand colors"
-              >
-                {kit.colors.map((color) => {
-                  const selected = selectedColor?.id === color.id;
-                  return (
-                    <button
-                      key={color.id}
-                      type="button"
-                      aria-pressed={selected}
-                      aria-expanded={selected}
-                      aria-controls={`brandkit-color-editor-${color.id}`}
-                      className={`brandkit-palette-tile${selected ? " selected" : ""}`}
-                      style={{
-                        background: brandKitPaint(color),
-                        color: brandKitTileForeground(color.hex),
-                      }}
-                      onClick={() =>
-                        setSelectedColorId((current) =>
-                          current === color.id ? null : color.id,
-                        )
-                      }
-                    >
-                      {selected && (
-                        <span className="brandkit-palette-tile-check">
-                          <Check aria-hidden="true" />
-                        </span>
-                      )}
-                      <span className="brandkit-palette-tile-copy">
-                        <strong>
-                          {color.type === "gradient"
-                            ? `${color.hex.toUpperCase()} · ${(color.secondaryHex ?? color.hex).toUpperCase()}`
-                            : color.hex.toUpperCase()}
-                        </strong>
-                        <small>{brandColorRoleLabel(color.role)}</small>
-                      </span>
-                    </button>
-                  );
-                })}
-                {kit.colors.length < 5 && (
-                  <button
-                    type="button"
-                    className="brandkit-palette-tile brandkit-palette-add"
-                    onClick={addColor}
-                  >
-                    <Plus aria-hidden="true" />
-                    <span>Add color</span>
-                  </button>
-                )}
-              </div>
-
-              {selectedColor && (
-                <div
-                  id={`brandkit-color-editor-${selectedColor.id}`}
-                  className="brandkit-color-row"
-                  style={
-                    {
-                      "--brandkit-row-color": selectedColor.hex,
-                    } as CSSProperties
-                  }
-                >
-                  <div className="brandkit-color-main">
-                    <span
-                      className="brandkit-color-preview"
-                      style={{ background: brandKitPaint(selectedColor) }}
-                    />
-                    <select
-                      value={selectedColor.role}
-                      aria-label="Color role"
-                      onChange={(event) =>
-                        updateColorRole(
-                          selectedColor.id,
-                          event.target.value as BrandKitColor["role"],
-                        )
-                      }
-                    >
-                      {BRAND_COLOR_ROLES.map((role) => (
-                        <option key={role.value} value={role.value}>
-                          {role.label}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      value={selectedColor.type}
-                      aria-label="Color fill type"
-                      onChange={(event) =>
-                        updateColor(selectedColor.id, {
-                          type: event.target.value as BrandKitColor["type"],
-                        })
-                      }
-                    >
-                      <option value="solid">Solid</option>
-                      <option value="gradient">Gradient</option>
-                    </select>
-                    <Hint label="Remove color">
-                      <button
-                        type="button"
-                        aria-label="Remove color"
-                        onClick={() => removeColor(selectedColor.id)}
-                      >
-                        <X size={12} aria-hidden="true" />
-                      </button>
-                    </Hint>
-                  </div>
-                  <div
-                    className={`brandkit-color-values${selectedColor.type === "gradient" ? " gradient" : ""}`}
-                  >
-                    <label className="brandkit-color-value">
-                      <span>
-                        {selectedColor.type === "gradient" ? "From" : "Color"}
-                      </span>
-                      <input
-                        aria-label="Primary color"
-                        type="color"
-                        value={selectedColor.hex}
-                        onChange={(event) =>
-                          updateColor(selectedColor.id, {
-                            hex: event.target.value,
-                          })
-                        }
-                      />
-                      <code>{selectedColor.hex.toUpperCase()}</code>
-                    </label>
-                    {selectedColor.type === "gradient" && (
-                      <>
-                        <label className="brandkit-color-value">
-                          <span>To</span>
-                          <input
-                            aria-label="Secondary color"
-                            type="color"
-                            value={
-                              selectedColor.secondaryHex ?? selectedColor.hex
-                            }
-                            onChange={(event) =>
-                              updateColor(selectedColor.id, {
-                                secondaryHex: event.target.value,
-                              })
-                            }
-                          />
-                          <code>
-                            {(
-                              selectedColor.secondaryHex ?? selectedColor.hex
-                            ).toUpperCase()}
-                          </code>
-                        </label>
-                        <label className="brandkit-gradient-angle">
-                          <span>Angle</span>
-                          <input
-                            aria-label="Gradient angle"
-                            type="number"
-                            min="0"
-                            max="360"
-                            value={selectedColor.angle}
-                            onChange={(event) =>
-                              updateColor(selectedColor.id, {
-                                angle: Math.min(
-                                  360,
-                                  Math.max(0, Number(event.target.value)),
-                                ),
-                              })
-                            }
-                          />
-                        </label>
-                      </>
-                    )}
-                  </div>
-                  <div
-                    className="brandkit-color-usecases"
-                    role="group"
-                    aria-label={`Use ${brandColorRoleLabel(selectedColor.role)} for`}
-                  >
-                    <span>Use for</span>
-                    <div>
-                      {BRAND_COLOR_USECASES[selectedColor.role].map(
-                        (usecase) => {
-                          const selected =
-                            selectedColorUsecases.includes(usecase);
-                          return (
-                            <button
-                              key={usecase}
-                              type="button"
-                              className={selected ? "selected" : undefined}
-                              aria-pressed={selected}
-                              onClick={() =>
-                                toggleColorUsecase(selectedColor, usecase)
-                              }
-                            >
-                              {selected && (
-                                <Check size={10} aria-hidden="true" />
-                              )}
-                              {usecase}
-                            </button>
-                          );
-                        },
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="brandkit-emotions">
-              <div className="brandkit-section-head">
-                <div>
-                  <span>Brand emotion</span>
-                  <small>
-                    {kit.emotions.length
-                      ? `${kit.emotions.length} selected`
-                      : "Set the tone of your designs"}
-                  </small>
-                </div>
-                <button
-                  type="button"
-                  className={emotionOptionsOpen ? "active" : undefined}
-                  aria-expanded={emotionOptionsOpen}
-                  onClick={() => setEmotionOptionsOpen((open) => !open)}
-                >
-                  {emotionOptionsOpen ? "Done" : "Choose"}
-                  <ChevronDown aria-hidden="true" />
-                </button>
-              </div>
-              {kit.emotions.length > 0 && (
-                <div className="emotion-selected-list">
-                  {kit.emotions.map((emotion) => (
-                    <span key={emotion} className="emotion-selected-tag">
-                      {emotion}
-                      <Hint label="Remove">
-                        <button
-                          type="button"
-                          aria-label={`Remove ${emotion}`}
-                          onClick={() => removeEmotion(emotion)}
-                        >
-                          <X aria-hidden="true" />
-                        </button>
-                      </Hint>
-                    </span>
-                  ))}
-                </div>
-              )}
-              {!kit.emotions.length && !emotionOptionsOpen && (
-                <p className="brandkit-empty-hint">No emotions selected.</p>
-              )}
-              {emotionOptionsOpen && (
-                <div className="brandkit-emotion-options">
-                  <div
-                    className="emotion-chip-grid"
-                    role="listbox"
-                    aria-label="Brand emotions"
-                  >
-                    {EMOTION_PRESETS.map((emotion) => {
-                      const isActive = kit.emotions.includes(emotion);
-                      return (
-                        <button
-                          key={emotion}
-                          type="button"
-                          role="option"
-                          aria-selected={isActive}
-                          className={`emotion-chip${isActive ? " active" : ""}`}
-                          onClick={() => toggleEmotion(emotion)}
-                        >
-                          {isActive && <Check aria-hidden="true" />}
-                          {emotion}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <form
-                    className="emotion-add-row"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      addCustomEmotion();
-                    }}
-                  >
-                    <input
-                      value={emotionCustom}
-                      onChange={(event) => setEmotionCustom(event.target.value)}
-                      placeholder="Add a custom emotion"
-                      aria-label="Add custom brand emotion"
-                    />
-                    <Hint label="Add emotion">
-                      <button type="submit" aria-label="Add emotion">
-                        <Plus aria-hidden="true" />
-                      </button>
-                    </Hint>
-                  </form>
-                </div>
-              )}
-            </div>
-
-            <div className="brandkit-strategy">
-              <div className="brandkit-section-head">
-                <div>
-                  <span>Brand strategy</span>
-                  <small>Vision, mission, personality, audience, positioning and voice</small>
-                </div>
-                <button
-                  type="button"
-                  className={strategyOpen ? "active" : undefined}
-                  aria-expanded={strategyOpen}
-                  onClick={() => setStrategyOpen((open) => !open)}
-                >
-                  {strategyOpen ? "Done" : "Choose"}
-                  <ChevronDown aria-hidden="true" />
-                </button>
-              </div>
-              {strategyOpen && (
-                <div className="bk-strategy">
-                  <fieldset className="bk-section">
-                    <legend>Vision</legend>
-                    <VisionField
-                      profile={kit.profile ?? {}}
-                      onChange={(profile) => patch({ profile })}
-                    />
-                  </fieldset>
-                  <fieldset className="bk-section">
-                    <legend>Mission</legend>
-                    <MissionField
-                      profile={kit.profile ?? {}}
-                      onChange={(profile) => patch({ profile })}
-                    />
-                  </fieldset>
-                  <fieldset className="bk-section">
-                    <legend>Core values</legend>
-                    <ValuesField
-                      profile={kit.profile ?? {}}
-                      onChange={(profile) => patch({ profile })}
-                    />
-                  </fieldset>
-                  <fieldset className="bk-section">
-                    <legend>Personality & voice</legend>
-                    <PersonalityVoiceField
-                      profile={kit.profile ?? {}}
-                      onChange={(profile) => patch({ profile })}
-                    />
-                  </fieldset>
-                  <fieldset className="bk-section">
-                    <legend>Target audience</legend>
-                    <AudienceField
-                      profile={kit.profile ?? {}}
-                      onChange={(profile) => patch({ profile })}
-                    />
-                  </fieldset>
-                  <fieldset className="bk-section">
-                    <legend>Positioning</legend>
-                    <PositioningField
-                      profile={kit.profile ?? {}}
-                      onChange={(profile) => patch({ profile })}
-                    />
-                  </fieldset>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="brandkit-card-actions">
-            <Button
-              size="sm"
-              variant="outline"
-              className="brandkit-delete-button"
-              onClick={() => setDeleteOpen(true)}
-            >
-              <Trash2 size={14} />
-              Delete
-            </Button>
-          </div>
-        </div>
-      )}
-
-      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete “{kit.name}”?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This removes the design kit, its palette, typography, and brand
-              preferences. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Keep design kit</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => {
-                if (kit.sourceKind === "material3") s.deleteMaterialKit(kit.id);
-                else s.deleteBrandKit(kit.id);
-                setDeleteOpen(false);
-              }}
-            >
-              Delete design kit
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

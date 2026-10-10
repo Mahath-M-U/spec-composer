@@ -48,6 +48,10 @@ for download sources and adaptations.
 user interface, not AI-generated screenshots. Template artwork depicted in
 them retains the attribution listed above.
 
+`docs/screenshots/design-kit-dialog.jpg` is a capture of the application's
+design kit dialog, not an AI-generated screenshot. It uses synthetic test
+content and contains no external image assets.
+
 ## Third-party logos and trademarks
 
 `src/assets/tool-logos/` contains the marks of Figma, Google Drive, GitHub,

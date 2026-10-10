@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Copy } from "lucide-react";
+import { ChevronDown, Copy, Plus, Trash2 } from "lucide-react";
 import {
   ARCHETYPES,
   AUDIENCE_AGES,
@@ -178,9 +178,7 @@ export function PaletteSwatchTiles({
 }) {
   const updateColor = (id: string, hex: string) =>
     onChange?.(
-      colors.map((color) =>
-        color.id === id ? { ...color, hex, secondaryHex: hex } : color,
-      ),
+      colors.map((color) => (color.id === id ? { ...color, hex } : color)),
     );
   return (
     <div className="bk-palette-tiles" role="group" aria-label="Palette colors">
@@ -235,6 +233,225 @@ export function PaletteSwatchTiles({
         );
       })}
     </div>
+  );
+}
+
+/** Optional authoring controls; swatch edits and these details share one draft. */
+export function PaletteDetailsField({
+  colors,
+  onChange,
+  roles,
+  usecases,
+  defaultUsecase,
+  selectedUsecases,
+}: {
+  colors: BrandKitColor[];
+  onChange: (colors: BrandKitColor[]) => void;
+  roles: { value: BrandKitColor["role"]; label: string }[];
+  usecases: Record<BrandKitColor["role"], readonly string[]>;
+  defaultUsecase: (role: BrandKitColor["role"]) => string;
+  selectedUsecases: (color: BrandKitColor) => string[];
+}) {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = colors.find((color) => color.id === selectedId) ?? colors[0];
+  const update = (patch: Partial<BrandKitColor>) => {
+    if (selected)
+      onChange(
+        colors.map((color) =>
+          color.id === selected.id ? { ...color, ...patch } : color,
+        ),
+      );
+  };
+  const addColor = () => {
+    if (colors.length >= 5) return;
+    const role =
+      roles.find(
+        (candidate) => !colors.some((color) => color.role === candidate.value),
+      )?.value ?? "accent";
+    const defaults = {
+      primary: "#C55454",
+      secondary: "#D9A15B",
+      background: "#EFE9DE",
+      text: "#141413",
+      accent: "#8B5CF6",
+    };
+    const id = crypto.randomUUID().slice(0, 8);
+    onChange([
+      ...colors,
+      {
+        id,
+        hex: defaults[role],
+        secondaryHex: defaults[role],
+        angle: 135,
+        type: "solid",
+        role,
+        usecase: defaultUsecase(role),
+      },
+    ]);
+    setSelectedId(id);
+  };
+  return (
+    <details className="bk-palette-details">
+      <summary>
+        Palette details <ChevronDown aria-hidden="true" />
+      </summary>
+      <div className="bk-palette-details-content">
+        <div className="bk-palette-details-toolbar">
+          {selected && (
+            <label>
+              Color to edit
+              <select
+                aria-label="Color to edit"
+                value={selected.id}
+                onChange={(event) => setSelectedId(event.target.value)}
+              >
+                {colors.map((color) => (
+                  <option key={color.id} value={color.id}>
+                    {roles.find((role) => role.value === color.role)?.label} ·{" "}
+                    {color.hex.toUpperCase()}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <button
+            type="button"
+            onClick={addColor}
+            disabled={colors.length >= 5}
+          >
+            <Plus aria-hidden="true" />
+            Add color
+          </button>
+        </div>
+        {selected && (
+          <>
+            <div className="bk-palette-details-grid">
+              <label>
+                Role
+                <select
+                  aria-label="Color role"
+                  value={selected.role}
+                  onChange={(event) => {
+                    const role = event.target.value as BrandKitColor["role"];
+                    onChange(
+                      colors.map((color) =>
+                        color.id === selected.id
+                          ? { ...color, role, usecase: defaultUsecase(role) }
+                          : color.role === role
+                            ? {
+                                ...color,
+                                role: "accent",
+                                usecase: defaultUsecase("accent"),
+                              }
+                            : color,
+                      ),
+                    );
+                  }}
+                >
+                  {roles.map((role) => (
+                    <option key={role.value} value={role.value}>
+                      {role.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Fill
+                <select
+                  aria-label="Color fill type"
+                  value={selected.type}
+                  onChange={(event) =>
+                    update({
+                      type: event.target.value as BrandKitColor["type"],
+                    })
+                  }
+                >
+                  <option value="solid">Solid</option>
+                  <option value="gradient">Gradient</option>
+                </select>
+              </label>
+              <label>
+                {selected.type === "gradient" ? "From" : "Color"}
+                <input
+                  type="color"
+                  aria-label="Primary color"
+                  value={selected.hex}
+                  onChange={(event) => update({ hex: event.target.value })}
+                />
+              </label>
+              {selected.type === "gradient" && (
+                <>
+                  <label>
+                    To
+                    <input
+                      type="color"
+                      aria-label="Secondary color"
+                      value={selected.secondaryHex ?? selected.hex}
+                      onChange={(event) =>
+                        update({ secondaryHex: event.target.value })
+                      }
+                    />
+                  </label>
+                  <label>
+                    Angle
+                    <input
+                      type="number"
+                      aria-label="Gradient angle"
+                      min={0}
+                      max={360}
+                      value={selected.angle}
+                      onChange={(event) =>
+                        update({
+                          angle: Math.min(
+                            360,
+                            Math.max(0, Number(event.target.value)),
+                          ),
+                        })
+                      }
+                    />
+                  </label>
+                </>
+              )}
+            </div>
+            <div
+              className="bk-palette-details-usecases"
+              role="group"
+              aria-label="Color use cases"
+            >
+              <span>Use for</span>
+              {usecases[selected.role].map((usecase) => (
+                <button
+                  key={usecase}
+                  type="button"
+                  aria-pressed={selectedUsecases(selected).includes(usecase)}
+                  onClick={() => {
+                    const chosen = selectedUsecases(selected);
+                    update({
+                      usecase: (chosen.includes(usecase)
+                        ? chosen.filter((value) => value !== usecase)
+                        : [...chosen, usecase]
+                      ).join(", "),
+                    });
+                  }}
+                >
+                  {usecase}
+                </button>
+              ))}
+            </div>
+            <button
+              className="bk-palette-details-remove"
+              type="button"
+              onClick={() =>
+                onChange(colors.filter((color) => color.id !== selected.id))
+              }
+            >
+              <Trash2 aria-hidden="true" />
+              Remove color
+            </button>
+          </>
+        )}
+      </div>
+    </details>
   );
 }
 
