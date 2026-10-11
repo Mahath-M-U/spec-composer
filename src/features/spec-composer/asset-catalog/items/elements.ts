@@ -205,7 +205,7 @@ export const elementsItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["frame", "photo", "border", "decorative"],
     prompt:
-      "Simple rectangular photo frame outline with a thin even border and rounded corners, flat vector illustration style, primary brand color border around an empty light center",
+      "Simple rectangular photo frame outline with a thin even border and rounded corners, primary brand color border around an empty light center",
     art: "photo-frame",
     size: { w: 0.5, aspect: 1 },
   },
@@ -216,7 +216,7 @@ export const elementsItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["frame", "gold", "ornate", "decorative"],
     prompt:
-      "Ornate decorative frame with layered classical border details, flat vector illustration style, secondary brand color linework around an empty center",
+      "Ornate decorative frame with layered classical border details, secondary brand color linework around an empty center",
     art: "gold-frame",
     size: { w: 0.5, aspect: 1 },
   },
@@ -227,7 +227,7 @@ export const elementsItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["frame", "floral", "botanical", "decorative"],
     prompt:
-      "Decorative frame bordered by small stylized floral sprigs at the corners, flat vector illustration style, primary brand color florals around an empty center",
+      "Decorative frame bordered by small floral sprigs at the corners, primary brand color florals around an empty center",
     art: "floral-frame",
     size: { w: 0.5, aspect: 1 },
   },
@@ -238,7 +238,7 @@ export const elementsItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["frame", "laurel", "wreath", "decorative"],
     prompt:
-      "Symmetrical laurel wreath frame with two curved branches meeting at the top and bottom, flat vector illustration style, secondary brand color leaves around an empty center",
+      "Symmetrical laurel wreath frame with two curved branches meeting at the top and bottom, secondary brand color leaves around an empty center",
     art: "laurel",
     size: { w: 0.45, aspect: 1 },
   },
@@ -266,7 +266,7 @@ export const elementsItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["frame", "polaroid", "photo", "instant"],
     prompt:
-      "Instant-photo polaroid frame with a thin even border and a thick bottom strip, flat vector illustration style, secondary brand color tint over an empty photo area",
+      "Instant-photo polaroid frame with a thin even border and a thick bottom strip, secondary brand color tint over an empty photo area",
     art: "polaroid",
     size: { w: 0.5, aspect: 1 },
   },
@@ -279,7 +279,7 @@ export const elementsItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["icon", "sticker", "star", "favorite"],
     prompt:
-      "Bold five-point star sticker with a thick white outline, flat vector illustration style, primary brand color fill, punchy and legible at small sizes",
+      "Five-point star sticker with a thick white outline, primary brand color fill, legible at small sizes",
     art: "sticker-star",
     size: { w: 0.18, aspect: 1 },
   },
@@ -290,7 +290,7 @@ export const elementsItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["icon", "sticker", "heart", "like"],
     prompt:
-      "Bold heart sticker with a thick white outline, flat vector illustration style, primary brand color fill, punchy and legible at small sizes",
+      "Heart sticker with a thick white outline, primary brand color fill, legible at small sizes",
     art: "sticker-heart",
     size: { w: 0.18, aspect: 1 },
   },
@@ -301,7 +301,7 @@ export const elementsItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["icon", "sticker", "check", "done"],
     prompt:
-      "Bold checkmark sticker inside a filled circle with a thick white outline, flat vector illustration style, primary brand color fill, punchy and legible at small sizes",
+      "Checkmark sticker inside a filled circle with a thick white outline, primary brand color fill, legible at small sizes",
     art: "sticker-check",
     size: { w: 0.18, aspect: 1 },
   },
@@ -312,7 +312,7 @@ export const elementsItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["icon", "sticker", "arrow", "next"],
     prompt:
-      "Bold forward-arrow sticker inside a filled circle with a thick white outline, flat vector illustration style, secondary brand color fill, punchy and legible at small sizes",
+      "Forward-arrow sticker inside a filled circle with a thick white outline, secondary brand color fill, legible at small sizes",
     art: "sticker-arrow",
     size: { w: 0.18, aspect: 1 },
   },
@@ -323,7 +323,7 @@ export const elementsItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["icon", "sticker", "bolt", "energy"],
     prompt:
-      "Bold lightning-bolt sticker with a thick white outline, flat vector illustration style, primary brand color fill, punchy and legible at small sizes",
+      "Lightning-bolt sticker with a thick white outline, primary brand color fill, legible at small sizes",
     art: "sticker-bolt",
     size: { w: 0.18, aspect: 1 },
   },
@@ -334,7 +334,7 @@ export const elementsItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["icon", "sticker", "fire", "trending"],
     prompt:
-      "Bold flame sticker with a thick white outline, flat vector illustration style, secondary brand color fill, punchy and legible at small sizes",
+      "Flame sticker with a thick white outline, secondary brand color fill, legible at small sizes",
     art: "sticker-fire",
     size: { w: 0.18, aspect: 1 },
   },
@@ -345,7 +345,7 @@ export const elementsItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["icon", "sticker", "crown", "premium"],
     prompt:
-      "Bold crown sticker with a thick white outline, flat vector illustration style, primary brand color fill, punchy and legible at small sizes",
+      "Crown sticker with a thick white outline, primary brand color fill, legible at small sizes",
     art: "sticker-crown",
     size: { w: 0.18, aspect: 1 },
   },
@@ -356,7 +356,7 @@ export const elementsItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["icon", "sticker", "thumbs up", "approve"],
     prompt:
-      "Bold thumbs-up sticker with a thick white outline, flat vector illustration style, secondary brand color fill, punchy and legible at small sizes",
+      "Thumbs-up sticker with a thick white outline, secondary brand color fill, legible at small sizes",
     art: "sticker-thumbs-up",
     size: { w: 0.18, aspect: 1 },
   },
@@ -369,7 +369,7 @@ export const elementsItems: AssetItem[] = [
     kind: "heroImage",
     tags: ["background", "abstract", "fill", "blob"],
     prompt:
-      "Full-bleed abstract background with a large soft blob shape and a thin ring outline, flat vector illustration style, gentle organic composition, primary and secondary brand color shapes on a light neutral field",
+      "Full-bleed abstract background with a large soft blob shape and a thin ring outline, gentle organic composition, primary and secondary brand color shapes on a light neutral field",
     art: "abstract",
     placement: "fill",
   },
@@ -380,7 +380,7 @@ export const elementsItems: AssetItem[] = [
     kind: "heroImage",
     tags: ["background", "landscape", "fill", "scenic"],
     prompt:
-      "Full-bleed landscape background with soft rolling hill silhouettes and a simple sky, flat vector illustration style, calm horizontal composition, secondary brand color hills against a light sky",
+      "Full-bleed landscape background with soft rolling hill silhouettes and a simple sky, calm horizontal composition, secondary brand color hills against a light sky",
     art: "landscape",
     placement: "fill",
   },
@@ -391,7 +391,7 @@ export const elementsItems: AssetItem[] = [
     kind: "heroImage",
     tags: ["background", "abstract", "blobs", "fill"],
     prompt:
-      "Full-bleed background of two overlapping soft organic blob shapes, flat vector illustration style, gentle floating composition, primary and secondary brand color blobs on a light neutral field",
+      "Full-bleed background of two overlapping soft organic blob shapes, gentle floating composition, primary and secondary brand color blobs on a light neutral field",
     art: "abstract-blobs",
     placement: "fill",
   },
@@ -402,7 +402,7 @@ export const elementsItems: AssetItem[] = [
     kind: "heroImage",
     tags: ["background", "pattern", "dots", "fill"],
     prompt:
-      "Full-bleed background of an even grid of small polka dots, flat vector illustration style, alternating primary and secondary brand color dots on a light neutral field",
+      "Full-bleed background of an even grid of small polka dots, alternating primary and secondary brand color dots on a light neutral field",
     art: "pattern-dots",
     placement: "fill",
   },
@@ -463,7 +463,7 @@ export const elementsItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["abstract", "shapes", "decorative", "geometric"],
     prompt:
-      "Flat vector illustration of a large soft blob shape paired with a thin ring outline, calm decorative composition, primary and secondary brand color shapes",
+      "A large soft blob shape paired with a thin ring outline, calm decorative composition, primary and secondary brand color shapes",
     art: "abstract",
     size: { w: 0.45, aspect: 1 },
   },
@@ -474,7 +474,7 @@ export const elementsItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["abstract", "3d", "spheres", "decorative"],
     prompt:
-      "Flat vector illustration of two overlapping shaded spheres with a small highlight, soft dimensional decorative composition, primary and secondary brand color spheres",
+      "Two overlapping shaded spheres with a small highlight, soft dimensional decorative composition, primary and secondary brand color spheres",
     art: "spheres-3d",
     size: { w: 0.45, aspect: 1 },
   },
@@ -485,7 +485,7 @@ export const elementsItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["abstract", "3d", "torus", "ring"],
     prompt:
-      "Flat vector illustration of a thick ring torus shape with a soft inner highlight, decorative dimensional composition, primary brand color ring",
+      "A thick ring torus shape with a soft inner highlight, decorative dimensional composition, primary brand color ring",
     art: "torus-3d",
     size: { w: 0.4, aspect: 1 },
   },
@@ -496,7 +496,7 @@ export const elementsItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["abstract", "glass", "cards", "layered"],
     prompt:
-      "Flat vector illustration of two overlapping translucent rounded cards at a slight tilt, soft layered decorative composition, primary and secondary brand color cards",
+      "Two overlapping translucent rounded cards at a slight tilt, soft layered decorative composition, primary and secondary brand color cards",
     art: "glass-cards",
     size: { w: 0.45, aspect: 1 },
   },
@@ -507,7 +507,7 @@ export const elementsItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["abstract", "sparkle", "cluster", "decorative"],
     prompt:
-      "Flat vector illustration of a cluster of four-point sparkle glyphs at varying sizes, playful decorative composition, primary and secondary brand color sparkles",
+      "A cluster of four-point sparkle glyphs at varying sizes, playful decorative composition, primary and secondary brand color sparkles",
     art: "sparkle-cluster",
     size: { w: 0.4, aspect: 1 },
   },

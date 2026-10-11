@@ -15,6 +15,7 @@ import { Route as DesignKitRouteImport } from './routes/design-kit'
 import { Route as LegalRouteImport } from './routes/legal'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as PromptGalleryRouteImport } from './routes/prompt-gallery'
+import { Route as ReleaseNotesRouteImport } from './routes/release-notes'
 import { Route as TemplatesRouteImport } from './routes/templates'
 import { Route as DesignProjectIdRouteImport } from './routes/design/$projectId'
 
@@ -48,6 +49,11 @@ const PromptGalleryRoute = PromptGalleryRouteImport.update({
   path: '/prompt-gallery',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ReleaseNotesRoute = ReleaseNotesRouteImport.update({
+  id: '/release-notes',
+  path: '/release-notes',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TemplatesRoute = TemplatesRouteImport.update({
   id: '/templates',
   path: '/templates',
@@ -66,6 +72,7 @@ export interface FileRoutesByFullPath {
   '/legal': typeof LegalRoute
   '/projects': typeof ProjectsRoute
   '/prompt-gallery': typeof PromptGalleryRoute
+  '/release-notes': typeof ReleaseNotesRoute
   '/templates': typeof TemplatesRoute
   '/design/$projectId': typeof DesignProjectIdRoute
 }
@@ -76,6 +83,7 @@ export interface FileRoutesByTo {
   '/legal': typeof LegalRoute
   '/projects': typeof ProjectsRoute
   '/prompt-gallery': typeof PromptGalleryRoute
+  '/release-notes': typeof ReleaseNotesRoute
   '/templates': typeof TemplatesRoute
   '/design/$projectId': typeof DesignProjectIdRoute
 }
@@ -87,6 +95,7 @@ export interface FileRoutesById {
   '/legal': typeof LegalRoute
   '/projects': typeof ProjectsRoute
   '/prompt-gallery': typeof PromptGalleryRoute
+  '/release-notes': typeof ReleaseNotesRoute
   '/templates': typeof TemplatesRoute
   '/design/$projectId': typeof DesignProjectIdRoute
 }
@@ -99,6 +108,7 @@ export interface FileRouteTypes {
     | '/legal'
     | '/projects'
     | '/prompt-gallery'
+    | '/release-notes'
     | '/templates'
     | '/design/$projectId'
   fileRoutesByTo: FileRoutesByTo
@@ -109,6 +119,7 @@ export interface FileRouteTypes {
     | '/legal'
     | '/projects'
     | '/prompt-gallery'
+    | '/release-notes'
     | '/templates'
     | '/design/$projectId'
   id:
@@ -119,6 +130,7 @@ export interface FileRouteTypes {
     | '/legal'
     | '/projects'
     | '/prompt-gallery'
+    | '/release-notes'
     | '/templates'
     | '/design/$projectId'
   fileRoutesById: FileRoutesById
@@ -130,6 +142,7 @@ export interface RootRouteChildren {
   LegalRoute: typeof LegalRoute
   ProjectsRoute: typeof ProjectsRoute
   PromptGalleryRoute: typeof PromptGalleryRoute
+  ReleaseNotesRoute: typeof ReleaseNotesRoute
   TemplatesRoute: typeof TemplatesRoute
   DesignProjectIdRoute: typeof DesignProjectIdRoute
 }
@@ -178,6 +191,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PromptGalleryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/release-notes': {
+      id: '/release-notes'
+      path: '/release-notes'
+      fullPath: '/release-notes'
+      preLoaderRoute: typeof ReleaseNotesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/templates': {
       id: '/templates'
       path: '/templates'
@@ -202,6 +222,7 @@ const rootRouteChildren: RootRouteChildren = {
   LegalRoute: LegalRoute,
   ProjectsRoute: ProjectsRoute,
   PromptGalleryRoute: PromptGalleryRoute,
+  ReleaseNotesRoute: ReleaseNotesRoute,
   TemplatesRoute: TemplatesRoute,
   DesignProjectIdRoute: DesignProjectIdRoute,
 }

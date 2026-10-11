@@ -25,6 +25,9 @@ export const AssetSection = forwardRef<
     onSeeAll?: () => void;
     badgeFor?: (item: AssetItem) => string | undefined;
     headExtra?: ReactNode;
+    /** Rendered before items.map, inside the roving container, so a tile
+     * such as UploadTile joins arrow-key navigation like any other tile. */
+    leading?: ReactNode;
   }
 >(function AssetSection(
   {
@@ -41,6 +44,7 @@ export const AssetSection = forwardRef<
     onSeeAll,
     badgeFor,
     headExtra,
+    leading,
   },
   seeAllRef,
 ) {
@@ -73,6 +77,7 @@ export const AssetSection = forwardRef<
         className={mode === "row" ? "asset-row" : "asset-tile-grid"}
         role="list"
       >
+        {leading}
         {items.map((item) => {
           const badge = badgeFor?.(item);
           return (

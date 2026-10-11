@@ -85,6 +85,7 @@ function describeSegs(el: SpecElement, doc: SpecDocument): PromptSeg[] {
       { id: el.id, field: "content", value: el.content ?? "", fallback: "" },
       `”${rotation}${doc.promptOptions.typography && el.style.fontSize ? `, ${el.style.fontSize}px ${el.style.fontWeight ?? 400}${el.style.fontStyle === "italic" ? " italic" : ""} ${el.style.fontFamily ?? "sans-serif"}` : ""}${doc.promptOptions.colors && el.style.color ? `, color ${el.style.color}` : ""}.`,
     ];
+  const detail = el.detail?.trim();
   return [
     `${el.name} (${el.kind})${where}${size}: `,
     {
@@ -93,7 +94,7 @@ function describeSegs(el: SpecElement, doc: SpecDocument): PromptSeg[] {
       value: el.aiDescription || "",
       fallback: "editable visual placeholder",
     },
-    `${rotation}, ${el.style.objectFit || "contain"} fit.`,
+    `${rotation}, ${el.style.objectFit || "contain"} fit${detail ? `, specifically ${detail}` : ""}.`,
   ];
 }
 /** Appends anti-slop directives for one element's constraint settings, gated by promptOptions. */
@@ -328,13 +329,20 @@ export function compileExternalToolRequirement(
   return lines.join("\n\n");
 }
 
+/** Always-on instruction so an attached canvas export is read as a layout
+ * mockup (positions, sizes, text, colors) rather than final pixels to copy
+ * verbatim, while real photos/logos are reproduced faithfully. */
+export const MOCKUP_FRAMING =
+  "The attached image is a layout mockup of this design. Keep every element's position, size, text and colors as shown. Placeholder illustrations only mark what content goes where; render them in the visual style described in this brief, not as drawn. Real photos and logos in the mockup are actual assets: reproduce them faithfully and do not restyle them.";
+
 export function compilePromptEditorOutput(doc: SpecDocument) {
   const body = doc.visualEdit ?? compileVisualPrompt(doc);
-  if (doc.promptMode !== "visual_prompt") return body;
+  const framed = `${MOCKUP_FRAMING}\n\n${body}`;
+  if (doc.promptMode !== "visual_prompt") return framed;
   const directive = doc.externalToolRequirement
     ? compileExternalToolRequirement(doc.externalToolRequirement)
     : "";
-  return directive ? `${directive}\n\nCREATIVE BRIEF\n${body}` : body;
+  return directive ? `${directive}\n\nCREATIVE BRIEF\n${framed}` : framed;
 }
 
 /** Wraps the raw spec with an explicit generation instruction and the compiled

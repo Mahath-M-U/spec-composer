@@ -28,14 +28,24 @@ export function useRovingGrid(columns: number | "row") {
         case "ArrowLeft":
           next = Math.max(0, index - 1);
           break;
-        case "ArrowDown":
+        case "ArrowDown": {
           if (columns === "row") return;
-          next = Math.min(tiles.length - 1, index + columns);
+          const cols =
+            getComputedStyle(container)
+              .gridTemplateColumns.split(" ")
+              .filter(Boolean).length || columns;
+          next = Math.min(tiles.length - 1, index + cols);
           break;
-        case "ArrowUp":
+        }
+        case "ArrowUp": {
           if (columns === "row") return;
-          next = Math.max(0, index - columns);
+          const cols =
+            getComputedStyle(container)
+              .gridTemplateColumns.split(" ")
+              .filter(Boolean).length || columns;
+          next = Math.max(0, index - cols);
           break;
+        }
         case "Home":
           next = 0;
           break;

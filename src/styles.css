@@ -379,6 +379,31 @@ button:disabled {
 .sidebar-tour-card + .sidebar-mcp-card {
   margin-top: 0.5rem;
 }
+/* Plain text link to release notes, pinned above the Quick tour card. */
+.sidebar-release-link {
+  margin-top: auto;
+  margin-bottom: 0.5rem;
+  align-self: flex-start;
+  border-radius: 0.25rem;
+  padding: 0 0.7rem;
+  color: var(--color-accent);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition: color 0.18s ease;
+}
+.sidebar-release-link:hover {
+  text-decoration-thickness: 2px;
+}
+.sidebar-release-link:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+}
+.sidebar-release-link + .sidebar-tour-card {
+  margin-top: 0;
+}
 /* MCP teaser pinned to the bottom of the sidebar; reuses the brand kit card. */
 .sidebar-mcp-card {
   width: 100%;
@@ -526,6 +551,100 @@ button:disabled {
   font-size: 14px;
   line-height: 1.6;
   max-width: 65ch;
+}
+.release-notes-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--color-muted-foreground);
+  font-size: 12px;
+  font-weight: 700;
+  transition: color 0.18s ease;
+}
+.release-notes-back:hover {
+  color: var(--color-accent);
+}
+.release-notes-back:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+}
+.release-notes-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.2rem;
+  font-size: 12px;
+}
+.release-notes-list {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.6rem;
+  padding-left: 0;
+  list-style: none;
+}
+.release-notes-list li {
+  display: grid;
+  grid-template-columns: 1.6rem minmax(0, 1fr);
+  align-items: start;
+  max-width: 65ch;
+  color: var(--color-muted-foreground);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.release-notes-emoji {
+  font-size: 15px;
+  line-height: 1.6;
+}
+.release-notes-notes strong {
+  color: var(--color-foreground);
+  font-weight: 700;
+}
+.release-notes-history-link {
+  display: inline-block;
+  margin-top: 0.6rem;
+  color: var(--color-accent);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  border-radius: 0.25rem;
+}
+.release-notes-history-link:hover {
+  text-decoration-thickness: 2px;
+}
+.release-notes-history-link:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+}
+.release-notes-history {
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--color-border);
+  scroll-margin-top: 1.5rem;
+}
+.release-notes-empty {
+  margin-top: 0.6rem;
+  padding: 0.9rem 1rem;
+  border: 1px dashed var(--color-border);
+  border-radius: 0.75rem;
+  background: var(--color-surface-subtle);
+}
+.release-notes-past + .release-notes-past {
+  margin-top: 1.5rem;
+}
+.release-notes-past h3 {
+  font-size: 1rem;
+  font-weight: 700;
+}
+.release-notes-group-label {
+  margin-top: 1.25rem;
+  color: var(--color-muted-foreground);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 .discovery-main {
   display: flex;
@@ -1486,8 +1605,6 @@ button:disabled {
   --hero-preview-ink: #342b3a;
   --hero-preview-muted: #746b7b;
   --hero-shadow: #29202e24;
-  --hero-flow: #d4679f;
-  --hero-flow-glow: #f3a6cf99;
 }
 .dark {
   --hero-bg-glow: #683332;
@@ -1508,8 +1625,6 @@ button:disabled {
   --hero-preview-ink: #eee8f4;
   --hero-preview-muted: #ada0bb;
   --hero-shadow: #100b1752;
-  --hero-flow: #f8aad2;
-  --hero-flow-glow: #ff9fd7;
 }
 .home-hero {
   position: relative;
@@ -1660,21 +1775,6 @@ button:disabled {
   min-width: 0;
   overflow: visible;
   pointer-events: none;
-}
-.home-hero-flow {
-  position: absolute;
-  inset: 0;
-  height: 100%;
-  width: 100%;
-  overflow: visible;
-  filter: drop-shadow(0 0 4px var(--hero-flow-glow));
-}
-.home-hero-flow path {
-  stroke: var(--hero-flow);
-  stroke-opacity: 0.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.25;
 }
 .home-hero-preview {
   position: absolute;
@@ -4529,10 +4629,93 @@ button:disabled {
   width: 11px;
 }
 .asset-see-all:focus-visible,
-.asset-clear-recent:focus-visible,
-.asset-back:focus-visible {
+.asset-clear-recent:focus-visible {
   outline: 2px solid var(--editor-focus);
   outline-offset: 2px;
+}
+
+/* Role tabs: All + the seven ASSET_ROLES, horizontally scrolling. */
+.asset-role-tabs {
+  display: flex;
+  flex: none;
+  gap: 0.35rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-bottom: 1px solid var(--color-editor-border);
+  padding: 0.55rem 0.9rem;
+}
+.asset-role-tabs::-webkit-scrollbar {
+  display: none;
+}
+.asset-role-tabs button {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.3rem;
+  border: 1px solid var(--color-editor-border);
+  border-radius: 999px;
+  background: var(--color-editor);
+  padding: 0.3rem 0.65rem;
+  color: var(--color-editor-muted);
+  font-size: 10px;
+  font-weight: 650;
+  white-space: nowrap;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease,
+    color 0.16s ease;
+}
+.asset-role-tabs button svg {
+  height: 11px;
+  width: 11px;
+  flex: none;
+}
+.asset-role-tabs button:hover {
+  color: var(--color-editor-foreground);
+}
+.asset-role-tabs button.active {
+  border-color: var(--editor-action);
+  background: var(--color-editor-hover);
+  color: var(--color-editor-foreground);
+}
+.asset-role-tabs button:focus-visible {
+  outline: 2px solid var(--editor-focus);
+  outline-offset: 1px;
+}
+
+/* Filter chips: the categories present in the active role tab, plus "All". */
+.asset-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.7rem 0.9rem 0.2rem;
+}
+.asset-filter-chips button {
+  border: 1px solid var(--color-editor-border);
+  border-radius: 999px;
+  background: var(--color-editor);
+  padding: 0.25rem 0.55rem;
+  color: var(--color-editor-muted);
+  font-size: 9.5px;
+  font-weight: 650;
+  white-space: nowrap;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease,
+    color 0.16s ease;
+}
+.asset-filter-chips button:hover {
+  color: var(--color-editor-foreground);
+  background: var(--color-editor-hover);
+}
+.asset-filter-chips button.active {
+  border-color: var(--editor-action);
+  background: var(--color-editor-hover);
+  color: var(--color-editor-foreground);
+}
+.asset-filter-chips button:focus-visible {
+  outline: 2px solid var(--editor-focus);
+  outline-offset: 1px;
 }
 
 .asset-groups {
@@ -4597,7 +4780,9 @@ button:disabled {
   gap: 0.5rem;
   overflow-x: auto;
   scroll-snap-type: x proximity;
-  padding-bottom: 0.45rem;
+  padding: 4px 3px 0.6rem;
+  margin: -4px -3px 0;
+  scroll-padding-inline: 3px;
   scrollbar-color: var(--color-editor-border) transparent;
   scrollbar-width: thin;
 }
@@ -4610,7 +4795,7 @@ button:disabled {
 .asset-tile-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.6rem;
+  gap: 0.5rem;
 }
 @container (min-width: 360px) {
   .asset-tile-grid {
@@ -4634,7 +4819,7 @@ button:disabled {
   border: 1px solid var(--color-editor-border);
   border-radius: 0.5rem;
   background: var(--color-editor);
-  padding: 0.45rem;
+  padding: 0.4rem;
   color: var(--color-editor-foreground);
   text-align: left;
   transition:
@@ -4656,8 +4841,11 @@ button:disabled {
 .asset-tile:active {
   transform: translateY(0) scale(0.98);
 }
+/* Preview fills the tile width; overlays sit in its corners. */
 .asset-tile-media {
   display: block;
+  flex: none;
+  width: 100%;
   height: 76px;
   overflow: hidden;
   border-radius: 0.35rem;
@@ -4680,8 +4868,8 @@ button:disabled {
   color: var(--color-editor-muted);
 }
 .asset-icon-fallback svg {
-  height: 18px;
-  width: 18px;
+  height: 22px;
+  width: 22px;
   stroke-width: 1.8;
 }
 .asset-preview-stage {
@@ -4709,11 +4897,14 @@ button:disabled {
 }
 .asset-tile-label {
   display: -webkit-box;
-  min-height: 2.4em;
+  flex: none;
+  min-height: 2.5em;
   overflow: hidden;
+  padding: 0 0.1rem;
+  color: var(--color-editor-foreground);
   font-size: 10.5px;
   font-weight: 650;
-  line-height: 1.2;
+  line-height: 1.25;
   text-overflow: ellipsis;
   overflow-wrap: anywhere;
   -webkit-box-orient: vertical;
@@ -4721,14 +4912,14 @@ button:disabled {
 }
 .asset-tile-add {
   position: absolute;
-  top: 6px;
-  right: 6px;
-  height: 16px;
-  width: 16px;
+  top: calc(0.4rem + 4px);
+  right: calc(0.4rem + 4px);
+  height: 18px;
+  width: 18px;
   border-radius: 50%;
   background: var(--editor-action);
   color: var(--editor-action-foreground);
-  padding: 2px;
+  padding: 3px;
   opacity: 0;
   transform: translateY(-4px);
   transition:
@@ -4742,15 +4933,17 @@ button:disabled {
 }
 .asset-tile-badge {
   position: absolute;
-  top: 6px;
-  left: 6px;
+  top: calc(0.4rem + 4px);
+  left: calc(0.4rem + 4px);
   border: 1px solid var(--color-editor-border);
   border-radius: 999px;
-  background: color-mix(in oklab, var(--color-editor) 70%, transparent);
+  background: color-mix(in oklab, var(--color-editor) 85%, transparent);
   padding: 0.05rem 0.3rem;
   color: var(--color-editor-muted);
   font-size: 9px;
   font-weight: 700;
+  line-height: 1.3;
+  pointer-events: none;
 }
 .asset-search-results {
   padding: 0.4rem 0;
@@ -4760,54 +4953,6 @@ button:disabled {
   color: var(--color-editor-muted);
   font-size: 10px;
   font-weight: 650;
-}
-
-.asset-drill-head {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.6rem 0.8rem;
-  border-bottom: 1px solid var(--color-editor-border);
-}
-.asset-back {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: 0.2rem;
-  color: var(--color-editor-foreground);
-  font-size: 10px;
-  font-weight: 700;
-}
-.asset-back svg {
-  height: 12px;
-  width: 12px;
-}
-.asset-drill-head h3 {
-  display: flex;
-  min-width: 0;
-  flex: 1;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 11px;
-  font-weight: 800;
-}
-.asset-drill-head h3 svg {
-  height: 13px;
-  width: 13px;
-  flex: none;
-  color: var(--color-editor-muted);
-}
-.asset-drill-head > span {
-  flex: none;
-  border: 1px solid var(--color-editor-border);
-  border-radius: 999px;
-  padding: 0.15rem 0.4rem;
-  color: var(--color-editor-muted);
-  font-size: 8px;
-  font-weight: 700;
-}
-.asset-drill-grid {
-  padding: 0.7rem 0.8rem;
 }
 
 .asset-empty {
@@ -5460,17 +5605,6 @@ button:disabled {
 }
 .brandkit-card.active {
   border-color: var(--color-primary);
-}
-.brandkit-m3-badge {
-  margin-left: 0.35rem;
-  border-radius: 999px;
-  background: color-mix(in oklab, var(--color-primary) 18%, transparent);
-  color: var(--color-primary);
-  padding: 0.05rem 0.4rem;
-  font-size: 8px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  vertical-align: middle;
 }
 .brandkit-swatches {
   display: flex;
@@ -10149,6 +10283,19 @@ ol.md-list {
   background: var(--color-editor-surface);
   color: var(--color-editor-foreground);
 }
+.style-dock-tabs > .style-dock-tab-slot {
+  display: flex;
+  min-width: 0;
+}
+.style-dock-tab-slot > button {
+  flex: 1;
+}
+.style-dock-tabs button:disabled {
+  opacity: 0.45;
+}
+.style-dock-tabs button:disabled:hover {
+  color: var(--color-editor-muted);
+}
 .compose-list {
   display: flex;
   flex-direction: column;
@@ -10168,6 +10315,24 @@ ol.md-list {
   width: 0;
   height: 0;
   display: none;
+}
+.compose-scope {
+  margin: 0 2px;
+  color: var(--color-editor-muted);
+  font-size: 10px;
+}
+.compose-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.compose-group-label {
+  margin: 4px 2px 0;
+  color: var(--color-editor-muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 .compose-item {
   display: flex;
@@ -10196,6 +10361,12 @@ ol.md-list {
   cursor: default;
   opacity: 0.5;
   pointer-events: none;
+}
+/* The layout currently applied to the canvas — a solid border and tinted
+ * background only, no outer glow. */
+.compose-item[aria-pressed="true"] {
+  border-color: var(--color-primary);
+  background: color-mix(in oklab, var(--color-primary) 14%, var(--color-editor));
 }
 .compose-thumb {
   height: 42px;
@@ -12281,6 +12452,18 @@ button.de-subrow-tag:focus-visible {
   line-height: 1.6;
 }
 
+/* Read-only note: the always-on mockup framing line shown above the prompt. */
+.editor-shell .prompt-framing-note {
+  margin: 0 0 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--color-editor-border);
+  color: var(--color-editor-muted);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
 .editor-shell .prompt-tool-error {
   display: flex;
   align-items: center;
@@ -12747,7 +12930,6 @@ button.de-subrow-tag:focus-visible {
 
 .editor-shell
   :is(
-    .brandkit-m3-badge,
     .brandkit-section-head > button.active,
     .brandkit-section-head > button:hover
   ) {
@@ -12816,6 +12998,21 @@ button.de-subrow-tag:focus-visible {
     var(--editor-action) 14%,
     var(--color-editor-surface)
   );
+}
+
+/* The active layout: solid border and tinted background only — no outer
+ * glow, matching the design system's no-glow rule for focus/active chrome. */
+.editor-shell .compose-item[aria-pressed="true"] {
+  border-color: var(--editor-action);
+  background: color-mix(
+    in oklab,
+    var(--editor-action) 14%,
+    var(--color-editor-surface)
+  );
+}
+
+.editor-shell .compose-item[aria-pressed="true"] .compose-item-copy b {
+  color: var(--editor-action);
 }
 
 .editor-shell .compose-thumb {
@@ -13056,6 +13253,65 @@ button.de-subrow-tag:focus-visible {
   line-height: 14px;
   color: var(--color-editor-muted);
   transform: translateY(-100%);
+}
+/* Floating bar under (or above) the single selected element: the swap strip
+ * and subject-detail field from Phase 8. Border/background/shadow match the
+ * other floating toolbars (.zoom-controls, .floating-controls) via the
+ * shared glass rule below. */
+.selection-context-bar {
+  position: absolute;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+}
+.selection-context-swap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.selection-context-swap-button {
+  display: flex;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid var(--color-editor-border);
+  border-radius: 6px;
+  background: var(--color-editor);
+  padding: 0;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease;
+}
+.selection-context-swap-button:hover {
+  border-color: var(--editor-action);
+  background: var(--color-editor-hover);
+}
+.selection-context-swap-button:focus-visible {
+  outline: 2px solid var(--editor-focus);
+  outline-offset: 1px;
+}
+.selection-context-swap-button .asset-tile-media {
+  width: 100%;
+  height: 100%;
+  padding: 3px;
+}
+.selection-context-detail {
+  min-width: 160px;
+  border: 1px solid var(--color-editor-border);
+  border-radius: 6px;
+  background: var(--color-editor);
+  padding: 5px 8px;
+  color: var(--color-editor-foreground);
+  font-size: 12px;
+}
+.selection-context-detail:focus-visible {
+  outline: 2px solid var(--editor-focus);
+  outline-offset: 1px;
 }
 .context-panel,
 .right-panel,
@@ -13347,6 +13603,7 @@ button.de-subrow-tag:focus-visible {
 .editor-chip,
 .zoom-controls,
 .floating-controls,
+.selection-context-bar,
 .tool-rail {
   border: 1px solid var(--editor-glass-border);
   background: var(--editor-glass);
@@ -13364,6 +13621,10 @@ button.de-subrow-tag:focus-visible {
 .zoom-controls,
 .floating-controls {
   border-radius: 999px;
+}
+
+.selection-context-bar {
+  border-radius: 10px;
 }
 
 .tool-rail {

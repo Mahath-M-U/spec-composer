@@ -22,7 +22,7 @@ export const aiItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["ai", "robot", "bot", "assistant", "character"],
     prompt:
-      "Friendly AI robot glyph with a rounded head, two round eyes, a small antenna and a square torso panel, flat vector illustration style, primary and secondary brand color accents on the eyes and chest panel",
+      "Friendly AI robot glyph with a rounded head, two round eyes, a small antenna and a square torso panel, primary and secondary brand color accents on the eyes and chest panel",
     art: "ai-robot",
     size: { w: 0.4, aspect: 240 / 300 },
   },
@@ -33,7 +33,7 @@ export const aiItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["ai", "sparkle", "magic", "generate", "glyph"],
     prompt:
-      "Cluster of four-point sparkle glyphs of varying sizes radiating from a central burst, flat vector illustration style, primary brand color for the largest sparkle and neutral ink for the smaller ones",
+      "Cluster of four-point sparkle glyphs of varying sizes radiating from a central burst, primary brand color for the largest sparkle and neutral ink for the smaller ones",
     art: "ai-sparkle",
     size: { w: 0.35, aspect: 1 },
   },
@@ -66,7 +66,7 @@ export const aiItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["ai", "agent", "workflow", "automation", "diagram"],
     prompt:
-      "Flat vector diagram of an AI agent workflow, rounded node cards joined by smooth curved connectors flowing left to right, a central agent node marked with a four-point sparkle, tool and data nodes branching off, calm spacious layout with subtle shadows, nodes outlined in the secondary brand color and the active path in the primary brand color",
+      "Diagram of an AI agent workflow, rounded node cards joined by smooth curved connectors flowing left to right, a central agent node marked with a four-point sparkle, tool and data nodes branching off, calm spacious layout with subtle shadows, nodes outlined in the secondary brand color and the active path in the primary brand color",
     art: "ai-node-graph",
     size: { w: 0.62, aspect: 340 / 220 },
   },
@@ -77,7 +77,7 @@ export const aiItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["ai", "voice", "audio", "waveform", "assistant"],
     prompt:
-      "AI voice waveform mockup with eight vertical bars of alternating height representing sound amplitude, flat vector illustration style, alternating primary and secondary brand color bars",
+      "AI voice waveform mockup with eight vertical bars of alternating height representing sound amplitude, alternating primary and secondary brand color bars",
     art: "ai-voice-wave",
     size: { w: 0.6, aspect: 320 / 160 },
   },
@@ -88,7 +88,7 @@ export const aiItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["ai", "chat", "bubbles", "conversation", "assistant"],
     prompt:
-      "Overlapping AI chat bubble shapes of two sizes with a small sparkle mark near the larger bubble, flat vector illustration style, primary brand color for the front bubble and neutral tint for the back one",
+      "Overlapping AI chat bubble shapes of two sizes with a small sparkle mark near the larger bubble, primary brand color for the front bubble and neutral tint for the back one",
     art: "ai-chat-bubbles",
     size: { w: 0.5, aspect: 300 / 220 },
   },
@@ -99,7 +99,7 @@ export const aiItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["ai", "chip", "processor", "hardware", "compute"],
     prompt:
-      "AI processor chip glyph with a square core, a small sparkle mark at the center and short connector pins on all four sides, flat vector illustration style, primary brand color core with neutral ink pins",
+      "AI processor chip glyph with a square core, a small sparkle mark at the center and short connector pins on all four sides, primary brand color core with neutral ink pins",
     art: "ai-chip",
     size: { w: 0.4, aspect: 1 },
   },
@@ -110,7 +110,7 @@ export const aiItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["ai", "image", "grid", "generate", "gallery"],
     prompt:
-      "AI-generated image grid mockup with nine small tinted tiles and a small sparkle badge in the top corner, flat vector illustration style, alternating primary and secondary brand color tiles",
+      "AI-generated image grid mockup with nine small tinted tiles and a small sparkle badge in the top corner, alternating primary and secondary brand color tiles",
     art: "ai-image-grid",
     size: { w: 0.5, aspect: 1 },
   },
@@ -121,7 +121,7 @@ export const aiItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["ai", "task", "checklist", "agent", "list"],
     prompt:
-      "AI task checklist mockup with four rows, two already checked off with a small round checkmark and two still pending, flat vector illustration style, primary brand color checkmarks",
+      "AI task checklist mockup with four rows, two already checked off with a small round checkmark and two still pending, primary brand color checkmarks",
     art: "ai-task-list",
     size: { w: 0.55, aspect: 300 / 260 },
   },
@@ -132,7 +132,7 @@ export const aiItems: AssetItem[] = [
     kind: "supportingImage",
     tags: ["ai", "agents", "network", "nodes", "automation"],
     prompt:
-      "Network of small AI agent nodes connected by dashed lines around a larger central sparkle-marked hub, flat vector illustration style, primary brand color hub with neutral tint satellite nodes",
+      "Network of small AI agent nodes connected by dashed lines around a larger central sparkle-marked hub, primary brand color hub with neutral tint satellite nodes",
     art: "ai-agents-network",
     size: { w: 0.6, aspect: 320 / 260 },
   },

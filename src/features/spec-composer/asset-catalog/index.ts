@@ -1,4 +1,5 @@
 import { CATEGORIES } from "./categories.ts";
+import { kindFamily, roleOf } from "./roles.ts";
 import { textItems } from "./items/text.ts";
 import { promoItems } from "./items/promo.ts";
 import { uiItems } from "./items/ui.ts";
@@ -18,6 +19,8 @@ import type { ElementKind, SpecElement } from "../types.ts";
 
 export type { AssetCategory, AssetCategoryId, AssetCollectionId, AssetItem };
 
+export * from "./roles.ts";
+
 /** The full built-in catalog, in display order within each category. */
 export const ASSET_CATALOG: AssetItem[] = [
   ...textItems,
@@ -32,7 +35,7 @@ export const ASSET_CATALOG: AssetItem[] = [
 
 export { CATEGORIES };
 
-/** Character-count rules enforced by tests/asset-catalog.test.mjs. */
+/** Character-count rules enforced by asset-catalog/asset-catalog.test.ts. */
 export const PROMPT_LIMITS = {
   aiDescription: { min: 60, max: 400 },
   positiveConstraint: { min: 40, max: 260 },
@@ -259,7 +262,11 @@ export function resolveAssetPatch(
   item: AssetItem,
   ctx: AssetContext,
 ): ResolvedAsset {
-  const patch: Partial<SpecElement> = { name: item.label };
+  const patch: Partial<SpecElement> = {
+    name: item.label,
+    assetId: item.id,
+    slot: roleOf(item),
+  };
 
   if (item.art !== undefined) patch.placeholderArt = item.art;
   if (item.content !== undefined) patch.content = item.content;
@@ -301,6 +308,35 @@ export function resolveAssetPatch(
   return { patch, atBack: false };
 }
 
+/**
+ * Up to `n` same-role, same-kind-family alternatives to `item` (never `item`
+ * itself), for the on-canvas swap strip. Ranked same category, then same
+ * kind, then curated popularity.
+ */
+export function swapAlternatives(item: AssetItem, n = 6): AssetItem[] {
+  const role = roleOf(item);
+  const family = kindFamily(item.kind);
+  return ASSET_CATALOG.filter(
+    (candidate) =>
+      candidate.id !== item.id &&
+      roleOf(candidate) === role &&
+      kindFamily(candidate.kind) === family,
+  )
+    .sort((a, b) => {
+      const categoryA = a.category === item.category ? 0 : 1;
+      const categoryB = b.category === item.category ? 0 : 1;
+      if (categoryA !== categoryB) return categoryA - categoryB;
+      const kindA = a.kind === item.kind ? 0 : 1;
+      const kindB = b.kind === item.kind ? 0 : 1;
+      if (kindA !== kindB) return kindA - kindB;
+      return (
+        (a.popularRank ?? Number.MAX_SAFE_INTEGER) -
+        (b.popularRank ?? Number.MAX_SAFE_INTEGER)
+      );
+    })
+    .slice(0, n);
+}
+
 /* ------------------------------ searchAssets ------------------------------ */
 
 const SEARCH_SYNONYMS: Record<string, string[]> = {
@@ -333,6 +369,7 @@ function scoreVariant(
   const categoryLabel = normalize(item.category);
   const collection = normalize(category?.collection ?? "");
   const kind = normalize(item.kind);
+  const role = normalize(roleOf(item));
 
   let score = 0;
   let matched = false;
@@ -356,17 +393,26 @@ function scoreVariant(
     score += 5;
     matched = true;
   }
+  if (role === variant || role.startsWith(variant)) {
+    score += 5;
+    matched = true;
+  }
   if (!matched && (collection === variant || kind === variant)) matched = true;
   return matched ? score : -1;
 }
 
 /**
- * Every query term must match (label, tags, category, collection or kind),
- * expanded through SEARCH_SYNONYMS. Results are ranked by the summed score
- * plus a curated-popularity bonus, capped at 80 items. An empty query
- * returns [].
+ * Every query term must match (label, tags, category, collection, kind or
+ * role), expanded through SEARCH_SYNONYMS. `filter`, when given, is applied
+ * before scoring and before the 80-item cap, so a broad filtered query isn't
+ * truncated away from matches the filter would have kept. Results are ranked
+ * by the summed score plus a curated-popularity bonus, capped at 80 items.
+ * An empty query returns [].
  */
-export function searchAssets(query: string): AssetItem[] {
+export function searchAssets(
+  query: string,
+  filter?: (item: AssetItem) => boolean,
+): AssetItem[] {
   const normalized = normalize(query).trim();
   if (!normalized) return [];
   const terms = normalized.split(/\s+/).filter(Boolean);
@@ -374,6 +420,7 @@ export function searchAssets(query: string): AssetItem[] {
 
   const results: { item: AssetItem; score: number }[] = [];
   for (const item of ASSET_CATALOG) {
+    if (filter && !filter(item)) continue;
     const category = categoryById.get(item.category);
     let total = 0;
     let matchesAllTerms = true;

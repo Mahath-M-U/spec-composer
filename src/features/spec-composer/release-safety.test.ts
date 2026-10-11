@@ -10,7 +10,7 @@ import {
 import { createProjectBackup, importProjectBackup } from "./project-backup";
 import { loadProjectVersion, saveProject } from "./persistence";
 import { useEditorStore } from "./store";
-import { validateWritableDocument } from "./types";
+import { parseSpecDocument, validateWritableDocument } from "./types";
 import { detectImageType, validateImageUpload } from "./image-validation";
 import { withSecurityHeaders } from "@/lib/security-headers";
 import { encryptJson } from "@/lib/storage/crypto";
@@ -265,6 +265,41 @@ it("accepts every bundled starter template under the new write limits", () => {
   for (const template of starterTemplates) {
     expect(() => validateWritableDocument(template.document), template.name).not.toThrow();
   }
+});
+
+it("round-trips slot/assetId/detail and the document's layout through parseSpecDocument", () => {
+  const original = {
+    ...createDocument("instagram-post", "Product Launch"),
+    id: crypto.randomUUID(),
+  };
+  original.layout = "copy-left";
+  original.elements[0]!.slot = "headline";
+  original.elements[0]!.assetId = "backgrounds-sunrise";
+  original.elements[0]!.detail = "a red sneaker on a white pedestal";
+  const parsed = parseSpecDocument(JSON.parse(JSON.stringify(original)))!;
+  expect(parsed.layout).toBe("copy-left");
+  expect(parsed.elements[0]?.slot).toBe("headline");
+  expect(parsed.elements[0]?.assetId).toBe("backgrounds-sunrise");
+  expect(parsed.elements[0]?.detail).toBe("a red sneaker on a white pedestal");
+});
+
+it("rejects an element detail over 20000 characters and a slot over 200 characters", () => {
+  const tooLongDetail = {
+    ...createDocument("instagram-post", "Product Launch"),
+    id: crypto.randomUUID(),
+  };
+  tooLongDetail.elements[0]!.detail = "a".repeat(20_001);
+  expect(() => validateWritableDocument(tooLongDetail)).toThrow(
+    "text is too long",
+  );
+  const tooLongSlot = {
+    ...createDocument("instagram-post", "Product Launch"),
+    id: crypto.randomUUID(),
+  };
+  tooLongSlot.elements[0]!.slot = "a".repeat(201);
+  expect(() => validateWritableDocument(tooLongSlot)).toThrow(
+    "asset reference is too long",
+  );
 });
 
 it("rejects oversized image dimensions before decoding", async () => {

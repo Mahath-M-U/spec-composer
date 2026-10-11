@@ -28,6 +28,7 @@ import { CanvasTextEditor } from "./canvas-text-editor";
 import { CanvasCaret } from "./canvas-caret";
 import { findAssetItem } from "./asset-catalog";
 import { addCatalogAsset } from "./assets-panel/add-asset";
+import { SelectionContextBar } from "./selection-context-bar";
 import {
   ELEMENT_KINDS,
   isTextKind,
@@ -514,6 +515,13 @@ export function CanvasWorkspace({
           {doc.format.label} · {doc.format.width} × {doc.format.height} px
         </div>
       </div>
+      {selected.length === 1 &&
+        !locked &&
+        !isEditingSelection &&
+        !activeKind &&
+        !panning && (
+          <SelectionContextBar el={selected[0]!} screenBox={screenBox} />
+        )}
       {children}
       <div
         className="zoom-controls"

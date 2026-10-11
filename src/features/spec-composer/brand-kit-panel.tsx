@@ -399,11 +399,6 @@ function BrandKitCard({
         <div className="bk-face-top">
           <span className="truncate bk-face-name">
             {kit.name}
-            {kit.sourceKind === "material3" && (
-              <Hint label="Material 3">
-                <span className="brandkit-m3-badge">M3</span>
-              </Hint>
-            )}
           </span>
           <button
             type="button"

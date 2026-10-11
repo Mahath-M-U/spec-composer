@@ -1,13 +1,22 @@
 import { Plus } from "lucide-react";
-import type { AssetItem } from "../asset-catalog";
+import {
+  ASSET_ROLES,
+  promptSnippet,
+  roleOf,
+  type AssetItem,
+} from "../asset-catalog";
 import type { ArtColors } from "../illustrations";
 import { AssetPreview } from "./asset-previews";
 
+const ROLE_LABELS = new Map(ASSET_ROLES.map((role) => [role.id, role.label]));
+
 /**
- * A draggable, clickable catalog tile. Dragging sets both "spec/asset" (the
+ * A draggable, clickable catalog tile. Preview-first: the rendered asset
+ * fills the tile, with its role and prompt snippet exposed via aria-label
+ * and title rather than shown as text. Dragging sets both "spec/asset" (the
  * item id, preferred by the canvas) and "spec/kind" (a plain-kind fallback
  * for legacy drop targets). A "+" appears on hover/focus, with an optional
- * usage badge (e.g. "×4") in the corner.
+ * usage badge (e.g. "×4") in the top-left corner.
  */
 export function AssetTile({
   item,
@@ -24,6 +33,9 @@ export function AssetTile({
   badge?: string;
   onAdd: (item: AssetItem) => void;
 }) {
+  const roleLabel = ROLE_LABELS.get(roleOf(item)) ?? roleOf(item);
+  const snippet = promptSnippet(item);
+
   return (
     <button
       type="button"
@@ -36,7 +48,8 @@ export function AssetTile({
         event.dataTransfer.setData("spec/kind", item.kind);
       }}
       onClick={() => onAdd(item)}
-      aria-label={`Add ${item.label}; drag to place on canvas`}
+      title={`${item.label} (${roleLabel})\n${snippet}`}
+      aria-label={`Add ${item.label} (${roleLabel}): ${snippet}`}
     >
       <AssetPreview
         item={item}
