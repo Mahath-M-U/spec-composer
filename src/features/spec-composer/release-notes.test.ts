@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { LATEST_RELEASE, RELEASES } from "./release-notes";
+import { LATEST_RELEASE, PREVIOUS_RELEASES, RELEASES } from "./release-notes";
 
 const pkg = JSON.parse(
   readFileSync(
@@ -19,11 +19,17 @@ describe("release notes", () => {
     expect(RELEASES[0]).toBe(LATEST_RELEASE);
   });
 
-  it("gives every entry a non-empty set of highlights and a valid date", () => {
+  it("gives every entry well-formed items and a valid date", () => {
     for (const release of RELEASES) {
-      expect(release.highlights.length).toBeGreaterThan(0);
-      for (const highlight of release.highlights) {
-        expect(highlight.length).toBeGreaterThan(0);
+      expect(
+        release.features.length + release.improvements.length,
+      ).toBeGreaterThan(0);
+      for (const item of [...release.features, ...release.improvements]) {
+        expect(item.emoji.trim().length).toBeGreaterThan(0);
+        expect(item.text.trim().length).toBeGreaterThan(0);
+      }
+      if (release.notes !== undefined) {
+        expect(release.notes.trim().length).toBeGreaterThan(0);
       }
       expect(release.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     }
@@ -32,5 +38,14 @@ describe("release notes", () => {
   it("has unique versions", () => {
     const versions = RELEASES.map((release) => release.version);
     expect(new Set(versions).size).toBe(versions.length);
+  });
+
+  it("gives the latest release at least one feature", () => {
+    expect(LATEST_RELEASE.features.length).toBeGreaterThan(0);
+  });
+
+  it("excludes the latest release from the previous-releases list", () => {
+    expect(PREVIOUS_RELEASES).toEqual(RELEASES.slice(1));
+    expect(PREVIOUS_RELEASES).not.toContain(LATEST_RELEASE);
   });
 });
