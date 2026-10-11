@@ -1,6 +1,6 @@
 # Spec Composer
 
-[![Version](https://img.shields.io/badge/version-0.5.1-orange.svg)](../../releases)
+[![Version](https://img.shields.io/badge/version-0.5.3-orange.svg)](../../releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522.12-339933.svg)](#requirements)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
@@ -16,7 +16,7 @@ PNG instead of pixels only.
 There is no backend, no account, no API key and no AI call. Your work stays in
 your browser.
 
-**Current release: v0.5.1.** Spec Composer is in early development: the UI and
+**Current release: v0.5.3.** Spec Composer is in early development: the UI and
 document format may change between 0.x releases.
 
 <!-- Screenshot placeholder: add an image committed to the repo and reference it here. -->

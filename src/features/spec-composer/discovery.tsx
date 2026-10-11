@@ -89,6 +89,7 @@ import {
   McpComingSoonSplash,
 } from "./coming-soon-lazy";
 import { QuickGuide } from "./quick-guide-lazy";
+import { LATEST_RELEASE } from "./release-notes";
 
 /** Saves a new document, then opens it in the editor. */
 function useOpenNewProject() {
@@ -184,6 +185,9 @@ export function DiscoveryShell({
             </span>
             <BrandKitSidebarLink />
           </nav>
+          <Link to="/release-notes" className="sidebar-release-link">
+            What&apos;s new in v{LATEST_RELEASE.version}
+          </Link>
           <button
             type="button"
             className="sidebar-brandkit-card sidebar-tour-card"

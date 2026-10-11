@@ -379,6 +379,31 @@ button:disabled {
 .sidebar-tour-card + .sidebar-mcp-card {
   margin-top: 0.5rem;
 }
+/* Plain text link to release notes, pinned above the Quick tour card. */
+.sidebar-release-link {
+  margin-top: auto;
+  margin-bottom: 0.5rem;
+  align-self: flex-start;
+  border-radius: 0.25rem;
+  padding: 0 0.7rem;
+  color: var(--color-accent);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition: color 0.18s ease;
+}
+.sidebar-release-link:hover {
+  text-decoration-thickness: 2px;
+}
+.sidebar-release-link:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+}
+.sidebar-release-link + .sidebar-tour-card {
+  margin-top: 0;
+}
 /* MCP teaser pinned to the bottom of the sidebar; reuses the brand kit card. */
 .sidebar-mcp-card {
   width: 100%;
@@ -526,6 +551,45 @@ button:disabled {
   font-size: 14px;
   line-height: 1.6;
   max-width: 65ch;
+}
+.release-notes-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--color-muted-foreground);
+  font-size: 12px;
+  font-weight: 700;
+  transition: color 0.18s ease;
+}
+.release-notes-back:hover {
+  color: var(--color-accent);
+}
+.release-notes-back:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+}
+.release-notes-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.2rem;
+  font-size: 12px;
+}
+.release-notes-list {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.6rem;
+  padding-left: 1.25rem;
+  list-style: disc;
+}
+.release-notes-list li {
+  max-width: 65ch;
+  color: var(--color-muted-foreground);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.release-notes-list li::marker {
+  color: var(--color-accent);
 }
 .discovery-main {
   display: flex;
