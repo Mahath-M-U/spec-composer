@@ -24,97 +24,43 @@ const STEPS: Record<GuidePage, GuideStep[]> = {
       target: "assets",
       section: "Left panel",
       title: "Add assets",
-      body: "Search and add images, icons, shapes, text, and more from the asset library.",
+      body: "Browse by role, such as Background, Subject, Headline or CTA, or search. Click an asset to drop it into its layout slot. On Subject and Brand, use your own photo or logo.",
     },
     {
       target: "rail-style",
       section: "Left panel",
-      title: "Style",
-      body: "Style the selected element's position, text and colors, or the background. Switch to Layout for one-click layouts. Selecting an element or the background on the canvas opens it automatically.",
-    },
-    {
-      target: "rail-layers",
-      section: "Left panel",
-      title: "Layers",
-      body: "Reorder, lock and group the layers of your design.",
-    },
-    {
-      target: "rail-templates",
-      section: "Left panel",
-      title: "Templates",
-      body: "Start over from a ready-made layout.",
-    },
-    {
-      target: "rail-brandKit",
-      section: "Left panel",
-      title: "Design kit",
-      body: "Manage the fonts, colors and brand mood your design uses.",
-    },
-    {
-      target: "rail-resize",
-      section: "Left panel",
-      title: "Resize",
-      body: "Change the design size to another format or a custom size.",
-    },
-    {
-      target: "connect",
-      section: "Left panel",
-      title: "Connect (coming soon)",
-      body: "Soon, AI tools like Claude and Cursor will read and compose your designs over MCP.",
+      title: "Style and layout",
+      body: "Use the Layout tab for one-click layout presets or to tidy up spacing. Select an element or the background to unlock the Style tab. Clicking the canvas opens it automatically.",
     },
     {
       target: "canvas",
       section: "Canvas",
       title: "Edit the canvas",
-      body: "Click any element to move, resize, or edit it directly on the canvas.",
-    },
-    {
-      target: "canvas-tools",
-      section: "Canvas",
-      title: "Canvas tools",
-      body: "Switch between select and hand, zoom or fit the canvas, and undo or redo.",
+      body: "Click any element to move, resize or edit it. Selected library assets show a swap strip so you can try alternatives in place.",
     },
     {
       target: "design-editor",
       section: "Output panel",
-      title: "Design Editor",
-      body: "A reusable DESIGN.md built from your design kit and layout. Click any section to fine-tune it.",
+      title: "design.md",
+      body: "A reusable DESIGN.md built from your design kit and layout. Click any section to fine-tune it, or select an element to jump to its part.",
     },
     {
       target: "prompt-editor",
       section: "Output panel",
-      title: "Prompt Editor",
-      body: "A natural-language prompt for image models, with image style and purpose.",
-    },
-    {
-      target: "chat",
-      section: "Output panel",
-      title: "Chat (coming soon)",
-      body: "Soon you'll change your design by describing edits in plain words.",
-    },
-    {
-      target: "include-output",
-      section: "Output panel",
-      title: "Include in output",
-      body: "Choose which sections appear in the spec or prompt.",
+      title: "prompt.md",
+      body: "A natural-language prompt for image models, with art direction for scene, lighting and typography, plus image style and purpose.",
     },
     {
       target: "copy-actions",
       section: "Output panel",
       title: "Edit and copy",
-      body: "Edit the text by hand, then copy it into any AI tool.",
+      body: "Edit the text by hand, then copy it into any AI tool. The sliders button picks which sections are included. When this panel is hidden, Copy moves to the top bar.",
     },
     {
       target: "export",
       section: "Output panel",
       title: "Export",
       body: "Download your design as DESIGN.md, JSON or PNG.",
-    },
-    {
-      target: "preview",
-      section: "Top bar",
-      title: "Preview",
-      body: "See your design full-screen without editing guides (shortcut P).",
     },
   ],
   "brand-kit": [
@@ -156,6 +102,11 @@ const STEPS: Record<GuidePage, GuideStep[]> = {
   ],
   home: [
     {
+      target: "home-hero",
+      title: "From canvas to AI image",
+      body: "Lay out a design on the canvas, get a structured DESIGN.md spec, and turn it into a prompt for any AI image tool.",
+    },
+    {
       target: "create",
       title: "Create a design",
       body: "Start from a preset size or set your own dimensions.",
@@ -166,6 +117,11 @@ const STEPS: Record<GuidePage, GuideStep[]> = {
       body: "Search or filter by platform, then click a size to open it in the editor.",
     },
     {
+      target: "recent",
+      title: "Pick up where you left off",
+      body: "Your latest designs, saved automatically in this browser. View all to search, sort or back them up.",
+    },
+    {
       target: "templates",
       title: "Start from a template",
       body: "Choose a curated starter and make every detail your own.",
@@ -173,7 +129,12 @@ const STEPS: Record<GuidePage, GuideStep[]> = {
     {
       target: "design-kit",
       title: "Set up a design kit",
-      body: "Save colors, fonts and mood once and reuse them in every design.",
+      body: "Build a kit from your brand strategy, colors, fonts and mood, or import a palette from an image, then reuse it in every design.",
+    },
+    {
+      target: "whats-new",
+      title: "What's new",
+      body: "See what changed in each release.",
     },
   ],
 };
@@ -220,6 +181,19 @@ function isFullyInView(rect: DOMRect) {
   );
 }
 
+/** Finds the first element for a tour target that is actually visible
+ * (skips display:none duplicates, e.g. the mobile-only vs desktop-only
+ * copy of the same data-tour id). */
+function findTarget(id: string): HTMLElement | null {
+  const candidates = document.querySelectorAll<HTMLElement>(
+    `[data-tour="${id}"]`,
+  );
+  for (const el of candidates) {
+    if (el.getClientRects().length > 0) return el;
+  }
+  return null;
+}
+
 function GuideTour({
   steps: allSteps,
   close,
@@ -237,9 +211,7 @@ function GuideTour({
 
   useEffect(() => {
     const raf = requestAnimationFrame(() => {
-      const present = allSteps.filter((step) =>
-        document.querySelector(`[data-tour="${step.target}"]`),
-      );
+      const present = allSteps.filter((step) => findTarget(step.target));
       setResolvedSteps(present.length ? present : allSteps);
     });
     return () => cancelAnimationFrame(raf);
@@ -264,17 +236,13 @@ function GuideTour({
       setRect(null);
       return;
     }
-    const target = document.querySelector<HTMLElement>(
-      `[data-tour="${step.target}"]`,
-    );
+    const target = findTarget(step.target);
     if (!target) {
       setRect(null);
       return;
     }
     const measure = () => {
-      const el = document.querySelector<HTMLElement>(
-        `[data-tour="${step.target}"]`,
-      );
+      const el = findTarget(step.target);
       if (!el) {
         setRect(null);
         return;

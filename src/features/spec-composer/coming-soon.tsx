@@ -197,8 +197,8 @@ export function QuickGuideSplash({
       body={
         {
           editor:
-            "Walk through every part of the editor: the asset library and left rail, the canvas tools, the style dock, and the Design and Prompt Editors.",
-          home: "Create a design, pick a format or template to open it in the editor, and set up a design kit to keep your brand consistent.",
+            "Walk through the essentials: the asset library, style and layout, the canvas, and the design.md and prompt.md outputs you copy into any AI tool.",
+          home: "See how a design goes from canvas to AI prompt, start one from a format or template, find your recent work, and set up a design kit.",
           "brand-kit":
             "See how to create a design kit by hand or generate one from a single color, set a default for new designs, and edit colors, type, style and mood.",
         }[page]

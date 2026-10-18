@@ -185,7 +185,11 @@ export function DiscoveryShell({
             </span>
             <BrandKitSidebarLink />
           </nav>
-          <Link to="/release-notes" className="sidebar-release-link">
+          <Link
+            to="/release-notes"
+            className="sidebar-release-link"
+            data-tour="whats-new"
+          >
             What&apos;s new in v{LATEST_RELEASE.version}
           </Link>
           <button
@@ -229,6 +233,7 @@ export function DiscoveryShell({
               <button
                 type="button"
                 className="mobile-create-button"
+                data-tour="create"
                 onClick={() => {
                   setMenuOpen(false);
                   setCreateOpen(true);
@@ -682,6 +687,7 @@ export function HomePage() {
 
         <section
           className="discovery-secondary-section recent-showcase"
+          data-tour="recent"
           aria-labelledby="recent-section-title"
         >
           <div className="section-heading showcase-heading">
@@ -759,6 +765,7 @@ export function HomePage() {
         <section
           id="design-kit"
           className="discovery-secondary-section brandkit-showcase scroll-mt-8 pb-10"
+          data-tour="design-kit"
           aria-labelledby="design-kit-section-title"
         >
           <div className="section-heading showcase-heading">
@@ -909,7 +916,12 @@ function HomeHero({ onCreate }: { onCreate: () => void }) {
           </a>
         </div>
       </div>
-      <div className="home-hero-art" aria-hidden="true" inert>
+      <div
+        className="home-hero-art"
+        data-tour="home-hero"
+        aria-hidden="true"
+        inert
+      >
         <div
           className="home-hero-preview home-hero-preview--canvas"
           key={`canvas:${preview.doc.name}`}
