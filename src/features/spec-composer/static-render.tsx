@@ -1,7 +1,9 @@
+import { effectiveRadius } from "./shape-workflow";
 import {
   createContext,
   useContext,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -104,6 +106,57 @@ export function textStyle(el: SpecElement): CSSProperties {
   };
 }
 
+/** CSS fills retain gradients; the clipped SVG draws a true polygon border. */
+function PolygonShape({ el }: { el: SpecElement }) {
+  const clipId = useId();
+  const triangle = el.style.shapeType === "triangle";
+  const width = Math.max(1, el.width);
+  const height = Math.max(1, el.height);
+  const points = triangle
+    ? `${width / 2},0 ${width},${height} 0,${height}`
+    : `${width / 2},0 ${width},${height / 2} ${width / 2},${height} 0,${height / 2}`;
+  const clipPath = triangle
+    ? "polygon(50% 0%, 100% 100%, 0% 100%)"
+    : "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)";
+  const borderWidth = Math.max(0, el.style.borderWidth ?? 0);
+  return (
+    <div
+      className="canvas-shape canvas-polygon"
+      data-shape={el.style.shapeType}
+      style={{ opacity: el.style.opacity, borderWidth: 0 }}
+    >
+      <div
+        className="canvas-polygon-fill"
+        style={{ background: el.style.background, clipPath }}
+      />
+      {borderWidth > 0 && (
+        <svg
+          className="canvas-polygon-stroke"
+          viewBox={`0 0 ${width} ${height}`}
+          preserveAspectRatio="none"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <defs>
+            <clipPath id={clipId}>
+              <polygon points={points} />
+            </clipPath>
+          </defs>
+          <polygon
+            points={points}
+            fill="none"
+            stroke={el.style.borderColor ?? "currentColor"}
+            strokeWidth={borderWidth * 2}
+            strokeLinejoin="miter"
+            strokeMiterlimit="1000"
+            clipPath={`url(#${clipId})`}
+          />
+        </svg>
+      )}
+    </div>
+  );
+}
+
 export function ElementContent({ el }: { el: SpecElement }) {
   const artColors = useContext(ArtColorsContext);
   const st = el.style;
@@ -166,12 +219,22 @@ export function ElementContent({ el }: { el: SpecElement }) {
     );
   }
   if (el.kind === "shape" || el.kind === "divider") {
+    if (st.shapeType === "triangle" || st.shapeType === "diamond")
+      return <PolygonShape el={el} />;
+    const round = st.shapeType === "circle" || st.shapeType === "ellipse";
     return (
       <div
-        className={`canvas-shape ${st.shapeType === "circle" ? "circle" : ""}`}
+        className={`canvas-shape ${round ? "circle" : ""}`}
+        data-shape={st.shapeType}
         style={{
           background: st.background,
-          borderRadius: st.borderRadius,
+          borderRadius: round
+            ? "50%"
+            : st.shapeType === "line"
+              ? 0
+              : el.semanticRole
+                ? effectiveRadius(el)
+                : st.borderRadius,
           opacity: st.opacity,
           borderColor: st.borderColor,
           borderWidth: st.borderWidth,

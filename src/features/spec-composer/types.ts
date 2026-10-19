@@ -34,6 +34,82 @@ export type PanelMode =
   "assets" | "layers" | "templates" | "brandKit" | "resize" | "style";
 export type ToolMode = "select" | "hand";
 
+export const SHAPE_ROLES = [
+  "subject",
+  "product",
+  "background",
+  "text_area",
+  "decorative",
+] as const;
+export const shapeRoleSchema = z.enum(SHAPE_ROLES);
+export type ShapeRole = z.infer<typeof shapeRoleSchema>;
+export const CAMERA_ANGLES = [
+  "Eye level",
+  "Overhead",
+  "Low angle",
+  "Isometric",
+] as const;
+export const LIGHT_TYPES = [
+  "Diffused light",
+  "Sunlight",
+  "Natural daylight",
+  "Studio",
+  "Directional",
+  "Ambient",
+] as const;
+export const LIGHT_DIRECTIONS = [
+  "Front",
+  "Back",
+  "Left",
+  "Right",
+  "Above",
+] as const;
+export const SHADOW_TYPES = ["None", "Soft", "Hard"] as const;
+export const STUDIO_LIGHT_ROLES = ["Key", "Fill", "Rim", "Background"] as const;
+export const STUDIO_LIGHT_SHAPES = ["Rectangle", "Disk"] as const;
+export const STUDIO_LIGHT_MODIFIERS = [
+  "Softbox",
+  "Umbrella",
+  "Diffusion panel",
+  "Bare",
+] as const;
+export const MAX_STUDIO_LIGHTS = 6;
+export const studioLightSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().trim().min(1).max(60),
+  enabled: z.boolean(),
+  role: z.enum(STUDIO_LIGHT_ROLES),
+  shape: z.enum(STUDIO_LIGHT_SHAPES),
+  modifier: z.enum(STUDIO_LIGHT_MODIFIERS),
+  azimuth: z.number().finite().min(-180).max(180),
+  elevation: z.number().finite().min(-90).max(90),
+  width: z.number().finite().min(0.1).max(5),
+  height: z.number().finite().min(0.1).max(5),
+  intensity: z.number().finite().min(0).max(100),
+  diffusion: z.number().finite().min(0).max(100),
+  temperature: z.number().finite().min(2000).max(10000),
+  shadows: z.enum(SHADOW_TYPES),
+});
+export type StudioLight = z.infer<typeof studioLightSchema>;
+export const generationSettingsSchema = z.object({
+  cameraAngle: z.enum(CAMERA_ANGLES).optional(),
+  lightType: z.enum(LIGHT_TYPES).optional(),
+  lightDirection: z.enum(LIGHT_DIRECTIONS).optional(),
+  lightIntensity: z.number().finite().min(0).max(100).optional(),
+  shadows: z.enum(SHADOW_TYPES).optional(),
+  studioLights: z
+    .array(studioLightSchema)
+    .max(MAX_STUDIO_LIGHTS)
+    .refine(
+      (lights) =>
+        new Set(lights.map((light) => light.id)).size === lights.length,
+      "Studio light IDs must be unique.",
+    )
+    .optional(),
+});
+
+export type GenerationSettings = z.infer<typeof generationSettingsSchema>;
+
 export const isTextKind = (kind: ElementKind): kind is TextKind =>
   (TEXT_KINDS as readonly string[]).includes(kind);
 export const isImageKind = (kind: ElementKind): kind is ImageKind =>
@@ -100,7 +176,15 @@ const elementStyleSchema = z.object({
   borderColor: z.string().optional(),
   borderWidth: z.number().optional(),
   shapeType: z
-    .enum(["rectangle", "rounded rectangle", "circle", "line"])
+    .enum([
+      "rectangle",
+      "rounded rectangle",
+      "circle",
+      "ellipse",
+      "triangle",
+      "diamond",
+      "line",
+    ])
     .optional(),
 });
 
@@ -117,6 +201,37 @@ const elementConstraintSchema = z.object({
 });
 export type ElementConstraint = z.infer<typeof elementConstraintSchema>;
 
+export const descriptionValuesSchema = z
+  .record(z.string().min(1).max(40), z.string().max(200))
+  .refine(
+    (values) => Object.keys(values).length <= 8,
+    "A description supports at most eight fields.",
+  );
+export const descriptionTemplateSelectionSchema = z.object({
+  id: z.string().min(1).max(80),
+  values: descriptionValuesSchema,
+});
+export const descriptionDraftsSchema = z.object({
+  custom: z.string().max(20_000).optional(),
+  templates: z
+    .record(
+      z.string().min(1).max(80),
+      z.object({
+        values: descriptionValuesSchema,
+        rendered: z.string().max(20_000).optional(),
+      }),
+    )
+    .refine(
+      (templates) => Object.keys(templates).length <= 10,
+      "At most ten description drafts can be saved.",
+    )
+    .optional(),
+});
+export type DescriptionTemplateSelection = z.infer<
+  typeof descriptionTemplateSelectionSchema
+>;
+export type DescriptionDrafts = z.infer<typeof descriptionDraftsSchema>;
+
 const specElementSchema = z.object({
   id: z.string(),
   kind: z.enum(ELEMENT_KINDS),
@@ -131,10 +246,13 @@ const specElementSchema = z.object({
   /** Auto-slot role (an AssetRole id) this element was dropped into; a plain
    * string so unrecognized values still parse (see asset-catalog/roles.ts). */
   slot: z.string().optional(),
+  semanticRole: shapeRoleSchema.optional(),
   /** Catalog item id this element was created or last slotted from. */
   assetId: z.string().optional(),
   /** User-entered subject detail, compiled into the prompt (see Phase 8). */
   detail: z.string().optional(),
+  descriptionTemplate: descriptionTemplateSelectionSchema.optional(),
+  descriptionDrafts: descriptionDraftsSchema.optional(),
   x: z.number(),
   y: z.number(),
   width: z.number(),
@@ -265,6 +383,10 @@ const specDocumentShape = z.object({
   scene: z.string().optional(),
   /** Prompt Lighting section; free text, see art-direction.ts. */
   lighting: z.string().optional(),
+  generationSettings: generationSettingsSchema.optional(),
+  savedCustomText: z
+    .object({ visual: z.string().optional(), design: z.string().optional() })
+    .optional(),
   /** Hand edit for the Design Editor (promptMode "design_skill"). */
   designEdit: z.string().optional(),
   designEditRevision: z.number().optional(),
@@ -515,6 +637,12 @@ export function validateWritableDocument(value: unknown): SpecDocument {
   }
   if ((doc.layout?.length ?? 0) > 200)
     throw new Error("The design's layout id is too long.");
+  if (
+    Object.values(doc.savedCustomText ?? {}).some(
+      (text) => (text?.length ?? 0) > 200_000,
+    )
+  )
+    throw new Error("Saved custom output is too long.");
   const serialized = JSON.stringify(doc);
   if (serialized.length > 24_000_000)
     throw new Error("Design exceeds the 24 MB project limit.");

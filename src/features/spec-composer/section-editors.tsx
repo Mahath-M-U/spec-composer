@@ -1,14 +1,16 @@
+import {
+  SceneLightingControls,
+  ShapeControls,
+} from "./scene-lighting-controls";
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link2, Type, X } from "lucide-react";
 import { sectionTarget, type Target } from "./section-target";
 import { FEATURED_FONTS, MORE_FONTS } from "./fonts";
 import { useEditorStore } from "./store";
 import {
-  ART_FIELDS,
   BRAND_TONES,
   MATERIAL_PRESETS,
   hasPreset,
-  setArtField,
   togglePreset,
   type ArtFieldKey,
 } from "./art-direction";
@@ -443,7 +445,7 @@ function useBindings(lineKey: string) {
   const styleOf = (ids: string[]) => (patch: Partial<SpecElement["style"]>) =>
     edit((doc) =>
       doc.elements.forEach((e) => {
-        if (ids.includes(e.id)) Object.assign(e.style, patch);
+        if (ids.includes(e.id) && !e.locked) Object.assign(e.style, patch);
       }),
     );
 
@@ -633,21 +635,7 @@ function MoodControls({ b }: { b: Bindings }) {
  * No debounce, so a chip click's immediate write never races a pending
  * keystroke commit. */
 function ArtFieldControls({ b, field }: { b: Bindings; field: ArtFieldKey }) {
-  const meta = ART_FIELDS[field];
-  const value = b.d[field] ?? "";
-  const set = (next: string) => b.edit((doc) => setArtField(doc, field, next));
-  return (
-    <>
-      <TextControl
-        label={meta.label}
-        value={value}
-        multiline={field === "scene"}
-        placeholder={meta.placeholder}
-        onChange={set}
-      />
-      <PresetChips label={meta.label} presets={meta.presets} value={value} onChange={set} />
-    </>
-  );
+  return <SceneLightingControls field={field} />;
 }
 
 /** An element's Material and texture field: free text plus preset chips. */
@@ -694,7 +682,7 @@ function ElementControls({
   const setEl = (patch: Partial<SpecElement>) =>
     b.edit((doc) =>
       doc.elements.forEach((e) => {
-        if (ids.includes(e.id)) Object.assign(e, patch);
+        if (ids.includes(e.id) && !e.locked) Object.assign(e, patch);
       }),
     );
   if (isTextKind(el.kind)) {
@@ -817,6 +805,9 @@ function ElementControls({
   const fillLinked = !!b.primary;
   return (
     <Fragment>
+      {single && el.kind === "shape" && (
+        <ShapeControls key={el.id} element={el} />
+      )}
       <div className="se-row se-row-color">
         <ColorControl
           label={fillLinked ? "Fill (brand primary)" : "Fill"}
@@ -828,14 +819,16 @@ function ElementControls({
               : setStyle({ background: hex })
           }
         />
-        {el.kind === "shape" && (
-          <NumberControl
-            label="Radius"
-            value={st.borderRadius ?? 0}
-            max={500}
-            onChange={(borderRadius) => setStyle({ borderRadius })}
-          />
-        )}
+        {el.kind === "shape" &&
+          !single &&
+          el.style.shapeType === "rounded rectangle" && (
+            <NumberControl
+              label="Radius"
+              value={st.borderRadius ?? 0}
+              max={500}
+              onChange={(borderRadius) => setStyle({ borderRadius })}
+            />
+          )}
       </div>
       {single && (
         <MaterialControls

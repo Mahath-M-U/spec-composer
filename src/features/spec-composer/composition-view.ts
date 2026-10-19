@@ -1,3 +1,9 @@
+import {
+  effectiveRadius,
+  isSemanticVisual,
+  shapeDescription,
+  shapeRoleLabel,
+} from "./shape-workflow";
 /** A pure view-model mapper for the Design Editor's "Composition" card: it
  * joins the compiled DESIGN.md text for Components, Layout and Imagery with
  * the live `doc.elements` so the card can render one item row per element
@@ -44,6 +50,7 @@ export type CompSlot = {
   pos: string;
   width: string;
   height?: string | undefined;
+  description?: string | undefined;
   covers?: string | undefined;
   copyBudget?: number | undefined;
   imagery?: string | undefined;
@@ -347,7 +354,7 @@ function buildTokens(
         value: s.background.toLowerCase(),
         swatch: s.background,
       });
-    const r = s.borderRadius ?? 0;
+    const r = effectiveRadius(el);
     if (r > 0) tokens.push({ label: "Radius", value: `${r}px` });
   }
   if (s.borderWidth)
@@ -408,16 +415,22 @@ export function buildComposition(i: {
     const zone = humanizeZone(region(el, doc));
     const slot: CompSlot = {
       part,
-      name: el.name,
+      name: el.semanticRole
+        ? `${el.name}: ${shapeRoleLabel(el.semanticRole)}`
+        : el.name,
       zone,
       pos: `${round((el.x / W) * 100)}% × ${round((el.y / H) * 100)}%`,
       width: `${round((el.width / W) * 100)}%`,
     };
+    if (el.kind === "shape" && el.semanticRole)
+      slot.description = shapeDescription(el);
     if (el.kind === "shape" || el.kind === "divider")
       slot.height = `${round((el.height / H) * 100)}%`;
-    if (isImageKind(el.kind)) {
+    if (isImageKind(el.kind) || isSemanticVisual(el)) {
       slot.covers = `~${round(((el.width * el.height) / (W * H)) * 100)}%`;
-      slot.imagery = el.aiDescription || "on-brand imagery";
+      slot.imagery = el.semanticRole
+        ? shapeDescription(el)
+        : el.aiDescription || "on-brand imagery";
     }
     if (isTextKind(el.kind)) slot.copyBudget = copyBudget(el);
     if (!slotsByKind.has(el.kind)) {
@@ -440,7 +453,9 @@ export function buildComposition(i: {
     ),
   );
 
-  const images = doc.elements.filter((e) => e.visible && isImageKind(e.kind));
+  const images = doc.elements.filter(
+    (e) => e.visible && (isImageKind(e.kind) || isSemanticVisual(e)),
+  );
   const largestImage = [...images].sort(
     (a, b) => b.width * b.height - a.width * a.height,
   )[0];
@@ -521,7 +536,11 @@ export function buildComposition(i: {
   }
 
   const imageryCustom = doc.promptParts?.["skill:imagery"] != null;
-  const noImageItems = !items.some((it) => it.kind && isImageKind(it.kind));
+  const noImageItems = !items.some(
+    (it) =>
+      it.kind &&
+      (isImageKind(it.kind) || it.slots.some((slot) => !!slot.imagery)),
+  );
   const notes: DesignPart[] = [];
   if (i.imagery && (imageryCustom || noImageItems)) notes.push(i.imagery);
   if (i.components && componentsCustom && groups.length === 0)

@@ -1,3 +1,4 @@
+import { resolveEditorText } from "./output-sync";
 import { compilePromptEditorOutput } from "./compiler";
 import { compileDesignSkill } from "./design-md";
 import type { BrandKit, SpecDocument } from "./types";
@@ -12,7 +13,8 @@ export function compileCopyText(
   kit: BrandKit | undefined,
   kind: CopyKind,
 ): string {
-  if (kind === "design") return doc.designEdit ?? compileDesignSkill(doc, kit);
+  if (kind === "design")
+    return resolveEditorText(doc, "design_skill", compileDesignSkill(doc, kit));
   return compilePromptEditorOutput(
     doc.promptMode === "visual_prompt" ? doc : { ...doc, promptMode: "visual_prompt" },
   );

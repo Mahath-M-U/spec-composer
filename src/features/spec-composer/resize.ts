@@ -1,3 +1,4 @@
+import { centeredCircle, isCircleShape } from "./shape-workflow";
 import type { Format, SpecDocument, SpecElement } from "./types";
 
 export type ResizeUnit = "px" | "in" | "cm";
@@ -403,6 +404,8 @@ export function resizeDocument(
       next.y = 0;
       next.width = format.width;
       next.height = format.height;
+      if (element.semanticRole && isCircleShape(element))
+        Object.assign(next, centeredCircle(next));
     } else Object.assign(next, scaledBox(element));
     for (const key of ["fontSize", "borderWidth", "borderRadius"] as const) {
       const value = element.style[key];

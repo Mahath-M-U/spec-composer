@@ -68,6 +68,7 @@ import type { Format, SpecDocument } from "./types";
 import { BrandKitPanel } from "./brand-kit-panel";
 import { DocumentPreview } from "./static-render";
 import { TemplateCardMedia } from "./template-card-media";
+import { RecentDesignCard } from "./recent-design-card";
 import { templateImageFor } from "./template-images";
 import { findImageStyle } from "./image-styles";
 import { useEditorStore } from "./store";
@@ -719,7 +720,7 @@ export function HomePage() {
           ) : recent.length ? (
             <div className="template-strip template-strip--recent">
               {recent.map((document) => (
-                <TemplateCard key={document.id} doc={document} existing />
+                <RecentDesignCard key={document.id} doc={document} />
               ))}
             </div>
           ) : (

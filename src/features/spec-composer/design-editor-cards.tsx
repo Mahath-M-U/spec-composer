@@ -1208,7 +1208,11 @@ function CompSlotRow({
         {slot.copyBudget != null && (
           <span>Copy ≤ ~{slot.copyBudget} chars</span>
         )}
-        {showImagery && <span>{slot.imagery}</span>}
+        {slot.description ? (
+          <span>{slot.description}</span>
+        ) : (
+          showImagery && <span>{slot.imagery}</span>
+        )}
       </span>
       <span className="de-comp-slot-actions">{part.actions}</span>
       {part.editing && <div className="de-comp-slot-body">{part.body}</div>}

@@ -1,4 +1,11 @@
 import {
+  effectiveRadius,
+  isSemanticVisual,
+  shapeDescription,
+  shapeRoleLabel,
+} from "./shape-workflow";
+import { imageStyleLine } from "./image-styles";
+import {
   an,
   ratio,
   region,
@@ -10,7 +17,7 @@ import {
 import { brandProfileLines } from "./brand-profile.ts";
 import {
   ART_FIELD_KEYS,
-  artValue,
+  artLine,
   isSectionIncluded,
   materialPhrase,
 } from "./art-direction.ts";
@@ -34,6 +41,8 @@ export const DESIGN_SKILL_HEADER: Record<string, string> = {
 /** Section headings of the DESIGN.md, keyed by line. Slot lines
  * (`skill:el:*`) have none: they're bullets under "Layout". */
 export const DESIGN_SKILL_SECTIONS: Record<string, string> = {
+  "skill:imageStyle": "Render Style",
+  "skill:annotations": "Editor Annotations",
   "skill:brand": "Brand Identity",
   "skill:colors": "Colors",
   "skill:type": "Typography",
@@ -239,7 +248,9 @@ function measure(doc: SpecDocument, kit?: BrandKit) {
     (e) => e.width < W * 0.95 && e.height < H * 0.95,
   );
   const text = visible.filter((e) => isTextKind(e.kind) && e.style.fontSize);
-  const images = visible.filter((e) => isImageKind(e.kind));
+  const images = visible.filter(
+    (e) => isImageKind(e.kind) || isSemanticVisual(e),
+  );
   const family = (e: SpecElement) => e.style.fontFamily ?? cd.typography;
 
   const swatchRoles = new Map<string, string[]>();
@@ -324,7 +335,7 @@ function measure(doc: SpecDocument, kit?: BrandKit) {
 
   const radii: [string, number][] = [];
   for (const e of visible) {
-    const r = e.style.borderRadius;
+    const r = e.semanticRole ? effectiveRadius(e) : e.style.borderRadius;
     if (r == null || (isTextKind(e.kind) && !e.style.background)) continue;
     if (!radii.some(([l]) => l === label(e.kind)))
       radii.push([label(e.kind), r]);
@@ -373,8 +384,9 @@ type Measured = ReturnType<typeof measure>;
 /** A self-contained spec for one element, shared by Components and the
  * example prompts. */
 function describeComponent(e: SpecElement, doc: SpecDocument, m: Measured) {
+  if (e.kind === "shape" && e.semanticRole) return shapeDescription(e);
   const s = e.style;
-  const r = s.borderRadius ?? 0;
+  const r = e.semanticRole ? effectiveRadius(e) : (s.borderRadius ?? 0);
   const border = s.borderWidth
     ? `, border ${s.borderWidth}px solid ${s.borderColor ?? "currentColor"}`
     : "";
@@ -383,13 +395,15 @@ function describeComponent(e: SpecElement, doc: SpecDocument, m: Measured) {
   if (isTextKind(e.kind))
     return `Text ${s.color ?? "inherits"}, ${s.background ? `background ${s.background}, border-radius ${r}px` : "no background"}${border}. ${m.family(e)} ${s.fontSize}px weight ${s.fontWeight ?? 400}${s.fontStyle === "italic" ? " italic" : ""}, line-height ${lineHeight(s.lineHeight)}${s.letterSpacing ? `, letter-spacing ${s.letterSpacing}px` : ""}, ${s.alignment ?? "left"}-aligned. Sits ${where}, spanning ${pct(e.width, m.W)} of the canvas width. Copy budget ~${copyBudget(e)} characters.${extra}`;
   if (isImageKind(e.kind))
-    return `${s.objectFit ?? "cover"} fit, ${r ? `border-radius ${r}px` : "square corners"}${border}. Sits ${where}, covering ~${pct(e.width * e.height, m.W * m.H)} of the canvas. Imagery: ${e.aiDescription || "on-brand imagery"}.${extra}`;
+    return `${s.objectFit ?? "cover"} fit, ${r ? `border-radius ${r}px` : "square corners"}${border}. Sits ${where}, covering ~${pct(e.width * e.height, m.W * m.H)} of the canvas. Imagery: ${e.semanticRole ? shapeDescription(e) : e.aiDescription || "on-brand imagery"}.${extra}`;
   return `${s.shapeType ?? (e.kind === "divider" ? "line" : "rectangle")}${s.background ? ` filled ${s.background}` : ""}${r ? `, border-radius ${r}px` : ""}${border}. Sits ${where}, ${pct(e.width, m.W)} × ${pct(e.height, m.H)} of the canvas.${extra}`;
 }
 
 /** One slot of the reusable layout, back-to-front. Text and image slots keep
  * their copy as an editable field. */
 function slotSegs(el: SpecElement, doc: SpecDocument): PromptSeg[] {
+  if (el.kind === "shape" && el.semanticRole)
+    return [`- ${el.name}: ${shapeDescription(el)}`];
   const { width: W, height: H } = doc.format;
   const o = doc.promptOptions;
   const where = o.relativePositioning ? `, ${region(el, doc)}` : "";
@@ -463,7 +477,7 @@ export function compileDesignSkillSegments(
     [
       "skill:overview",
       [
-        `Measurements come from a ${f.width} × ${f.height} ${f.label} composition (${ratio(f.width, f.height)}) and are exact; roles and recommendations are interpreted. Copy and imagery shown are this composition's current content — swap them freely and keep the palette, type, spacing, components and layout below.\n\n${an(cd.style).replace(/^a/, "A")} ${cd.style.toLowerCase()} ${f.label}${moodOn ? ` with a ${mood} mood` : ""}${lead ? `, led by ${m.family(lead)} ${label(lead.kind).toLowerCase()} type at ${lead.style.fontSize}px weight ${lead.style.fontWeight ?? 400}` : ""} on a ${bgName} canvas${m.accent ? `, with ${colorName(m.accent).toLowerCase()} (${m.accent}) as the accent` : ""}. ${m.largest ? `The ${label(m.largest.kind).toLowerCase()} anchors the ${region(m.largest, doc)}, covering ~${pct(m.largest.width * m.largest.height, m.W * m.H)} of the canvas` : "The design is type-led, with no photography"}; the layout is ${m.density}, ${m.align}-aligned, with a ${m.safeMargin}px safe margin.${cd.notes.trim() ? ` ${cd.notes.trim()}` : ""}`,
+        `Measurements come from a ${f.width} × ${f.height} ${f.label} composition (${ratio(f.width, f.height)}) and are exact; roles and recommendations are interpreted. Copy and imagery shown are this composition's current content — swap them freely and keep the palette, type, spacing, components and layout below.\n\n${an(cd.style).replace(/^a/, "A")} ${cd.style.toLowerCase()} ${f.label}${moodOn ? ` with a ${mood} mood` : ""}${lead ? `, led by ${m.family(lead)} ${label(lead.kind).toLowerCase()} type at ${lead.style.fontSize}px weight ${lead.style.fontWeight ?? 400}` : ""} on a ${bgName} canvas${m.accent ? `, with ${colorName(m.accent).toLowerCase()} (${m.accent}) as the accent` : ""}. ${m.largest ? `The ${m.largest.semanticRole ? shapeRoleLabel(m.largest.semanticRole).toLowerCase() : label(m.largest.kind).toLowerCase()} anchors the ${region(m.largest, doc)}, covering ~${pct(m.largest.width * m.largest.height, m.W * m.H)} of the canvas` : "The design is type-led, with no photography"}; the layout is ${m.density}, ${m.align}-aligned, with a ${m.safeMargin}px safe margin.${cd.notes.trim() ? ` ${cd.notes.trim()}` : ""}`,
       ],
     ],
   ];
@@ -561,7 +575,7 @@ export function compileDesignSkillSegments(
           .map((k) => {
             const els = visible.filter((e) => e.kind === k);
             const first = els[0]!;
-            return `### ${label(k)}${els.length > 1 ? ` ×${els.length}` : ""}\n**Role:** ${KIND_INFO[k][1]}\n\n${describeComponent(first, doc, m)}`;
+            return `### ${label(k)}${els.length > 1 ? ` ×${els.length}` : ""}\n**Role:** ${els.some((el) => el.semanticRole) ? "Roles are assigned independently to each shape below" : KIND_INFO[k][1]}\n\n${els.some((el) => el.semanticRole) ? els.map((el) => `- ${el.name}: ${describeComponent(el, doc, m)}`).join("\n") : describeComponent(first, doc, m)}`;
           })
           .join("\n\n"),
       ],
@@ -638,26 +652,47 @@ export function compileDesignSkillSegments(
   lines.push([
     "skill:elevation",
     [
-      "- **All slots:** flat, no shadow — depth comes from layering order, scale and color contrast",
+      doc.generationSettings ||
+      visible.some((el) => el.semanticRole) ||
+      doc.imageStyle === "3d-render"
+        ? "- **Canvas preview:** flat layout placeholders. Rendered depth and shadows follow the Render Style and Lighting sections."
+        : "- **All slots:** flat, no shadow — depth comes from layering order, scale and color contrast",
     ],
   ]);
+  const renderStyle =
+    doc.imageStyle !== undefined ||
+    doc.generationSettings ||
+    visible.some((el) => el.semanticRole)
+      ? imageStyleLine(doc)
+      : "";
+  if (renderStyle) lines.push(["skill:imageStyle", [renderStyle]]);
+  if (visible.some((el) => el.semanticRole))
+    lines.push([
+      "skill:annotations",
+      [
+        "Editor role labels are annotations only; omit them from generated imagery.",
+      ],
+    ]);
   lines.push([
     "skill:imagery",
     [
       m.largest
-        ? `${m.images.length} image slot${m.images.length > 1 ? "s" : ""}: ${m.images.map((e) => label(e.kind).toLowerCase()).join(", ")}. The ${label(m.largest.kind).toLowerCase()} is the dominant visual — ${region(m.largest, doc)}, ${m.largest.style.objectFit ?? "cover"} fit, ~${pct(m.largest.width * m.largest.height, m.W * m.H)} of the canvas.\n\n${m.images.map((e) => `- ${e.name}: ${e.aiDescription || "on-brand imagery"}`).join("\n")}`
+        ? `${m.images.length} image slot${m.images.length > 1 ? "s" : ""}: ${m.images.map((e) => label(e.kind).toLowerCase()).join(", ")}. The ${m.largest.semanticRole ? shapeRoleLabel(m.largest.semanticRole).toLowerCase() : label(m.largest.kind).toLowerCase()} is the dominant visual — ${region(m.largest, doc)}, ${m.largest.style.objectFit ?? "cover"} fit, ~${pct(m.largest.width * m.largest.height, m.W * m.H)} of the canvas.\n\n${m.images.map((e) => `- ${e.name}: ${e.semanticRole ? shapeDescription(e) : e.aiDescription || "on-brand imagery"}`).join("\n")}`
         : "Type-only composition: no photography or illustration. Color blocks and typography carry the design.",
     ],
   ]);
   lines.push(["skill:mood", mood ? [`${mood}.`] : []]);
   for (const key of ART_FIELD_KEYS) {
-    const value = artValue(doc[key]);
-    lines.push([`skill:${key}`, value ? [`${value}.`] : []]);
+    const value = artLine(doc, key).replace(
+      new RegExp(`^${key === "scene" ? "Scene" : "Lighting"}: `),
+      "",
+    );
+    lines.push([`skill:${key}`, value ? [value] : []]);
   }
   lines.push([
     "skill:layout",
     [
-      `${m.W} × ${m.H} ${f.label} canvas (${ratio(m.W, m.H)}) with ${m.density} density — slots cover ~${Math.round(m.coverage * 100)}% of the canvas. Text is ${m.align}-aligned inside a ${m.safeMargin}px safe margin${m.largest ? `, and the ${label(m.largest.kind).toLowerCase()} anchors the ${region(m.largest, doc)}` : ""}.${visible.length ? " Slots, back-to-front — positions and sizes are relative to the canvas:" : ""}`,
+      `${m.W} × ${m.H} ${f.label} canvas (${ratio(m.W, m.H)}) with ${m.density} density — slots cover ~${Math.round(m.coverage * 100)}% of the canvas. Text is ${m.align}-aligned inside a ${m.safeMargin}px safe margin${m.largest ? `, and the ${m.largest.semanticRole ? shapeRoleLabel(m.largest.semanticRole).toLowerCase() : label(m.largest.kind).toLowerCase()} anchors the ${region(m.largest, doc)}` : ""}.${visible.length ? " Slots, back-to-front — positions and sizes are relative to the canvas:" : ""}`,
     ],
   ]);
   for (const e of visible) lines.push([`skill:el:${e.id}`, slotSegs(e, doc)]);

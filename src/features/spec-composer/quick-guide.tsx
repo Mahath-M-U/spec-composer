@@ -24,19 +24,19 @@ const STEPS: Record<GuidePage, GuideStep[]> = {
       target: "assets",
       section: "Left panel",
       title: "Add assets",
-      body: "Browse by role, such as Background, Subject, Headline or CTA, or search. Click an asset to drop it into its layout slot. On Subject and Brand, use your own photo or logo.",
+      body: "Choose a scene element and description template, then Add selected element or drag it onto the canvas. Use Style to edit template fields while keeping their framing intact. Assets also includes simple shapes and editable text; Scene and Lighting describe the generated output.",
     },
     {
       target: "rail-style",
       section: "Left panel",
       title: "Style and layout",
-      body: "Use the Layout tab for one-click layout presets or to tidy up spacing. Select an element or the background to unlock the Style tab. Clicking the canvas opens it automatically.",
+      body: "Use the Layout tab for one-click layout presets or to tidy up spacing. Select an element or the background to unlock the Style tab. Clicking the canvas opens it automatically. Scene & Lighting settings describe the generated image and are prompt only.",
     },
     {
       target: "canvas",
       section: "Canvas",
       title: "Edit the canvas",
-      body: "Click any element to move, resize or edit it. Selected library assets show a swap strip so you can try alternatives in place.",
+      body: "Click any element to move, resize or edit it. Shape roles appear as canvas labels and stay synchronized with your output.",
     },
     {
       target: "design-editor",

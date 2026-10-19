@@ -1,3 +1,4 @@
+import { centeredCircle } from "./shape-workflow";
 export interface Point {
   x: number;
   y: number;
@@ -132,20 +133,30 @@ export function resizeBox(
     height,
   };
 }
-export function transformBoxes<T extends CanvasBox & { id: string }>(
-  elements: T[],
-  start: CanvasBox,
-  next: CanvasBox,
-): Record<string, CanvasBox> {
+export function transformBoxes<
+  T extends CanvasBox & {
+    id: string;
+    kind?: string | undefined;
+    semanticRole?: string | undefined;
+    style?: { shapeType?: string | undefined } | undefined;
+  },
+>(elements: T[], start: CanvasBox, next: CanvasBox): Record<string, CanvasBox> {
   return Object.fromEntries(
     elements.map((el) => [
       el.id,
-      {
-        x: next.x + ((el.x - start.x) * next.width) / start.width,
-        y: next.y + ((el.y - start.y) * next.height) / start.height,
-        width: Math.max(1, (el.width * next.width) / start.width),
-        height: Math.max(1, (el.height * next.height) / start.height),
-      },
+      (() => {
+        const box = {
+          x: next.x + ((el.x - start.x) * next.width) / start.width,
+          y: next.y + ((el.y - start.y) * next.height) / start.height,
+          width: Math.max(1, (el.width * next.width) / start.width),
+          height: Math.max(1, (el.height * next.height) / start.height),
+        };
+        return el.kind === "shape" &&
+          el.semanticRole &&
+          el.style?.shapeType === "circle"
+          ? centeredCircle(box)
+          : box;
+      })(),
     ]),
   );
 }

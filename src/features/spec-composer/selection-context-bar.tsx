@@ -1,4 +1,8 @@
 import { useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
+import {
+  findDescriptionTemplate,
+  resolveElementDetail,
+} from "./description-templates";
 import { Hint } from "@/components/ui/tooltip";
 import { useEditorStore } from "./store";
 import {
@@ -77,8 +81,17 @@ export function SelectionContextBar({
   const alternatives =
     item && roleOf(item) !== "decor" ? swapAlternatives(item) : [];
   const role = elementRole(el, findAssetItem, doc.format);
-  const showDetail = role === "subject";
-  if (!alternatives.length && !showDetail) return null;
+  const showDetail =
+    role === "subject" ||
+    (el.kind === "shape" &&
+      (el.semanticRole === "subject" ||
+        el.semanticRole === "product" ||
+        el.semanticRole === "text_area"));
+  const hasTemplate = el.kind === "shape" && !!el.descriptionTemplate;
+  const descriptionTemplate = el.descriptionTemplate
+    ? findDescriptionTemplate(el.descriptionTemplate.id)
+    : undefined;
+  if (!alternatives.length && !showDetail && !hasTemplate) return null;
 
   const colors: ArtColors = {
     ink: doc.creativeDirection.primaryColor,
@@ -136,12 +149,38 @@ export function SelectionContextBar({
           ))}
         </div>
       )}
-      {showDetail && (
+      {hasTemplate && (
+        <div className="selection-template-summary">
+          <span title={resolveElementDetail(el)}>
+            {descriptionTemplate?.label ?? "Saved description template"}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              const state = useEditorStore.getState();
+              state.select(el.id);
+              state.setPanel("style");
+              state.setStyleTab("style");
+            }}
+          >
+            Edit fields
+          </button>
+        </div>
+      )}
+      {showDetail && !hasTemplate && (
         <input
           type="text"
           className="selection-context-detail"
           maxLength={140}
-          placeholder={DETAIL_PLACEHOLDERS[el.kind] ?? "Describe the subject"}
+          aria-label="Region description"
+          disabled={el.locked}
+          placeholder={
+            el.semanticRole === "text_area"
+              ? "Describe reserved copy space"
+              : el.semanticRole === "product"
+                ? "Which product?"
+                : (DETAIL_PLACEHOLDERS[el.kind] ?? "Describe the subject")
+          }
           value={el.detail ?? ""}
           onFocus={() => {
             detailFirstKeystroke.current = true;

@@ -1,3 +1,4 @@
+import { isCircleShape, isShapeType, shapeRoleLabel } from "./shape-workflow";
 import {
   useCallback,
   useEffect,
@@ -27,6 +28,8 @@ import {
 import { CanvasTextEditor } from "./canvas-text-editor";
 import { CanvasCaret } from "./canvas-caret";
 import { findAssetItem } from "./asset-catalog";
+import { findAssetPreset } from "./asset-presets";
+import { findDescriptionTemplate } from "./description-templates";
 import { addCatalogAsset } from "./assets-panel/add-asset";
 import { SelectionContextBar } from "./selection-context-bar";
 import {
@@ -207,7 +210,10 @@ export function CanvasWorkspace({
           g.bounds,
           g.handle,
           { x: dx / g.zoom, y: dy / g.zoom },
-          e.shiftKey,
+          e.shiftKey ||
+            (g.elements.length === 1 &&
+              !!g.elements[0]?.semanticRole &&
+              isCircleShape(g.elements[0])),
           minimum,
         ),
         g.bounds,
@@ -364,7 +370,10 @@ export function CanvasWorkspace({
         onKeyDown={keyDown}
         onDragOver={(e) => {
           if (
+            e.dataTransfer.types.includes("application/x-spec-asset-preset") ||
+            e.dataTransfer.types.includes("spec/shape") ||
             e.dataTransfer.types.includes("spec/asset") ||
+            e.dataTransfer.types.includes("spec/text-preset") ||
             e.dataTransfer.types.includes("spec/kind")
           ) {
             e.preventDefault();
@@ -374,6 +383,31 @@ export function CanvasWorkspace({
         onDrop={(e) => {
           e.preventDefault();
           const point = viewport.toDoc(e.clientX, e.clientY);
+          const presetData = e.dataTransfer.getData("application/x-spec-asset-preset");
+          if (presetData) {
+            try {
+              const payload: unknown = JSON.parse(presetData);
+              if (!payload || typeof payload !== "object" ||
+                !("presetId" in payload) || typeof payload.presetId !== "string" ||
+                !("templateId" in payload) || typeof payload.templateId !== "string") return;
+              const preset = findAssetPreset(payload.presetId);
+              const template = findDescriptionTemplate(payload.templateId);
+              if (preset && template) s.addAssetPreset(preset.id, point, template.id);
+            } catch {
+              // Foreign or incomplete drag payloads must not create an element.
+            }
+            return;
+          }
+          const textPreset = e.dataTransfer.getData("spec/text-preset");
+          if (textPreset) {
+            s.addTextPreset(textPreset, point);
+            return;
+          }
+          const shape = e.dataTransfer.getData("spec/shape");
+          if (isShapeType(shape)) {
+            s.addShape(shape, point);
+            return;
+          }
           const assetId = e.dataTransfer.getData("spec/asset");
           const item = assetId ? findAssetItem(assetId) : undefined;
           if (item) {
@@ -414,7 +448,11 @@ export function CanvasWorkspace({
                   <div
                     key={el.id}
                     data-element-id={el.id}
-                    aria-label={el.name}
+                    aria-label={
+                      el.semanticRole
+                        ? `${el.name}: ${shapeRoleLabel(el.semanticRole)}`
+                        : el.name
+                    }
                     className={`canvas-object${el.locked ? " is-locked" : ""}${editable(el) ? " is-text" : ""}`}
                     style={{
                       left: el.x,
@@ -425,6 +463,19 @@ export function CanvasWorkspace({
                       transform: `rotate(${el.rotation}deg)`,
                     }}
                   >
+                    {el.kind === "shape" && el.semanticRole && (
+                      <span
+                        className="shape-role-label"
+                        style={{
+                          fontSize: 11 / s.zoom,
+                          transform:
+                            el.y < 24 / s.zoom ? "none" : "translateY(-100%)",
+                        }}
+                        aria-hidden="true"
+                      >
+                        {shapeRoleLabel(el.semanticRole)}
+                      </span>
+                    )}
                     {editing?.id === el.id ? (
                       <CanvasTextEditor
                         el={el}

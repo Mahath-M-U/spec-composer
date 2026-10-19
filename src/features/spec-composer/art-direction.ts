@@ -1,4 +1,5 @@
 import type { SpecDocument, SpecElement } from "./types.ts";
+import { compileStudioLighting } from "./studio-lighting";
 
 export type ArtFieldKey = "scene" | "lighting";
 export const ART_FIELD_KEYS = ["scene", "lighting"] as const;
@@ -69,10 +70,26 @@ export const artValue = (value?: string): string =>
 /** One art field as its own prompt paragraph / design.md line, e.g.
  * "Scene: On a marble countertop.". Returns "" when unset. */
 export function artLine(
-  doc: Pick<SpecDocument, ArtFieldKey>,
+  doc: Pick<SpecDocument, ArtFieldKey | "generationSettings">,
   key: ArtFieldKey,
 ): string {
-  const value = artValue(doc[key]);
+  const settings = doc.generationSettings;
+  const phrases = [artValue(doc[key])];
+  if (key === "scene" && settings?.cameraAngle)
+    phrases.push(`Camera angle: ${settings.cameraAngle}`);
+  if (key === "lighting" && settings) {
+    if (settings.studioLights !== undefined) {
+      phrases.push(compileStudioLighting(settings.studioLights));
+    } else {
+      if (settings.lightType) phrases.push(`Light type: ${settings.lightType}`);
+      if (settings.lightDirection)
+        phrases.push(`Direction: ${settings.lightDirection}`);
+      if (settings.lightIntensity !== undefined)
+        phrases.push(`Intensity: ${settings.lightIntensity}%`);
+      if (settings.shadows) phrases.push(`Shadows: ${settings.shadows}`);
+    }
+  }
+  const value = phrases.filter(Boolean).join("; ");
   return value ? `${ART_FIELDS[key].label}: ${value}.` : "";
 }
 

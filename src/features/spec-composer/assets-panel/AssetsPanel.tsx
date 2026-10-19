@@ -1,363 +1,268 @@
-import { useMemo, useState, type KeyboardEvent } from "react";
+import { useId, useRef, useState } from "react";
 import {
-  BadgeCheck,
-  BadgePercent,
-  Heading1,
-  History,
-  Image as ImageIcon,
-  Layers,
-  MousePointerClick,
-  Search,
+  Box,
+  LayoutPanelTop,
+  MessageCircle,
+  Scan,
   Shapes,
-  Star,
+  SlidersHorizontal,
+  Sun,
   UserRound,
-  X,
-  type LucideIcon,
 } from "lucide-react";
-import { Hint } from "@/components/ui/tooltip";
+import { SceneLightingControls } from "../scene-lighting-controls";
 import { PanelHeader } from "../panel-header";
 import { useEditorStore } from "../store";
 import {
-  ASSET_CATALOG,
-  ASSET_ROLES,
-  CATEGORIES,
-  roleOf,
-  searchAssets,
-  type AssetCategory,
-  type AssetCategoryId,
-  type AssetItem,
-  type AssetRole,
-} from "../asset-catalog";
-import { rankPopular, recentIds } from "../asset-catalog/usage";
-import { clearAssetUsage, useAssetUsage } from "../asset-usage-store";
-import { getBrandKitColor } from "../brand-kits";
-import type { ArtColors } from "../illustrations";
-import { backgroundStyle } from "../static-render";
-import { addCatalogAsset } from "./add-asset";
-import { AssetSection } from "./AssetSection";
-import { AssetTile } from "./AssetTile";
-import { CATEGORY_ICONS } from "./category-icons";
-import { UploadTile } from "./UploadTile";
+  SHAPE_TYPE_LABELS,
+  shapeRoleLabel,
+  type ShapeType,
+} from "../shape-workflow";
+import { ASSET_PRESETS } from "../asset-presets";
+import { PRIMARY_TEXT_PRESETS, MORE_TEXT_PRESETS } from "./text-presets";
+import { isTextKind } from "../types";
 
-/** Keep home rows short; "See all" opens the role's own tab. */
-const ROW_PREVIEW_COUNT = 10;
-
-const byId = new Map(ASSET_CATALOG.map((item) => [item.id, item]));
-
-/** One lucide icon per role, used in role tabs and the "All" tab's rows. */
-const ROLE_ICONS: Record<AssetRole, LucideIcon> = {
-  background: Layers,
-  subject: UserRound,
-  headline: Heading1,
-  offer: BadgePercent,
-  cta: MousePointerClick,
-  brand: BadgeCheck,
-  decor: Shapes,
+const VIEWS = [
+  { id: "add", label: "Add", icon: Shapes },
+  { id: "environment", label: "Environment", icon: Sun },
+] as const;
+const SCENE_TILES = {
+  model: { label: "Person", icon: UserRound },
+  product: { label: "Product", icon: Box },
+  pedestal: { label: "Display", icon: Box },
+  backdrop: { label: "Backdrop", icon: LayoutPanelTop },
+  "copy-space": { label: "Copy space", icon: Scan },
+  label: { label: "Callout", icon: MessageCircle },
 };
+const PRIMARY_SHAPES: readonly ShapeType[] = [
+  "rectangle",
+  "circle",
+  "rounded rectangle",
+  "triangle",
+  "diamond",
+];
+const MORE_SHAPES: readonly ShapeType[] = ["ellipse", "line"];
 
 export function AssetsPanel() {
-  const doc = useEditorStore((s) => s.doc);
-  const activeKit = useEditorStore((s) =>
-    s.brandKits.find((kit) => kit.id === s.doc?.creativeDirection.brandKitId),
+  const s = useEditorStore();
+  const [view, setView] = useState<(typeof VIEWS)[number]["id"]>("add");
+  const id = useId();
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const selected =
+    s.doc?.elements.filter((element) => s.selectedIds.includes(element.id)) ??
+    [];
+  const element = selected.length === 1 ? selected[0] : undefined;
+  const renderShape = (type: ShapeType) => (
+    <button
+      key={type}
+      type="button"
+      data-primitive={type}
+      draggable
+      aria-label={SHAPE_TYPE_LABELS[type]}
+      title={SHAPE_TYPE_LABELS[type]}
+      onClick={() => s.addShape(type)}
+      onDragStart={(event) => {
+        event.dataTransfer.setData("spec/shape", type);
+        event.dataTransfer.effectAllowed = "copy";
+      }}
+    >
+      <span className="shape-preview" data-shape={type} aria-hidden="true" />
+    </button>
   );
-  const usage = useAssetUsage();
-  const [query, setQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<"all" | AssetRole>("all");
-  const [chip, setChip] = useState<AssetCategoryId | null>(null);
-
-  const colors: ArtColors = {
-    ink: doc?.creativeDirection.primaryColor ?? "#18181B",
-    accent: doc?.creativeDirection.secondaryColor ?? "#A78BFA",
-  };
-  const paper = doc ? String(backgroundStyle(doc).background) : "#f9f5ee";
-  const baseTextColor = activeKit
-    ? ((
-        getBrandKitColor(activeKit, "text") ??
-        getBrandKitColor(activeKit, "primary") ??
-        activeKit.colors.find(
-          (color) => color.role !== "background" && color.role !== "text",
-        )
-      )?.hex ?? "#18181B")
-    : "#18181B";
-
-  const trimmedQuery = query.trim();
-  const isSearching = trimmedQuery.length > 0;
-
-  const handleAdd = (item: AssetItem) => addCatalogAsset(item);
-
-  const selectTab = (next: "all" | AssetRole) => {
-    setActiveTab(next);
-    setChip(null);
-  };
-
-  const popular = useMemo(
-    () => rankPopular(ASSET_CATALOG, usage).slice(0, 12),
-    [usage],
+  const renderText = (
+    preset:
+      | (typeof PRIMARY_TEXT_PRESETS)[number]
+      | (typeof MORE_TEXT_PRESETS)[number],
+  ) => (
+    <button
+      key={preset.id}
+      type="button"
+      draggable
+      onClick={() => s.addTextPreset(preset.id)}
+      onDragStart={(event) => {
+        event.dataTransfer.setData("spec/text-preset", preset.id);
+        event.dataTransfer.effectAllowed = "copy";
+      }}
+    >
+      <span
+        className="asset-text-preview"
+        data-kind={preset.kind}
+        aria-hidden="true"
+      >
+        {preset.sample}
+      </span>
+      {preset.label}
+    </button>
   );
-  const recentItems = useMemo(
-    () =>
-      recentIds(usage)
-        .map((id) => byId.get(id))
-        .filter((item): item is AssetItem => !!item),
-    [usage],
-  );
-
-  const searchResults = useMemo(() => {
-    if (!isSearching) return [];
-    const filter =
-      activeTab === "all"
-        ? undefined
-        : (item: AssetItem) => roleOf(item) === activeTab;
-    return searchAssets(trimmedQuery, filter);
-  }, [isSearching, trimmedQuery, activeTab]);
-  const searchGroups = useMemo(() => {
-    const byCategory = new Map<AssetCategoryId, AssetItem[]>();
-    for (const item of searchResults) {
-      const list = byCategory.get(item.category) ?? [];
-      list.push(item);
-      byCategory.set(item.category, list);
-    }
-    return CATEGORIES.filter((category) => byCategory.has(category.id)).map(
-      (category) => ({ category, items: byCategory.get(category.id) ?? [] }),
-    );
-  }, [searchResults]);
-
-  const roleItems = useMemo(() => {
-    if (activeTab === "all") return [];
-    return ASSET_CATALOG.filter(
-      (item) =>
-        roleOf(item) === activeTab && (!chip || item.category === chip),
-    );
-  }, [activeTab, chip]);
-  const roleCategories: AssetCategory[] = useMemo(() => {
-    if (activeTab === "all") return [];
-    const present = new Set(
-      ASSET_CATALOG.filter((item) => roleOf(item) === activeTab).map(
-        (item) => item.category,
-      ),
-    );
-    return CATEGORIES.filter((category) => present.has(category.id));
-  }, [activeTab]);
-  const activeRoleLabel =
-    activeTab === "all"
-      ? ""
-      : (ASSET_ROLES.find((role) => role.id === activeTab)?.label ??
-        activeTab);
-  // "Use your photo / your logo" leads the Subject and Brand tab grids and
-  // auto-slots, same as a catalog click.
-  const uploadLeading =
-    activeTab === "subject" || activeTab === "brand" ? (
-      <UploadTile role={activeTab} />
-    ) : undefined;
-
-  const onSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key !== "Escape") return;
-    if (query) {
-      event.preventDefault();
-      setQuery("");
-    }
-  };
-
   return (
-    <div className="assets-panel">
-      <PanelHeader
-        icon={ImageIcon}
-        eyebrow="Library"
-        title="Assets"
-        meta={`${ASSET_CATALOG.length} assets`}
-      />
-
-      <div className="asset-search-wrap">
-        <Search aria-hidden="true" />
-        <input
-          className="asset-search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          onKeyDown={onSearchKeyDown}
-          placeholder="Search assets"
-          aria-label="Search assets"
-        />
-        {query && (
-          <Hint label="Clear search">
-            <button
-              type="button"
-              onClick={() => setQuery("")}
-              aria-label="Clear search"
+    <div className="assets-panel compose-panel">
+      <PanelHeader eyebrow="Compose" title="Build your scene" />
+      <div
+        className="asset-workflow-tabs"
+        role="tablist"
+        aria-label="Composition settings"
+      >
+        {VIEWS.map(({ id: key, label, icon: Icon }, index) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            id={`${id}-${key}-tab`}
+            ref={(node) => {
+              tabRefs.current[index] = node;
+            }}
+            aria-selected={view === key}
+            aria-controls={`${id}-${key}-panel`}
+            tabIndex={view === key ? 0 : -1}
+            onClick={() => setView(key)}
+            onKeyDown={(event) => {
+              const next =
+                event.key === "ArrowRight"
+                  ? (index + 1) % VIEWS.length
+                  : event.key === "ArrowLeft"
+                    ? (index + VIEWS.length - 1) % VIEWS.length
+                    : event.key === "Home"
+                      ? 0
+                      : event.key === "End"
+                        ? VIEWS.length - 1
+                        : null;
+              if (next === null) return;
+              event.preventDefault();
+              const nextView = VIEWS[next];
+              if (!nextView) return;
+              setView(nextView.id);
+              tabRefs.current[next]?.focus();
+            }}
+          >
+            <Icon aria-hidden="true" />
+            <span>{label}</span>
+          </button>
+        ))}
+      </div>
+      <div
+        role="tabpanel"
+        id={`${id}-add-panel`}
+        aria-labelledby={`${id}-add-tab`}
+        hidden={view !== "add"}
+        tabIndex={0}
+      >
+        <div className="shape-palette">
+          <section className="compose-section">
+            <div className="asset-section-heading">
+              <h3>Scene elements</h3>
+              <span>Click or drag</span>
+            </div>
+            <div
+              className="asset-starter-grid"
+              role="group"
+              aria-label="Scene elements"
             >
-              <X />
-            </button>
-          </Hint>
+              {ASSET_PRESETS.map((preset) => {
+                const { label, icon: Icon } = SCENE_TILES[preset.id];
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    draggable
+                    onClick={() => s.addAssetPreset(preset.id)}
+                    onDragStart={(event) => {
+                      event.dataTransfer.setData(
+                        "application/x-spec-asset-preset",
+                        JSON.stringify({
+                          presetId: preset.id,
+                          templateId: preset.templateId,
+                        }),
+                      );
+                      event.dataTransfer.effectAllowed = "copy";
+                    }}
+                  >
+                    <Icon aria-hidden="true" />
+                    <strong>{label}</strong>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+          <section className="compose-section">
+            <div className="asset-section-heading">
+              <h3>Shapes</h3>
+              <span>Click or drag</span>
+            </div>
+            <div className="shape-palette-grid">
+              {PRIMARY_SHAPES.map(renderShape)}
+              {MORE_SHAPES.map(renderShape)}
+            </div>
+          </section>
+          <section className="compose-section">
+            <div className="asset-section-heading">
+              <h3>Text</h3>
+            </div>
+            <div className="shape-text-options">
+              {PRIMARY_TEXT_PRESETS.map(renderText)}
+              {MORE_TEXT_PRESETS.map(renderText)}
+            </div>
+          </section>
+        </div>
+      </div>
+      <div
+        role="tabpanel"
+        id={`${id}-environment-panel`}
+        aria-labelledby={`${id}-environment-tab`}
+        hidden={view !== "environment"}
+        tabIndex={0}
+        className="asset-settings-view"
+      >
+        {view === "environment" && (
+          <SceneLightingControls presentation="inline" />
         )}
       </div>
-
-      <div className="asset-role-tabs" role="tablist" aria-label="Asset role">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === "all"}
-          className={activeTab === "all" ? "active" : ""}
-          onClick={() => selectTab("all")}
-        >
-          All
-        </button>
-        {ASSET_ROLES.map((role) => {
-          const Icon = ROLE_ICONS[role.id];
-          return (
-            <button
-              key={role.id}
-              type="button"
-              role="tab"
-              aria-selected={activeTab === role.id}
-              className={activeTab === role.id ? "active" : ""}
-              onClick={() => selectTab(role.id)}
-            >
-              <Icon aria-hidden="true" />
-              {role.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {isSearching ? (
-        <div className="asset-search-results">
-          <p aria-live="polite" className="asset-search-count">
-            {searchResults.length
-              ? `${searchResults.length} result${searchResults.length === 1 ? "" : "s"}`
-              : "No results"}
+      <section className="compose-selection" aria-label="Selected element">
+        <div className="asset-section-heading">
+          <h3>Selected element</h3>
+          {element && (
+            <span className="asset-role-badge">
+              {element.semanticRole
+                ? shapeRoleLabel(element.semanticRole)
+                : isTextKind(element.kind)
+                  ? "Text"
+                  : element.kind === "shape"
+                    ? "Shape"
+                    : element.kind === "divider"
+                      ? "Divider"
+                      : "Image"}
+            </span>
+          )}
+        </div>
+        {selected.length ? (
+          <button
+            type="button"
+            className="compose-selection-edit"
+            aria-label={
+              element
+                ? `Edit ${element.name}`
+                : `Edit ${selected.length} selected elements`
+            }
+            onClick={() => {
+              s.setPanel("style");
+              s.setStyleTab("style");
+            }}
+          >
+            <Box aria-hidden="true" />
+            <span>
+              {element?.name ?? `${selected.length} elements selected`}
+            </span>
+            <SlidersHorizontal aria-hidden="true" />
+          </button>
+        ) : (
+          <p className="workflow-hint">
+            Select an element on the canvas to edit it.
           </p>
-          {!searchResults.length ? (
-            <div className="asset-empty">
-              <Search aria-hidden="true" />
-              <b>No assets found</b>
-              <span>Try a different search term.</span>
-            </div>
-          ) : (
-            searchGroups.map(({ category, items }) => (
-              <AssetSection
-                key={category.id}
-                icon={CATEGORY_ICONS[category.id]}
-                label={category.label}
-                count={items.length}
-                items={items}
-                colors={colors}
-                paper={paper}
-                baseTextColor={baseTextColor}
-                onAdd={handleAdd}
-                mode="grid"
-                columns={3}
-              />
-            ))
-          )}
-        </div>
-      ) : activeTab === "all" ? (
-        <div className="asset-groups">
-          {popular.length > 0 && (
-            <AssetSection
-              icon={Star}
-              label="Popular"
-              count={popular.length}
-              items={popular}
-              colors={colors}
-              paper={paper}
-              baseTextColor={baseTextColor}
-              onAdd={handleAdd}
-              mode="row"
-              badgeFor={(item) => {
-                const entry = usage.entries[item.id];
-                return entry && entry.count > 1
-                  ? `×${entry.count}`
-                  : undefined;
-              }}
-            />
-          )}
-          {recentItems.length > 0 && (
-            <AssetSection
-              icon={History}
-              label="Recently used"
-              count={recentItems.length}
-              items={recentItems}
-              colors={colors}
-              paper={paper}
-              baseTextColor={baseTextColor}
-              onAdd={handleAdd}
-              mode="row"
-              headExtra={
-                <button
-                  type="button"
-                  className="asset-clear-recent"
-                  onClick={() => clearAssetUsage()}
-                >
-                  Clear
-                </button>
-              }
-            />
-          )}
-          {ASSET_ROLES.map((role) => {
-            const items = ASSET_CATALOG.filter(
-              (item) => roleOf(item) === role.id,
-            );
-            if (!items.length) return null;
-            return (
-              <AssetSection
-                key={role.id}
-                icon={ROLE_ICONS[role.id]}
-                label={role.label}
-                count={items.length}
-                items={items.slice(0, ROW_PREVIEW_COUNT)}
-                colors={colors}
-                paper={paper}
-                baseTextColor={baseTextColor}
-                onAdd={handleAdd}
-                mode="row"
-                onSeeAll={() => selectTab(role.id)}
-              />
-            );
-          })}
-        </div>
-      ) : (
-        <>
-          <div className="asset-filter-chips" role="list">
-            <button
-              type="button"
-              className={chip === null ? "active" : ""}
-              onClick={() => setChip(null)}
-            >
-              All
-            </button>
-            {roleCategories.map((category) => (
-              <button
-                key={category.id}
-                type="button"
-                className={chip === category.id ? "active" : ""}
-                onClick={() => setChip(category.id)}
-              >
-                {category.label}
-              </button>
-            ))}
-          </div>
-          {roleItems.length || uploadLeading ? (
-            <AssetSection
-              icon={ROLE_ICONS[activeTab]}
-              label={activeRoleLabel}
-              count={roleItems.length}
-              items={roleItems}
-              colors={colors}
-              paper={paper}
-              baseTextColor={baseTextColor}
-              onAdd={handleAdd}
-              mode="grid"
-              columns={3}
-              leading={uploadLeading}
-            />
-          ) : (
-            <div className="asset-empty">
-              <Search aria-hidden="true" />
-              <b>No assets found</b>
-              <span>Try a different filter.</span>
-            </div>
-          )}
-        </>
-      )}
+        )}
+        {!!selected.length && (
+          <p className="workflow-hint">
+            Edit its role, appearance, placement and description.
+          </p>
+        )}
+      </section>
     </div>
   );
 }

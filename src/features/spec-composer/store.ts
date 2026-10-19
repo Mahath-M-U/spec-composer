@@ -1,3 +1,35 @@
+import { findTextPreset } from "./assets-panel/text-presets";
+import {
+  centeredCircle,
+  isCircleShape,
+  shapePatch,
+  type ShapeType,
+} from "./shape-workflow";
+import { synchronizeStructuredOutput } from "./output-sync";
+import {
+  findDescriptionTemplate,
+  resolveElementDetail,
+  synchronizeElementDescriptions,
+  type DescriptionTemplateId,
+} from "./description-templates";
+import { assetPresetPatch, type AssetPresetId } from "./asset-presets";
+import {
+  createStudioLight,
+  createStudioPreset,
+  MAX_STUDIO_LIGHTS,
+  type StudioPresetId,
+} from "./studio-lighting";
+import {
+  generationSettingsSchema,
+  descriptionDraftsSchema,
+  descriptionTemplateSelectionSchema,
+  studioLightSchema,
+  type StudioLight,
+  shapeRoleSchema,
+  type GenerationSettings,
+  type ShapeRole,
+  type ElementStyle,
+} from "./types";
 import { create } from "zustand";
 import {
   type AlignEdge,
@@ -106,6 +138,25 @@ interface EditorState {
   setTool: (t: ToolMode) => void;
   setView: (zoom: number, pan?: { x: number; y: number }) => void;
   setGuides: (guides: Guide[]) => void;
+  addTextPreset: (id: string, point?: { x: number; y: number }) => void;
+  addShape: (type: ShapeType, point?: { x: number; y: number }) => void;
+  addAssetPreset: (
+    id: AssetPresetId,
+    point?: { x: number; y: number },
+    templateId?: DescriptionTemplateId,
+  ) => void;
+  setDescriptionTemplate: (id: string, templateId: DescriptionTemplateId) => void;
+  updateDescriptionField: (id: string, field: string, value: string) => void;
+  detachDescriptionTemplate: (id: string) => void;
+  restoreCustomDescription: (id: string) => void;
+  setShapeRole: (id: string, role: ShapeRole) => void;
+  updateShapeAppearance: (id: string, patch: Partial<ElementStyle>) => void;
+  updateGenerationSettings: (patch: Partial<GenerationSettings>) => void;
+  addStudioLight: () => void;
+  updateStudioLight: (id: string, patch: Partial<Omit<StudioLight, "id">>) => void;
+  removeStudioLight: (id: string) => void;
+  applyStudioPreset: (id: StudioPresetId) => void;
+  resetStudioRig: () => void;
   addElement: (
     k: ElementKind,
     x?: number,
@@ -195,6 +246,64 @@ export type BrandKitDraft = Partial<
 >;
 
 const clone = (d: SpecDocument): SpecDocument => structuredClone(d);
+
+/** Preflight transitions, including bounded imported draft maps, before adding history. */
+function prepareDescriptionChange(
+  doc: SpecDocument | undefined,
+  id: string,
+  change: (el: SpecElement) => void,
+): SpecElement | undefined {
+  const original = doc?.elements.find((el) => el.id === id);
+  if (!doc || !original || original.kind !== "shape" || original.locked)
+    return undefined;
+  const candidate = structuredClone(original);
+  change(candidate);
+  synchronizeElementDescriptions(
+    { ...doc, elements: [original] },
+    { ...doc, elements: [candidate] },
+  );
+  if (
+    (candidate.descriptionTemplate &&
+      !descriptionTemplateSelectionSchema.safeParse(
+        candidate.descriptionTemplate,
+      ).success) ||
+    (candidate.descriptionDrafts &&
+      !descriptionDraftsSchema.safeParse(candidate.descriptionDrafts)
+        .success) ||
+    (candidate.detail?.length ?? 0) > 20_000 ||
+    [
+      "detail",
+      "semanticRole",
+      "descriptionTemplate",
+      "descriptionDrafts",
+    ].every(
+      (key) =>
+        JSON.stringify(candidate[key as keyof SpecElement]) ===
+        JSON.stringify(original[key as keyof SpecElement]),
+    )
+  )
+    return undefined;
+  return candidate;
+}
+
+function applyDescriptionChange(
+  doc: SpecDocument,
+  id: string,
+  candidate: SpecElement,
+) {
+  const el = doc.elements.find((item) => item.id === id);
+  if (!el) return;
+  for (const key of [
+    "detail",
+    "descriptionTemplate",
+    "descriptionDrafts",
+    "semanticRole",
+  ] as const) {
+    if (key in candidate) Object.assign(el, { [key]: candidate[key] });
+    else delete el[key];
+  }
+}
+
 const historyLimit = (doc: SpecDocument) =>
   JSON.stringify(doc).length > 1_000_000 ? 10 : 75;
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
@@ -421,6 +530,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     if (!current) return;
     const next = clone(current);
     fn(next);
+    synchronizeElementDescriptions(current, next);
+    synchronizeStructuredOutput(current, next);
     withRevision(next);
     set((s) => ({
       doc: next,
@@ -512,6 +623,232 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set((s) => ({ zoom: Math.min(3, Math.max(0.1, zoom)), pan: pan ?? s.pan })),
   setGuides: (guides) => set({ guides }),
 
+  addTextPreset: (id, point) => {
+    const preset = findTextPreset(id);
+    if (
+      !preset ||
+      (point && (!Number.isFinite(point.x) || !Number.isFinite(point.y)))
+    )
+      return;
+    get().addElement(preset.kind, point?.x, point?.y, preset.patch);
+  },
+  addShape: (type, point) => {
+    get().addElement("shape", point?.x, point?.y, shapePatch(type), {
+      preservePatchStyle: true,
+    });
+    if (get().panel !== "assets") set({ panel: "style", styleTab: "style" });
+  },
+  addAssetPreset: (id, point, templateId) => {
+    const doc = get().doc;
+    if (
+      !doc ||
+      (point && (!Number.isFinite(point.x) || !Number.isFinite(point.y)))
+    )
+      return;
+    const patch = assetPresetPatch(id, templateId);
+    if (!patch) return;
+    const scale = Math.min(
+      1,
+      doc.format.width / patch.width!,
+      doc.format.height / patch.height!,
+    );
+    patch.width = patch.width! * scale;
+    patch.height = patch.height! * scale;
+    const x = point
+      ? Math.max(0, Math.min(point.x, doc.format.width - patch.width))
+      : undefined;
+    const y = point
+      ? Math.max(0, Math.min(point.y, doc.format.height - patch.height))
+      : undefined;
+    get().addElement("shape", x, y, patch, { preservePatchStyle: true });
+    if (get().panel !== "assets") set({ panel: "style", styleTab: "style" });
+  },
+  setDescriptionTemplate: (id, templateId) => {
+    const template = findDescriptionTemplate(templateId);
+    const original = get().doc?.elements.find((el) => el.id === id);
+    if (!template || original?.descriptionTemplate?.id === templateId) return;
+    const candidate = prepareDescriptionChange(get().doc, id, (el) => {
+      const values =
+        el.descriptionDrafts?.templates?.[templateId]?.values ??
+        Object.fromEntries(
+          template.fields.map((field) => [field.id, field.defaultValue]),
+        );
+      el.descriptionTemplate = { id: templateId, values: { ...values } };
+      el.semanticRole = template.role;
+    });
+    if (candidate)
+      get().mutate((doc) => applyDescriptionChange(doc, id, candidate));
+  },
+  updateDescriptionField: (id, field, value) => {
+    const original = get().doc?.elements.find((el) => el.id === id);
+    const selection = original?.descriptionTemplate;
+    if (
+      !selection ||
+      value.length > 200 ||
+      !findDescriptionTemplate(selection.id)?.fields.some(
+        (item) => item.id === field,
+      )
+    )
+      return;
+    const trimmed = value.trim();
+    if (selection.values[field] === trimmed) return;
+    const candidate = prepareDescriptionChange(get().doc, id, (el) => {
+      el.descriptionTemplate!.values[field] = trimmed;
+    });
+    if (candidate)
+      get().mutate((doc) => applyDescriptionChange(doc, id, candidate));
+  },
+  detachDescriptionTemplate: (id) => {
+    if (!get().doc?.elements.find((el) => el.id === id)?.descriptionTemplate)
+      return;
+    const candidate = prepareDescriptionChange(get().doc, id, (el) => {
+      el.detail = resolveElementDetail(el);
+      delete el.descriptionTemplate;
+    });
+    if (candidate)
+      get().mutate((doc) => applyDescriptionChange(doc, id, candidate));
+  },
+  restoreCustomDescription: (id) => {
+    const original = get().doc?.elements.find((el) => el.id === id);
+    const custom = original?.descriptionDrafts?.custom;
+    if (custom === undefined) return;
+    const candidate = prepareDescriptionChange(get().doc, id, (el) => {
+      el.detail = custom;
+      delete el.descriptionTemplate;
+    });
+    if (candidate)
+      get().mutate((doc) => applyDescriptionChange(doc, id, candidate));
+  },
+  setShapeRole: (id, role) => {
+    const el = get().doc?.elements.find((e) => e.id === id);
+    if (
+      !el ||
+      el.kind !== "shape" ||
+      el.locked ||
+      el.semanticRole === role ||
+      !shapeRoleSchema.safeParse(role).success
+    )
+      return;
+    const candidate = prepareDescriptionChange(get().doc, id, (element) => {
+      element.semanticRole = role;
+    });
+    if (candidate)
+      get().mutate((doc) => applyDescriptionChange(doc, id, candidate));
+  },
+  updateShapeAppearance: (id, patch) => {
+    const el = get().doc?.elements.find((e) => e.id === id);
+    if (
+      !el ||
+      el.kind !== "shape" ||
+      el.locked ||
+      Object.entries(patch).every(
+        ([key, value]) => el.style[key as keyof ElementStyle] === value,
+      )
+    )
+      return;
+    if (
+      [patch.borderRadius, patch.opacity].some(
+        (value) => value !== undefined && !Number.isFinite(value),
+      )
+    )
+      return;
+    const style = { ...el.style, ...patch };
+    if (
+      patch.shapeType === "rounded rectangle" &&
+      el.style.shapeType !== patch.shapeType
+    )
+      style.borderRadius = 16;
+    if (patch.shapeType === "rectangle") style.borderRadius = 0;
+    if (["ellipse", "triangle", "diamond", "line"].includes(patch.shapeType ?? "")) style.borderRadius = 0;
+    const box =
+      patch.shapeType === "circle"
+        ? {
+            width: Math.min(el.width, el.height),
+            height: Math.min(el.width, el.height),
+          }
+        : {};
+    get().updateElement(id, { style, ...box });
+  },
+  updateGenerationSettings: (patch) => {
+    const doc = get().doc;
+    if (!doc) return;
+    const includesLighting = [
+      "lightType",
+      "lightDirection",
+      "lightIntensity",
+      "shadows",
+      "studioLights",
+    ].some((key) => key in patch);
+    const result = generationSettingsSchema.safeParse({
+      ...doc.generationSettings,
+      ...patch,
+    });
+    if (
+      !result.success ||
+      (JSON.stringify(result.data) ===
+        JSON.stringify(doc.generationSettings ?? {}) &&
+        !(includesLighting && !doc.promptOptions.lighting))
+    )
+      return;
+    get().mutate((next) => {
+      next.generationSettings = result.data;
+      if ("cameraAngle" in patch) next.promptOptions.scene = true;
+      if (includesLighting) next.promptOptions.lighting = true;
+    });
+  },
+  addStudioLight: () => {
+    const doc = get().doc;
+    if (
+      !doc ||
+      (doc.generationSettings?.studioLights?.length ?? 0) >= MAX_STUDIO_LIGHTS
+    )
+      return;
+    get().updateGenerationSettings({
+      studioLights: [
+        ...(doc.generationSettings?.studioLights ?? []),
+        createStudioLight(),
+      ],
+    });
+  },
+  updateStudioLight: (id, patch) => {
+    const lights = get().doc?.generationSettings?.studioLights;
+    const current = lights?.find((light) => light.id === id);
+    if (!current || !lights) return;
+    const candidate = studioLightSchema.safeParse({
+      ...current,
+      ...patch,
+      id: current.id,
+    });
+    if (
+      !candidate.success ||
+      JSON.stringify(candidate.data) === JSON.stringify(current)
+    )
+      return;
+    get().mutate((doc) => {
+      doc.generationSettings!.studioLights = lights.map((light) =>
+        light.id === id ? candidate.data : light,
+      );
+    });
+  },
+  removeStudioLight: (id) => {
+    const lights = get().doc?.generationSettings?.studioLights;
+    if (!lights?.some((light) => light.id === id)) return;
+    get().mutate((doc) => {
+      doc.generationSettings!.studioLights = lights.filter(
+        (light) => light.id !== id,
+      );
+    });
+  },
+  applyStudioPreset: (id) => {
+    if (!get().doc || (id !== "portrait" && id !== "product")) return;
+    get().updateGenerationSettings({ studioLights: createStudioPreset(id) });
+  },
+  resetStudioRig: () => {
+    if (get().doc?.generationSettings?.studioLights === undefined) return;
+    get().mutate((doc) => {
+      delete doc.generationSettings!.studioLights;
+    });
+  },
   addElement: (kind, x, y, patch, options) => {
     const d = get().doc;
     if (!d) return;
@@ -721,13 +1058,32 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       return;
     get().mutate((next) => {
       next.elements.forEach((el) => {
-        if (boxes[el.id]) Object.assign(el, boxes[el.id]);
+        if (boxes[el.id])
+          Object.assign(
+            el,
+            isCircleShape(el) && el.semanticRole
+              ? centeredCircle(boxes[el.id]!)
+              : boxes[el.id],
+          );
       });
     });
   },
   updateElement: (id, patch) => {
     const original = get().doc?.elements.find((el) => el.id === id);
     if (!original) return;
+    if (
+      original.locked &&
+      (patch.semanticRole !== undefined || patch.style !== undefined)
+    )
+      return;
+    if (
+      isCircleShape(original) &&
+      original.semanticRole &&
+      (patch.width !== undefined || patch.height !== undefined)
+    ) {
+      const diameter = patch.width ?? patch.height!;
+      patch = { ...patch, width: diameter, height: diameter };
+    }
     const geometry = ["x", "y", "width", "height", "rotation"] as const;
     if (geometry.some((key) => patch[key] !== undefined)) {
       if (
@@ -763,13 +1119,30 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   setElementDetail: (id, value, history) => {
     const original = get().doc?.elements.find((el) => el.id === id);
-    if (!original || original.locked) return;
+    if (
+      !original ||
+      original.locked ||
+      value.length > 20_000 ||
+      (original.detail === value && !original.descriptionTemplate)
+    )
+      return;
+    if (original.kind === "shape") {
+      const candidate = prepareDescriptionChange(get().doc, id, (el) => {
+        el.detail = value;
+        delete el.descriptionTemplate;
+      });
+      if (candidate)
+        get().mutate(
+          (doc) => applyDescriptionChange(doc, id, candidate),
+          history ?? true,
+        );
+      return;
+    }
     get().mutate((doc) => {
       const el = doc.elements.find((e) => e.id === id);
       if (el) el.detail = value;
     }, history ?? true);
   },
-
   updateElementConstraint: (id, patch) =>
     get().mutate((doc) => {
       const e = doc.elements.find((v) => v.id === id);
@@ -1034,6 +1407,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         e.y = Math.round(next.y + relY * scaleY);
         e.width = Math.round(e.width * scaleX);
         e.height = Math.round(e.height * scaleY);
+        if (isCircleShape(e) && e.semanticRole)
+          Object.assign(e, centeredCircle(e));
       });
     });
   },

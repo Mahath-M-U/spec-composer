@@ -1,3 +1,9 @@
+import { isSemanticVisual, shapeDescription } from "./shape-workflow";
+import { resolveEditorText } from "./output-sync";
+import {
+  findDescriptionTemplate,
+  resolveElementDetail,
+} from "./description-templates";
 import {
   isTextKind,
   type ExternalToolRequirement,
@@ -72,6 +78,8 @@ export type PromptSeg =
 export const segText = (segs: PromptSeg[]) =>
   segs.map((g) => (typeof g === "string" ? g : g.value || g.fallback)).join("");
 function describeSegs(el: SpecElement, doc: SpecDocument): PromptSeg[] {
+  if (el.kind === "shape" && el.semanticRole)
+    return [`${el.name}: ${shapeDescription(el)}`];
   const where = doc.promptOptions.relativePositioning
     ? ` in the ${region(el, doc)}`
     : "";
@@ -85,7 +93,7 @@ function describeSegs(el: SpecElement, doc: SpecDocument): PromptSeg[] {
       { id: el.id, field: "content", value: el.content ?? "", fallback: "" },
       `”${rotation}${doc.promptOptions.typography && el.style.fontSize ? `, ${el.style.fontSize}px ${el.style.fontWeight ?? 400}${el.style.fontStyle === "italic" ? " italic" : ""} ${el.style.fontFamily ?? "sans-serif"}` : ""}${doc.promptOptions.colors && el.style.color ? `, color ${el.style.color}` : ""}.`,
     ];
-  const detail = el.detail?.trim();
+  const detail = resolveElementDetail(el).trim();
   return [
     `${el.name} (${el.kind})${where}${size}: `,
     {
@@ -131,7 +139,11 @@ export type PromptLine = {
 /** The largest visible image layer: what the prompt calls the dominant visual. */
 export const dominantVisual = (doc: SpecDocument) =>
   doc.elements
-    .filter((e) => e.visible && e.kind.toLowerCase().includes("image"))
+    .filter(
+      (e) =>
+        e.visible &&
+        (e.kind.toLowerCase().includes("image") || isSemanticVisual(e)),
+    )
     .sort((a, b) => b.width * b.height - a.width * a.height)[0];
 /** The brief as a prompt line, e.g. "Purpose: Launch post for …". The panel
  * edits it in place as its own section, so it isn't a generated segment. */
@@ -200,6 +212,13 @@ export function compileVisualSegments(doc: SpecDocument): PromptLine[] {
     const line = artLine(doc, key);
     lines.push([key, line ? [line] : []]);
   }
+  if (els.some((el) => el.semanticRole))
+    lines.push([
+      "annotations",
+      [
+        "Editor role labels are annotations only; omit these labels from the generated image.",
+      ],
+    ]);
   if (dominant)
     lines.push([
       "dominant",
@@ -218,7 +237,11 @@ export function compileVisualSegments(doc: SpecDocument): PromptLine[] {
     const mp = materialPhrase(e);
     lines.push([
       `el:${e.id}`,
-      [...describeSegs(e, doc), ...(mp ? [mp] : []), ...describeConstraint(e, doc)],
+      [
+        ...describeSegs(e, doc),
+        ...(mp ? [mp] : []),
+        ...describeConstraint(e, doc),
+      ],
     ]);
   }
   lines.push([
@@ -336,7 +359,11 @@ export const MOCKUP_FRAMING =
   "The attached image is a layout mockup of this design. Keep every element's position, size, text and colors as shown. Placeholder illustrations only mark what content goes where; render them in the visual style described in this brief, not as drawn. Real photos and logos in the mockup are actual assets: reproduce them faithfully and do not restyle them.";
 
 export function compilePromptEditorOutput(doc: SpecDocument) {
-  const body = doc.visualEdit ?? compileVisualPrompt(doc);
+  const body = resolveEditorText(
+    doc,
+    "visual_prompt",
+    compileVisualPrompt(doc),
+  );
   const framed = `${MOCKUP_FRAMING}\n\n${body}`;
   if (doc.promptMode !== "visual_prompt") return framed;
   const directive = doc.externalToolRequirement
@@ -349,10 +376,18 @@ export function compilePromptEditorOutput(doc: SpecDocument) {
  * visual prompt, so a JSON export is directly actionable when pasted into an
  * image generator instead of being inert structured data. */
 export function buildJsonExport(doc: SpecDocument) {
+  const spec = structuredClone(doc);
+  for (const el of spec.elements) {
+    if (
+      el.descriptionTemplate &&
+      findDescriptionTemplate(el.descriptionTemplate.id)
+    )
+      el.detail = resolveElementDetail(el);
+  }
   return {
     instruction: `Generate a ${doc.format.width} × ${doc.format.height} image from this specification. Follow "prompt" as the primary creative brief, and use "spec" as the exact source of truth for copy, colors, and layout.`,
     prompt: compilePromptEditorOutput(doc),
-    spec: doc,
+    spec,
   };
 }
 
