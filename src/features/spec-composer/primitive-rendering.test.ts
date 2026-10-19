@@ -5,8 +5,11 @@ import { ElementContent, StaticDocument, StaticElement } from "./static-render";
 import { createDocument } from "./templates";
 import type { SpecElement } from "./types";
 import { specDocumentSchema } from "./types";
-import { buildJsonExport } from "./compiler";
+import { buildJsonExport, compileVisualPrompt } from "./compiler";
+import { compileDesignSkill } from "./design-md";
 import { createElement as createSpecElement } from "./registry";
+import { assetPresetPatch } from "./asset-presets";
+import { shapePatch } from "./shape-workflow";
 
 const shape = (
   shapeType: "triangle" | "diamond" | "ellipse" | "line",
@@ -143,5 +146,77 @@ describe("expanded primitive rendering", () => {
     expect(html).not.toContain("shape-role-label");
     expect(html).not.toContain("Decorative element");
     expect(html).toContain("rotate(25deg)");
+  });
+});
+
+describe("scene starter artwork", () => {
+  const modelElement = (): SpecElement => ({
+    id: "scene-art-model",
+    kind: "shape",
+    name: "Model",
+    x: 0,
+    y: 0,
+    width: 240,
+    height: 360,
+    rotation: 0,
+    zIndex: 1,
+    visible: true,
+    locked: false,
+    style: {},
+    ...assetPresetPatch("model"),
+  });
+
+  it("renders the preset's art inside a has-art shape, with no role label or name text", () => {
+    const el = modelElement();
+    const html = renderToStaticMarkup(createElement(ElementContent, { el }));
+    expect(html).toContain('class="placeholder-art"');
+    expect(html).toContain("canvas-shape has-art");
+    expect(html).not.toContain("shape-role-label");
+    expect(html).not.toContain("Subject");
+  });
+
+  it("renders no art for a plain shape preset without placeholderArt", () => {
+    const patch = shapePatch("rectangle");
+    const el: SpecElement = {
+      id: "plain-rect",
+      kind: "shape",
+      name: "Rectangle",
+      x: 0,
+      y: 0,
+      width: 200,
+      height: 100,
+      rotation: 0,
+      zIndex: 1,
+      visible: true,
+      locked: false,
+      style: {},
+      ...patch,
+    };
+    const html = renderToStaticMarkup(createElement(ElementContent, { el }));
+    expect(html).not.toContain("placeholder-art");
+  });
+
+  it("never renders art on a line / divider shape", () => {
+    const el = modelElement();
+    el.style = { ...el.style, shapeType: "line" };
+    const html = renderToStaticMarkup(createElement(ElementContent, { el }));
+    expect(html).not.toContain("placeholder-art");
+  });
+
+  it("renders art inside the polygon fill for triangle shapes", () => {
+    const el = modelElement();
+    el.style = { ...el.style, shapeType: "triangle" };
+    const html = renderToStaticMarkup(createElement(ElementContent, { el }));
+    expect(html).toContain("canvas-polygon-fill");
+    const fillIndex = html.indexOf('class="canvas-polygon-fill"');
+    const artIndex = html.indexOf("placeholder-art");
+    expect(artIndex).toBeGreaterThan(fillIndex);
+  });
+
+  it("keeps compiled prompt and design output free of the preset's art key", () => {
+    const doc = createDocument();
+    doc.elements = [modelElement()];
+    expect(compileVisualPrompt(doc)).not.toContain("person-standing");
+    expect(compileDesignSkill(doc)).not.toContain("person-standing");
   });
 });

@@ -59,6 +59,7 @@ describe("description template UI", () => {
     ])
       expect(html).toContain(`<strong>${label}</strong>`);
     expect(html).toContain("Click or drag");
+    expect(html.match(/class="placeholder-art"/g)).toHaveLength(6);
     expect(html).not.toContain("Choose a starter");
     expect(html).not.toContain("Add Model / person");
     expect(html).not.toContain("Description template");

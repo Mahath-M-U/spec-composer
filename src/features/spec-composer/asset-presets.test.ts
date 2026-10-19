@@ -13,6 +13,7 @@ import { createDocument } from "./templates";
 import { createElement } from "./registry";
 import { SHAPE_TYPES, effectiveRadius, shapePatch } from "./shape-workflow";
 import { validateWritableDocument } from "./types";
+import { hasPlaceholderArt } from "./illustrations";
 
 describe("semantic scene starters", () => {
   it.each(ASSET_PRESETS)(
@@ -24,7 +25,9 @@ describe("semantic scene starters", () => {
         height: preset.height,
         semanticRole: preset.role,
         descriptionTemplate: { id: preset.templateId },
+        placeholderArt: preset.art,
       });
+      expect(hasPlaceholderArt(patch.placeholderArt)).toBe(true);
       for (const key of ["id", "slot", "assetId", "zIndex", "groupId"])
         expect(patch).not.toHaveProperty(key);
       expect(findDescriptionTemplate(preset.templateId)?.role).toBe(
@@ -36,6 +39,11 @@ describe("semantic scene starters", () => {
       expect(() => validateWritableDocument(doc)).not.toThrow();
     },
   );
+
+  it("gives every preset a unique art key", () => {
+    const keys = ASSET_PRESETS.map((preset) => preset.art);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
 
   it("uses preset field overrides only for its default template, and alternate-template role/defaults otherwise", () => {
     expect(resolveElementDetail(assetPresetPatch("pedestal")!)).toContain(

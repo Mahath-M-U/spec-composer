@@ -107,7 +107,15 @@ export function textStyle(el: SpecElement): CSSProperties {
 }
 
 /** CSS fills retain gradients; the clipped SVG draws a true polygon border. */
-function PolygonShape({ el }: { el: SpecElement }) {
+function PolygonShape({
+  el,
+  art,
+  colors,
+}: {
+  el: SpecElement;
+  art: string | undefined;
+  colors: ArtColors;
+}) {
   const clipId = useId();
   const triangle = el.style.shapeType === "triangle";
   const width = Math.max(1, el.width);
@@ -128,7 +136,15 @@ function PolygonShape({ el }: { el: SpecElement }) {
       <div
         className="canvas-polygon-fill"
         style={{ background: el.style.background, clipPath }}
-      />
+      >
+        {art && (
+          <PlaceholderArt
+            art={art}
+            colors={colors}
+            fit={el.semanticRole === "background" ? "cover" : "contain"}
+          />
+        )}
+      </div>
       {borderWidth > 0 && (
         <svg
           className="canvas-polygon-stroke"
@@ -219,12 +235,20 @@ export function ElementContent({ el }: { el: SpecElement }) {
     );
   }
   if (el.kind === "shape" || el.kind === "divider") {
+    const art =
+      el.kind === "shape" &&
+      st.shapeType !== "line" &&
+      hasPlaceholderArt(el.placeholderArt)
+        ? el.placeholderArt
+        : undefined;
     if (st.shapeType === "triangle" || st.shapeType === "diamond")
-      return <PolygonShape el={el} />;
+      return <PolygonShape el={el} art={art} colors={artColors} />;
     const round = st.shapeType === "circle" || st.shapeType === "ellipse";
     return (
       <div
-        className={`canvas-shape ${round ? "circle" : ""}`}
+        className={["canvas-shape", round && "circle", art && "has-art"]
+          .filter(Boolean)
+          .join(" ")}
         data-shape={st.shapeType}
         style={{
           background: st.background,
@@ -239,7 +263,15 @@ export function ElementContent({ el }: { el: SpecElement }) {
           borderColor: st.borderColor,
           borderWidth: st.borderWidth,
         }}
-      />
+      >
+        {art && (
+          <PlaceholderArt
+            art={art}
+            colors={artColors}
+            fit={el.semanticRole === "background" ? "cover" : "contain"}
+          />
+        )}
+      </div>
     );
   }
   return (

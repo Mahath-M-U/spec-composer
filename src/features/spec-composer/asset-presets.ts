@@ -5,6 +5,7 @@ import {
   type DescriptionTemplateId,
 } from "./description-templates";
 import { shapePatch, type ShapeType } from "./shape-workflow";
+import type { MotifKey } from "./motif-keys";
 
 export type AssetPresetId =
   "model" | "product" | "pedestal" | "backdrop" | "copy-space" | "label";
@@ -19,6 +20,8 @@ export type AssetPresetDefinition = {
   templateId: DescriptionTemplateId;
   templateValues: Readonly<Record<string, string>>;
   style: Readonly<Partial<ElementStyle>>;
+  /** Inline art shown on the canvas and the Assets panel tile for this preset. */
+  art: MotifKey;
 };
 
 export const ASSET_PRESETS: readonly AssetPresetDefinition[] = [
@@ -33,6 +36,7 @@ export const ASSET_PRESETS: readonly AssetPresetDefinition[] = [
     templateId: "person-model",
     templateValues: {},
     style: { background: "#DDE7F1" },
+    art: "person-standing",
   },
   {
     id: "product",
@@ -45,6 +49,7 @@ export const ASSET_PRESETS: readonly AssetPresetDefinition[] = [
     templateId: "product-packshot",
     templateValues: {},
     style: { background: "#E8DED0" },
+    art: "product-bottle",
   },
   {
     id: "pedestal",
@@ -62,6 +67,7 @@ export const ASSET_PRESETS: readonly AssetPresetDefinition[] = [
       treatment: "a clean, solid plinth with a level top",
     },
     style: { background: "#D2C6B5" },
+    art: "scene-pedestal",
   },
   {
     id: "backdrop",
@@ -74,6 +80,7 @@ export const ASSET_PRESETS: readonly AssetPresetDefinition[] = [
     templateId: "texture-background",
     templateValues: {},
     style: { background: "#ECE4D9" },
+    art: "scene-backdrop",
   },
   {
     id: "copy-space",
@@ -86,6 +93,7 @@ export const ASSET_PRESETS: readonly AssetPresetDefinition[] = [
     templateId: "reserved-text",
     templateValues: {},
     style: { background: "#EEF0EC" },
+    art: "scene-copy-space",
   },
   {
     id: "label",
@@ -103,6 +111,7 @@ export const ASSET_PRESETS: readonly AssetPresetDefinition[] = [
       treatment: "a simple rounded silhouette with clear margins",
     },
     style: { background: "#F0DFD4" },
+    art: "scene-callout",
   },
 ];
 
@@ -134,5 +143,6 @@ export function assetPresetPatch(
     style: { ...patch.style, ...preset.style },
     descriptionTemplate: { id: template.id, values },
     detail: renderDescriptionTemplate(template.id, values) ?? "",
+    placeholderArt: preset.art,
   };
 }

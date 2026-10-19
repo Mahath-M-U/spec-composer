@@ -58,6 +58,7 @@ describe("scene starters and description transitions", () => {
         descriptionTemplate: { id: preset.templateId },
       });
       expect(added.detail).toBe(resolveElementDetail(added));
+      expect(added.placeholderArt).toBe(preset.art);
       expect(added.slot).toBeUndefined();
       expect(added.assetId).toBeUndefined();
       expect(state().selectedIds).toEqual([added.id]);

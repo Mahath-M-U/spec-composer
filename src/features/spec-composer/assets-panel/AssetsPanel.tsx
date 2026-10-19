@@ -1,14 +1,5 @@
 import { useId, useRef, useState } from "react";
-import {
-  Box,
-  LayoutPanelTop,
-  MessageCircle,
-  Scan,
-  Shapes,
-  SlidersHorizontal,
-  Sun,
-  UserRound,
-} from "lucide-react";
+import { Box, Shapes, SlidersHorizontal, Sun } from "lucide-react";
 import { SceneLightingControls } from "../scene-lighting-controls";
 import { PanelHeader } from "../panel-header";
 import { useEditorStore } from "../store";
@@ -20,18 +11,19 @@ import {
 import { ASSET_PRESETS } from "../asset-presets";
 import { PRIMARY_TEXT_PRESETS, MORE_TEXT_PRESETS } from "./text-presets";
 import { isTextKind } from "../types";
+import { PlaceholderArt } from "../illustrations";
 
 const VIEWS = [
   { id: "add", label: "Add", icon: Shapes },
   { id: "environment", label: "Environment", icon: Sun },
 ] as const;
 const SCENE_TILES = {
-  model: { label: "Person", icon: UserRound },
-  product: { label: "Product", icon: Box },
-  pedestal: { label: "Display", icon: Box },
-  backdrop: { label: "Backdrop", icon: LayoutPanelTop },
-  "copy-space": { label: "Copy space", icon: Scan },
-  label: { label: "Callout", icon: MessageCircle },
+  model: { label: "Person" },
+  product: { label: "Product" },
+  pedestal: { label: "Display" },
+  backdrop: { label: "Backdrop" },
+  "copy-space": { label: "Copy space" },
+  label: { label: "Callout" },
 };
 const PRIMARY_SHAPES: readonly ShapeType[] = [
   "rectangle",
@@ -51,6 +43,12 @@ export function AssetsPanel() {
     s.doc?.elements.filter((element) => s.selectedIds.includes(element.id)) ??
     [];
   const element = selected.length === 1 ? selected[0] : undefined;
+  const artColors = s.doc?.creativeDirection
+    ? {
+        ink: s.doc.creativeDirection.primaryColor,
+        accent: s.doc.creativeDirection.secondaryColor,
+      }
+    : { ink: "#18181B", accent: "#A78BFA" };
   const renderShape = (type: ShapeType) => (
     <button
       key={type}
@@ -157,7 +155,7 @@ export function AssetsPanel() {
               aria-label="Scene elements"
             >
               {ASSET_PRESETS.map((preset) => {
-                const { label, icon: Icon } = SCENE_TILES[preset.id];
+                const { label } = SCENE_TILES[preset.id];
                 return (
                   <button
                     key={preset.id}
@@ -175,7 +173,21 @@ export function AssetsPanel() {
                       event.dataTransfer.effectAllowed = "copy";
                     }}
                   >
-                    <Icon aria-hidden="true" />
+                    <span
+                      className="asset-starter-art"
+                      aria-hidden="true"
+                      style={{
+                        background: preset.style.background,
+                        borderRadius:
+                          preset.shapeType === "rounded rectangle" ? 4 : 1,
+                      }}
+                    >
+                      <PlaceholderArt
+                        art={preset.art}
+                        colors={artColors}
+                        fit={preset.role === "background" ? "cover" : "contain"}
+                      />
+                    </span>
                     <strong>{label}</strong>
                   </button>
                 );

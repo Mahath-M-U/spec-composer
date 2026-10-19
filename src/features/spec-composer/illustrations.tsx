@@ -23,6 +23,7 @@ import { bathroomMotifs } from "./motifs/bathroom";
 import { cafeMotifs } from "./motifs/cafe";
 import { parkMotifs } from "./motifs/park";
 import { coastMotifs } from "./motifs/coast";
+import { sceneStarterMotifs } from "./motifs/scene-starters";
 
 /**
  * Placeholder motifs for empty image slots. They are flat, single-accent
@@ -1974,6 +1975,10 @@ const motifs: Record<MotifKey, Motif> = {
   ...cafeMotifs,
   ...parkMotifs,
   ...coastMotifs,
+
+  // Scene starters: artwork for the Assets panel's six direct insertion
+  // presets (asset-presets.ts).
+  ...sceneStarterMotifs,
 };
 
 /** Picker labels, in display order. */
