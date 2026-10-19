@@ -150,8 +150,11 @@ export function CanvasWorkspace({
       }
       const ids = useEditorStore.getState().selectedIds;
       elements = doc.elements.filter((el) => ids.includes(el.id));
-      if (!elements.length || elements.some((el) => el.locked || !el.visible))
+      if (!elements.length) return;
+      if (elements.some((el) => el.locked || !el.visible)) {
+        onCanvasSelect?.();
         return;
+      }
       kind = handle ? "resize" : "drag";
     }
     gesture.current = {

@@ -4,6 +4,9 @@ import { describe, expect, it } from "vitest";
 import { ElementContent, StaticDocument, StaticElement } from "./static-render";
 import { createDocument } from "./templates";
 import type { SpecElement } from "./types";
+import { specDocumentSchema } from "./types";
+import { buildJsonExport } from "./compiler";
+import { createElement as createSpecElement } from "./registry";
 
 const shape = (
   shapeType: "triangle" | "diamond" | "ellipse" | "line",
@@ -31,6 +34,49 @@ const shape = (
 });
 
 describe("expanded primitive rendering", () => {
+  it("removes the polygon stroke when border width is zero and border color is cleared", () => {
+    const el = shape("triangle");
+    el.style.borderWidth = 0;
+    delete el.style.borderColor;
+    const html = renderToStaticMarkup(createElement(ElementContent, { el }));
+    expect(html).not.toContain("canvas-polygon-stroke");
+    expect(html).not.toContain("stroke-width");
+    expect(html).toContain("opacity:0.6");
+    expect(html).toContain("linear-gradient(90deg, #ff0000, #0000ff)");
+  });
+
+  it("round-trips alpha text colors through schema/JSON and renders them independently of layer opacity", () => {
+    const document = createDocument();
+    const el = createSpecElement("title", document.format, 0);
+    el.style = {
+      ...el.style,
+      color: "#12345680",
+      background: "#abcdef40",
+      opacity: 0.375,
+    };
+    document.elements = [el];
+    const roundTrip = specDocumentSchema.parse(
+      JSON.parse(JSON.stringify(buildJsonExport(document).spec)),
+    );
+    expect(roundTrip.elements[0]!.style).toMatchObject({
+      color: "#12345680",
+      background: "#abcdef40",
+      opacity: 0.375,
+    });
+    let html = renderToStaticMarkup(
+      createElement(StaticDocument, { doc: roundTrip }),
+    );
+    expect(html).toContain("color:#12345680");
+    expect(html).toContain("background:#abcdef40");
+    expect(html).toContain("opacity:0.375");
+    delete roundTrip.elements[0]!.style.background;
+    html = renderToStaticMarkup(
+      createElement(ElementContent, { el: roundTrip.elements[0]! }),
+    );
+    expect(html).not.toContain("background:");
+    expect(html).toContain("opacity:0.375");
+    expect(html).toContain("color:#12345680");
+  });
   it.each(["triangle", "diamond"] as const)(
     "renders %s with gradient fill and a clipped polygon stroke",
     (type) => {

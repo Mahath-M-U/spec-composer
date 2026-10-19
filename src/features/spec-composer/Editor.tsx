@@ -89,6 +89,16 @@ import { cn } from "@/lib/utils";
 import { readRaw, writeRaw } from "@/lib/storage/local";
 import { AppIcon } from "@/components/app-icon";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { fitPreview } from "./preview-fit";
+import { openStyleEditor } from "./inspector-navigation";
+import { OpaqueColorControl } from "./color-control";
+import { TextColorControl } from "./text-color-control";
+import {
+  applyTextColorIntent,
+  textColorPresets,
+  type TextColorIntent,
+  type TextColorProperty,
+} from "./text-color";
 import { UserSettings } from "./user-settings";
 import { useEditorStore, boundsOf, type Box, type ComposeLayout } from "./store";
 import {
@@ -213,10 +223,6 @@ const PLACEHOLDER_ART_GROUPS: [string, typeof PLACEHOLDER_ART_OPTIONS][] =
     }, new Map<string, typeof PLACEHOLDER_ART_OPTIONS>()),
   );
 
-function colorInputValue(value: string | undefined, fallback: string): string {
-  return value && /^#[0-9a-f]{6}$/i.test(value) ? value : fallback;
-}
-
 function gcd(a: number, b: number): number {
   return b === 0 ? a : gcd(b, a % b);
 }
@@ -238,16 +244,6 @@ const RIGHT_PANEL_DEFAULT_WIDTH = 624;
 function editorChromeWidth(): number {
   const rail = window.innerWidth <= 1250 ? 76 : 80;
   return rail + 2 * 12 + 2 * 12;
-}
-
-/** Switches the left sidebar to the Style panel's Style tab and, on desktop,
- * opens it — shared by canvas selection and prompt-panel selection so both
- * land on the same place. */
-function openStyleEditor(sidebars: SidebarLayout) {
-  const store = useEditorStore.getState();
-  store.setPanel("style");
-  store.setStyleTab("style");
-  if (!sidebars.overlay && !sidebars.leftOpen) sidebars.setOpen("left", true);
 }
 
 export function Editor({ projectId }: { projectId: string }) {
@@ -323,8 +319,7 @@ export function Editor({ projectId }: { projectId: string }) {
   useShortcuts(() => setPreview(true));
 
   const openStyleFromCanvas = () => {
-    const panel = useEditorStore.getState().panel;
-    if (panel !== "assets" && panel !== "layers") openStyleEditor(sidebars);
+    openStyleEditor(sidebars, { preserveActiveTab: true });
   };
 
   if (notFound)
@@ -709,6 +704,7 @@ function ToolRail({
           <AppIcon className="h-full w-full" />
         </Link>
       </Hint>
+      <i className="tool-rail-divider" aria-hidden="true" />
       {items.map(([id, Icon, label]) => {
         const active = sidebars.leftOpen && s.panel === id;
         return (
@@ -726,6 +722,10 @@ function ToolRail({
           </button>
         );
       })}
+      <i
+        className="tool-rail-divider tool-rail-divider-footer"
+        aria-hidden="true"
+      />
       <button
         type="button"
         className="tool-rail-tour"
@@ -929,6 +929,7 @@ export function DockNumberField({
   max,
   suffix,
   disabled = false,
+  displayDecimals,
 }: {
   prefix: ReactNode;
   label: string;
@@ -938,6 +939,7 @@ export function DockNumberField({
   max?: number | undefined;
   suffix?: string;
   disabled?: boolean;
+  displayDecimals?: number;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
   const cancelBlur = useRef(false);
@@ -965,7 +967,14 @@ export function DockNumberField({
           min={min}
           max={max}
           placeholder={value === undefined ? "Mixed" : undefined}
-          value={draft ?? value ?? ""}
+          value={
+            draft ??
+            (value !== undefined &&
+            Number.isFinite(value) &&
+            displayDecimals !== undefined
+              ? value.toFixed(displayDecimals)
+              : (value ?? ""))
+          }
           disabled={disabled}
           onChange={(event) => setDraft(event.target.value)}
           onBlur={(event) => {
@@ -1009,38 +1018,6 @@ export function DockNumberField({
   );
 }
 
-function InspectorColor({
-  label,
-  value,
-  onChange,
-  disabled,
-}: {
-  label: string;
-  value: string | undefined;
-  onChange: (value: string) => void;
-  disabled: boolean;
-}) {
-  return (
-    <label className="style-dock-row">
-      <span>{label}</span>
-      <span className="inspector-color">
-        {(value === undefined || !/^#[0-9a-f]{6}$/i.test(value)) && (
-          <small>{value ?? "Mixed"}</small>
-        )}
-        <input
-          aria-label={label}
-          type="color"
-          className="style-dock-swatch"
-          data-mixed={value === undefined || undefined}
-          value={colorInputValue(value, "#ffffff")}
-          disabled={disabled}
-          onChange={(event) => onChange(event.target.value)}
-        />
-      </span>
-    </label>
-  );
-}
-
 export function StylePanel() {
   const s = useEditorStore();
   const d = s.doc;
@@ -1049,6 +1026,12 @@ export function StylePanel() {
   const [ratioLocked, setRatioLocked] = useState(false);
   const [moreMaterials, setMoreMaterials] = useState(false);
   const [materialDraft, setMaterialDraft] = useState<string | null>(null);
+  const textColorGesture = useRef<{
+    context: string;
+    doc: SpecDocument;
+    changed: boolean;
+    invalid: boolean;
+  } | null>(null);
   const selectionKey = inspectorContext();
   useEffect(() => {
     setRatioLocked(false);
@@ -1102,6 +1085,59 @@ export function StylePanel() {
     commitInspectorEdit(selectionKey, (el) => {
       if (!textOnly || isTextKind(el.kind)) Object.assign(el.style, patch);
     });
+  const beginTextColorGesture = () => {
+    const current = useEditorStore.getState();
+    if (current.doc && inspectorContext() === selectionKey)
+      textColorGesture.current = {
+        context: selectionKey,
+        doc: current.doc,
+        changed: false,
+        invalid: false,
+      };
+  };
+  const updateTextColor = (
+    property: TextColorProperty,
+    intent: TextColorIntent,
+    grouped = false,
+  ) => {
+    const current = useEditorStore.getState();
+    if (!current.doc || inspectorContext() !== selectionKey) return;
+    const gesture = textColorGesture.current;
+    if (
+      grouped &&
+      (!gesture ||
+        gesture.invalid ||
+        gesture.context !== selectionKey ||
+        gesture.doc !== current.doc)
+    ) {
+      if (gesture) gesture.invalid = true;
+      return;
+    }
+    const accepted = commitInspectorEdit(
+      selectionKey,
+      (el) => {
+        if (!isTextKind(el.kind)) return;
+        const value = applyTextColorIntent(el.style[property], property, intent);
+        if (value === undefined) delete el.style[property];
+        else el.style[property] = value;
+      },
+      false,
+      !grouped || !gesture?.changed,
+    );
+    if (accepted && grouped && gesture) {
+      gesture.changed = true;
+      gesture.doc = useEditorStore.getState().doc!;
+    }
+  };
+  const textPresets = textColorPresets([
+    ...(activeBrandKit?.colors
+      .filter((color) => color.type === "solid")
+      .map((color) => color.hex) ?? []),
+    d.creativeDirection.primaryColor,
+    "#18181b",
+    "#ffffff",
+    "#C55454",
+  ]);
   const updateBackground = (patch: Partial<SpecDocument["background"]>) => {
     const current = useEditorStore.getState();
     if (
@@ -1303,6 +1339,7 @@ export function StylePanel() {
                         prefix={prefix}
                         label={label}
                         suffix="px"
+                        displayDecimals={2}
                         min={
                           key === "width" || key === "height" ? 1 : undefined
                         }
@@ -1597,18 +1634,32 @@ export function StylePanel() {
                       }
                     />
                   </div>
-                  <InspectorColor
+                  <TextColorControl
                     label="Text color"
-                    value={commonStyle("color", "#18181b")}
-                    onChange={(color) => updateSelectedStyles({ color })}
+                    property="color"
+                    values={selectedElements.map((el) => el.style.color)}
+                    presets={textPresets}
+                    onChange={(intent, grouped) =>
+                      updateTextColor("color", intent, grouped)
+                    }
+                    onGestureStart={beginTextColorGesture}
+                    onGestureEnd={() => {
+                      textColorGesture.current = null;
+                    }}
                     disabled={!editableCount}
                   />
-                  <InspectorColor
+                  <TextColorControl
                     label="Text background"
-                    value={commonStyle("background", "transparent")}
-                    onChange={(background) =>
-                      updateSelectedStyles({ background })
+                    property="background"
+                    values={selectedElements.map((el) => el.style.background)}
+                    presets={textPresets}
+                    onChange={(intent, grouped) =>
+                      updateTextColor("background", intent, grouped)
                     }
+                    onGestureStart={beginTextColorGesture}
+                    onGestureEnd={() => {
+                      textColorGesture.current = null;
+                    }}
                     disabled={!editableCount}
                   />
                 </div>
@@ -1620,19 +1671,33 @@ export function StylePanel() {
                   </h3>
                   {category === "shape" && (
                     <>
-                      <InspectorColor
+                      <OpaqueColorControl
                         label="Fill"
-                        value={commonStyle("background", "#8b5cf6")}
+                        values={selectedElements.map((el) => el.style.background)}
                         onChange={(background) =>
                           updateSelectedStyles({ background })
                         }
                         disabled={!editableCount}
                       />
-                      <InspectorColor
+                      <OpaqueColorControl
                         label="Border color"
-                        value={commonStyle("borderColor", "#18181b")}
+                        values={selectedElements.map((el) => el.style.borderColor)}
                         onChange={(borderColor) =>
                           updateSelectedStyles({ borderColor })
+                        }
+                        removalLabel="Remove border"
+                        onRemove={() =>
+                          commitInspectorEdit(selectionKey, (el) => {
+                            if (el.kind !== "shape" && el.kind !== "divider")
+                              return;
+                            if (
+                              (el.style.borderWidth ?? 0) === 0 &&
+                              el.style.borderColor === undefined
+                            )
+                              return;
+                            el.style.borderWidth = 0;
+                            delete el.style.borderColor;
+                          })
                         }
                         disabled={!editableCount}
                       />
@@ -2097,45 +2162,25 @@ export function StylePanel() {
                   </label>
                   {d.background.type === "gradient" ? (
                     <>
-                      <label className="style-dock-row">
-                        <span>From</span>
-                        <input
-                          type="color"
-                          className="style-dock-swatch"
-                          value={d.background.value}
-                          onChange={(event) =>
-                            updateBackground({ value: event.target.value })
-                          }
-                        />
-                      </label>
-                      <label className="style-dock-row">
-                        <span>To</span>
-                        <input
-                          type="color"
-                          className="style-dock-swatch"
-                          value={
-                            d.background.secondaryValue ?? d.background.value
-                          }
-                          onChange={(event) =>
-                            updateBackground({
-                              secondaryValue: event.target.value,
-                            })
-                          }
-                        />
-                      </label>
-                    </>
-                  ) : (
-                    <label className="style-dock-row">
-                      <span>Color</span>
-                      <input
-                        type="color"
-                        className="style-dock-swatch"
+                      <OpaqueColorControl
+                        label="From"
                         value={d.background.value}
-                        onChange={(event) =>
-                          updateBackground({ value: event.target.value })
+                        onChange={(value) => updateBackground({ value })}
+                      />
+                      <OpaqueColorControl
+                        label="To"
+                        value={d.background.secondaryValue ?? d.background.value}
+                        onChange={(secondaryValue) =>
+                          updateBackground({ secondaryValue })
                         }
                       />
-                    </label>
+                    </>
+                  ) : (
+                    <OpaqueColorControl
+                      label="Color"
+                      value={d.background.value}
+                      onChange={(value) => updateBackground({ value })}
+                    />
                   )}
                   {d.background.type === "gradient" && (
                     <DockNumberField
@@ -3578,11 +3623,28 @@ function PromptPanel({
 
 function Preview({ close }: { close: () => void }) {
   const d = useEditorStore((s) => s.doc);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [available, setAvailable] = useState({ width: 0, height: 0 });
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const measure = (width: number, height: number) =>
+      setAvailable((previous) =>
+        previous.width === width && previous.height === height
+          ? previous
+          : { width, height },
+      );
+    const initial = stage.getBoundingClientRect();
+    measure(initial.width, initial.height);
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) measure(entry.contentRect.width, entry.contentRect.height);
+    });
+    observer.observe(stage);
+    return () => observer.disconnect();
+  }, [d?.id]);
   if (!d) return null;
-  const scale = Math.min(
-    (innerWidth - 120) / d.format.width,
-    (innerHeight - 120) / d.format.height,
-  );
+  const fit = fitPreview(d.format, available);
   return (
     <div className="preview-overlay">
       <Hint label="Close" side="left">
@@ -3590,20 +3652,30 @@ function Preview({ close }: { close: () => void }) {
           aria-label="Close preview"
           size="icon"
           variant="secondary"
-          className="absolute right-5 top-5"
+          className="preview-close"
           onClick={close}
         >
           <X />
         </Button>
       </Hint>
-      <div
-        style={{
-          width: d.format.width,
-          height: d.format.height,
-          transform: `scale(${scale})`,
-        }}
-      >
-        <StaticArtboard />
+      <div className="preview-stage" ref={stageRef}>
+        {fit && (
+          <div
+            className="preview-footprint"
+            style={{ width: fit.width, height: fit.height }}
+          >
+            <div
+              className="preview-artboard"
+              style={{
+                width: d.format.width,
+                height: d.format.height,
+                transform: `scale(${fit.scale})`,
+              }}
+            >
+              <StaticArtboard />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

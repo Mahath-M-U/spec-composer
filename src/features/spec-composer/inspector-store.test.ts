@@ -8,6 +8,7 @@ import { useEditorStore } from "./store";
 import { createDocument } from "./templates";
 import { createElement } from "./registry";
 import { materialState, toggledMaterial } from "./inspector-properties";
+import { applyTextColorIntent } from "./text-color";
 const state = () => useEditorStore.getState();
 const doc = () => state().doc!;
 beforeEach(() => {
@@ -45,6 +46,44 @@ afterEach(() => {
   vi.useRealTimers();
 });
 describe("inspector store transactions", () => {
+  it("reports accepted text-color changes and supports grouped history while leaving default transactions independent", () => {
+    doc().elements.forEach((el) => {
+      el.kind = "title";
+      el.style.color = "#ff000080";
+      el.style.opacity = 0.3;
+    });
+    const context = inspectorContext();
+    const original = structuredClone(doc().elements);
+    const edit = (alpha: number, history = true) =>
+      commitInspectorEdit(
+        context,
+        (el) => {
+          el.style.color = applyTextColorIntent(el.style.color, "color", {
+            type: "alpha",
+            alpha,
+          })!;
+        },
+        false,
+        history,
+      );
+    expect(edit(128 / 255)).toBe(false);
+    expect(state().past).toHaveLength(0);
+    expect(edit(0.25)).toBe(true);
+    expect(edit(0.75, false)).toBe(true);
+    expect(state().past).toHaveLength(1);
+    const final = structuredClone(doc().elements);
+    state().undo();
+    expect(doc().elements).toEqual(original);
+    state().redo();
+    expect(doc().elements).toEqual(final);
+    useEditorStore.setState({
+      selectedIds: ["0", "1"],
+      selectedGroupIds: ["outer"],
+    });
+    expect(edit(0.1)).toBe(true);
+    expect(state().past).toHaveLength(2);
+    expect(doc().elements.every((el) => el.style.opacity === 0.3)).toBe(true);
+  });
   it("commits nested-group geometry atomically and undo/redo preserve all members", () => {
     const original = structuredClone(doc().elements);
     commitInspectorGeometry(inspectorContext(), "x", 25.125);

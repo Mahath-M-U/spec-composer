@@ -22,7 +22,9 @@ export function UserSettings() {
     <Dialog>
       <DialogTrigger asChild>
         <button type="button" aria-label="User settings">
-          <UserRound aria-hidden="true" />
+          <i className="user-settings-icon" aria-hidden="true">
+            <UserRound aria-hidden="true" />
+          </i>
           <span>Settings</span>
         </button>
       </DialogTrigger>

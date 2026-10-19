@@ -15,6 +15,8 @@ import { compileVisualPrompt } from "./compiler";
 import { SceneLightingControls } from "./scene-lighting-controls";
 import type { ElementKind } from "./types";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { TextColorControl } from "./text-color-control";
+import { OpaqueColorControl } from "./color-control";
 
 vi.mock("./store", async (importOriginal) => {
   const original = await importOriginal<typeof import("./store")>();
@@ -188,7 +190,7 @@ describe("Style inspector contextual rendering", () => {
     expect(html).toContain('aria-label="Font size"');
     expect(html).toContain('aria-label="Text alignment"');
     expect(html).toContain('aria-label="Line height"');
-    expect(html).toContain('data-mixed="true"');
+    expect(html).toContain('data-kind="mixed"');
     expect(html).not.toContain("Image fit");
     expect(html).not.toContain("Element details");
     expect(html).not.toContain('aria-label="Content"');
@@ -244,6 +246,368 @@ describe("Style inspector contextual rendering", () => {
 });
 
 describe("inspector field and selection interactions", () => {
+  const borderColor = (view: View) =>
+    view.find(
+      (node) =>
+        node.type === OpaqueColorControl &&
+        node.props["label"] === "Border color",
+    );
+  it("removes border width and color in one undo transaction, preserves unrelated values and skips repeated removal", () => {
+    setup(["shape"]);
+    Object.assign(doc().elements[0]!, {
+      rotation: 12.375,
+      style: {
+        shapeType: "triangle",
+        background: "#abcdef",
+        borderWidth: 4,
+        borderColor: "#112233",
+        borderRadius: 12,
+        opacity: 0.35,
+      },
+    });
+    const original = structuredClone(doc().elements);
+    call(borderColor(capture(StylePanel)), "onRemove");
+    const expected = {
+      ...original[0]!,
+      style: { ...original[0]!.style, borderWidth: 0 },
+    };
+    delete expected.style.borderColor;
+    expect(doc().elements[0]).toEqual(expected);
+    expect(state().past).toHaveLength(1);
+    const cleared = capture(StylePanel);
+    expect(cleared.html).toContain("Border color: None");
+    expect(borderColor(cleared).props["removalLabel"]).toBe("Remove border");
+    call(borderColor(cleared), "onRemove");
+    expect(state().past).toHaveLength(1);
+    state().undo();
+    expect(doc().elements).toEqual(original);
+    state().redo();
+    expect(doc().elements[0]).toEqual(expected);
+  });
+  it("removes only editable compatible borders in mixed selections and preserves locked members", () => {
+    setup(["shape", "divider", "shape"]);
+    Object.assign(doc().elements[0]!.style, {
+      borderWidth: 2,
+      borderColor: "#123456",
+      opacity: 0.4,
+    });
+    Object.assign(doc().elements[1]!.style, {
+      borderWidth: 6,
+      borderColor: "#abcdef",
+    });
+    doc().elements[1]!.locked = true;
+    delete doc().elements[2]!.style.borderWidth;
+    delete doc().elements[2]!.style.borderColor;
+    const original = structuredClone(doc().elements);
+    call(borderColor(capture(StylePanel)), "onRemove");
+    expect(doc().elements[0]!.style).toMatchObject({
+      borderWidth: 0,
+      opacity: 0.4,
+    });
+    expect(doc().elements[0]!.style.borderColor).toBeUndefined();
+    expect(doc().elements[1]).toEqual(original[1]);
+    expect(doc().elements[2]).toEqual(original[2]);
+    expect(state().past).toHaveLength(1);
+    expect(capture(StylePanel).html).toContain("Border color: Mixed");
+    call(borderColor(capture(StylePanel)), "onRemove");
+    expect(state().past).toHaveLength(1);
+  });
+  it("rejects stale border removal and incompatible current layers without adding no-op history", () => {
+    setup(["shape", "shape"]);
+    doc().elements.forEach((el) => {
+      el.style.borderWidth = 5;
+      el.style.borderColor = "#123456";
+    });
+    const old = borderColor(capture(StylePanel));
+    const original = structuredClone(doc().elements);
+    useEditorStore.setState({ selectedIds: ["1"] });
+    call(old, "onRemove");
+    expect(doc().elements).toEqual(original);
+    expect(state().past).toHaveLength(0);
+    const current = borderColor(capture(StylePanel));
+    doc().elements[1]!.kind = "title";
+    call(current, "onRemove");
+    expect(doc().elements[1]!.style.borderWidth).toBe(5);
+    expect(state().past).toHaveLength(0);
+    setup(["shape"]);
+    delete doc().elements[0]!.style.borderWidth;
+    delete doc().elements[0]!.style.borderColor;
+    call(borderColor(capture(StylePanel)), "onRemove");
+    expect(state().past).toHaveLength(0);
+    expect(doc().elements[0]!.style.borderWidth).toBeUndefined();
+  });
+
+  const textColor = (view: View, property = "color") =>
+    view.find(
+      (node) =>
+        node.type === TextColorControl && node.props["property"] === property,
+    );
+  it("applies inline text color intents immediately, preserves per-layer alpha/RGB and removes background only", () => {
+    setup(["title", "body"]);
+    doc().elements[0]!.style = {
+      color: "#ff000080",
+      background: "#11223340",
+      opacity: 0.375,
+      fontSize: 32,
+    };
+    doc().elements[1]!.style = {
+      color: "#00ff0040",
+      background: "transparent",
+      opacity: 0.8,
+      fontSize: 16,
+    };
+    const original = structuredClone(doc().elements);
+    let view = capture(StylePanel);
+    expect(view.html).not.toContain('type="color"');
+    call(textColor(view), "onChange", {
+      type: "rgb",
+      color: { r: 20, g: 40, b: 60 },
+    });
+    expect(doc().elements.map((el) => el.style.color)).toEqual([
+      "#14283c80",
+      "#14283c40",
+    ]);
+    expect(state().past).toHaveLength(1);
+    state().undo();
+    expect(doc().elements).toEqual(original);
+    state().redo();
+    useEditorStore.setState({ selectedIds: ["0", "1"] });
+    view = capture(StylePanel);
+    call(textColor(view), "onChange", { type: "alpha", alpha: 0.25 });
+    expect(doc().elements.map((el) => el.style.color)).toEqual([
+      "#14283c40",
+      "#14283c40",
+    ]);
+    call(textColor(capture(StylePanel), "background"), "onChange", {
+      type: "remove",
+    });
+    expect(doc().elements.every((el) => !("background" in el.style))).toBe(true);
+    expect(doc().elements.map((el) => el.style.opacity)).toEqual([0.375, 0.8]);
+    expect(
+      doc().elements.map((el) => [
+        el.x,
+        el.y,
+        el.width,
+        el.height,
+        el.style.fontSize,
+      ]),
+    ).toEqual(
+      original.map((el) => [el.x, el.y, el.width, el.height, el.style.fontSize]),
+    );
+  });
+  it("uses shared opaque shape colors and hides text controls for heterogeneous selections", () => {
+    setup(["shape"]);
+    const shape = capture(StylePanel);
+    expect(shape.html).not.toContain('type="color"');
+    expect(shape.nodes.filter((node) => node.type === OpaqueColorControl)).toHaveLength(2);
+    expect(shape.nodes.some((node) => node.type === TextColorControl)).toBe(
+      false,
+    );
+    setup(["title", "shape"]);
+    expect(
+      capture(StylePanel).nodes.some((node) => node.type === TextColorControl),
+    ).toBe(false);
+  });
+  it("uses actual mixed shape colors and preserves other style/geometry fields on a fill edit", () => {
+    setup(["shape", "shape"]);
+    doc().elements[0]!.style = { background: "#fff", borderColor: "#112233", borderWidth: 3, opacity: 0.35 };
+    doc().elements[1]!.style = { borderColor: "#112233", borderWidth: 5, opacity: 0.8 };
+    const original = structuredClone(doc().elements);
+    const view = capture(StylePanel);
+    expect(view.html).toContain("Fill: Mixed");
+    const fill = view.find((node) => node.type === OpaqueColorControl && node.props["label"] === "Fill");
+    call(fill, "onChange", "#445566");
+    expect(doc().elements.map((el) => el.style.background)).toEqual(["#445566", "#445566"]);
+    doc().elements.forEach((el, i) => expect(el).toEqual({ ...original[i], style: { ...original[i]!.style, background: "#445566" } }));
+    expect(state().past).toHaveLength(1);
+  });
+  it("edits each canvas gradient stop through the shared picker without changing fill type or angle", () => {
+    useEditorStore.setState({ selectedIds: [], backgroundSelected: true });
+    doc().background = { type: "gradient", value: "#112233", secondaryValue: "#abcdef", angle: 42 };
+    const view = capture(StylePanel);
+    const stop = (label: string) => view.find((node) => node.type === OpaqueColorControl && node.props["label"] === label);
+    call(stop("From"), "onChange", "#445566");
+    call(stop("To"), "onChange", "#778899");
+    expect(doc().background).toEqual({ type: "gradient", value: "#445566", secondaryValue: "#778899", angle: 42 });
+    expect(view.html).not.toContain('type="color"');
+  });
+  it("preserves locked text, rejects stale selection handlers, and applies partial edits against current member values", () => {
+    setup(["title", "body"]);
+    doc().elements[0]!.style.color = "#ff000080";
+    doc().elements[1]!.style.color = "#00ff0040";
+    doc().elements[1]!.locked = true;
+    const picker = textColor(capture(StylePanel));
+    call(picker, "onChange", { type: "color", value: "#12345680" });
+    expect(doc().elements[0]!.style.color).toBe("#12345680");
+    expect(doc().elements[1]!.style.color).toBe("#00ff0040");
+    state().mutate((next) => {
+      next.elements[0]!.style.color = "#aabbcc80";
+    });
+    call(picker, "onChange", { type: "alpha", alpha: 0.25 });
+    expect(doc().elements[0]!.style.color).toBe("#aabbcc40");
+    const past = state().past.length;
+    call(picker, "onChange", { type: "alpha", alpha: 0.25 });
+    expect(state().past).toHaveLength(past);
+    useEditorStore.setState({ selectedIds: ["1"] });
+    call(picker, "onChange", { type: "color", value: "#ffffff" });
+    expect(state().past).toHaveLength(past);
+  });
+  it("groups a continuous color gesture into one undo step without consuming the initial snapshot on a no-op", () => {
+    setup(["title"]);
+    doc().elements[0]!.style.color = "#000000";
+    const original = structuredClone(doc().elements);
+    capture(StylePanel, [
+      (view) => call(textColor(view), "onGestureStart"),
+      (view) =>
+        call(
+          textColor(view),
+          "onChange",
+          { type: "rgb", color: { r: 0, g: 0, b: 0 } },
+          true,
+        ),
+      (view) => {
+        expect(state().past).toHaveLength(0);
+        for (let r = 1; r <= 40; r++)
+          call(
+            textColor(view),
+            "onChange",
+            { type: "rgb", color: { r, g: 0, b: 0 } },
+            true,
+          );
+      },
+      (view) => call(textColor(view), "onGestureEnd"),
+      (view) =>
+        call(
+          textColor(view),
+          "onChange",
+          { type: "rgb", color: { r: 99, g: 0, b: 0 } },
+          true,
+        ),
+    ]);
+    expect(state().past).toHaveLength(1);
+    expect(doc().elements[0]!.style.color).toBe("#280000");
+    state().undo();
+    expect(doc().elements).toEqual(original);
+    state().redo();
+    expect(doc().elements[0]!.style.color).toBe("#280000");
+    useEditorStore.setState({ selectedIds: ["0"] });
+    capture(StylePanel, [
+      (view) => call(textColor(view), "onGestureStart"),
+      (view) =>
+        call(textColor(view), "onChange", { type: "alpha", alpha: 0.5 }, true),
+      (view) => call(textColor(view), "onGestureEnd"),
+    ]);
+    expect(state().past).toHaveLength(2);
+  });
+  it.each(["external", "undo", "selection"])(
+    "invalidates trailing gesture writes after %s changes",
+    (mode) => {
+      setup(["title", "body"]);
+      doc().elements.forEach((el) => {
+        el.style.color = "#000000";
+      });
+      let saved: ReactElement<Props>;
+      capture(StylePanel, [
+        (view) => {
+          saved = textColor(view);
+          call(saved, "onGestureStart");
+        },
+        (view) =>
+          call(textColor(view), "onChange", { type: "alpha", alpha: 0.5 }, true),
+        () => {
+          if (mode === "external")
+            state().mutate((next) => {
+              next.creativeDirection.notes = "Unrelated edit";
+            });
+          else if (mode === "undo") {
+            state().undo();
+            useEditorStore.setState({ selectedIds: ["0", "1"] });
+          } else useEditorStore.setState({ selectedIds: ["0"] });
+        },
+        () => {
+          const before = structuredClone(doc());
+          const past = state().past.length;
+          call(saved!, "onChange", { type: "alpha", alpha: 0.2 }, true);
+          expect(doc()).toEqual(before);
+          expect(state().past).toHaveLength(past);
+        },
+      ]);
+    },
+  );
+  it("formats only Transform position and size fields to exactly two decimals", () => {
+    setup(["shape"]);
+    Object.assign(doc().elements[0]!, {
+      x: 12.125,
+      y: -3.4567,
+      width: 50,
+      height: 80.12345,
+      rotation: 15.125,
+    });
+    const view = capture(StylePanel);
+    for (const [label, value] of [
+      ["X position", "12.13"],
+      ["Y position", "-3.46"],
+      ["Width", "50.00"],
+      ["Height", "80.12"],
+    ]) {
+      const field = view.find(
+        (node) => node.type === DockNumberField && node.props["label"] === label,
+      );
+      expect(field.props["displayDecimals"]).toBe(2);
+      const rendered = capture(() =>
+        DockNumberField(field.props as Parameters<typeof DockNumberField>[0]),
+      );
+      expect(input(rendered, label!).props["value"]).toBe(value);
+    }
+    const rotation = view.find(
+      (node) => node.type === DockNumberField && node.props["label"] === "Rotation",
+    );
+    expect(rotation.props["displayDecimals"]).toBeUndefined();
+    expect(doc().elements[0]!.x).toBe(12.125);
+    expect(state().past).toHaveLength(0);
+  });
+  it("preserves precise Transform values on untouched blur, typed commits and nudges", () => {
+    setup(["shape"]);
+    doc().elements[0]!.x = 12.125;
+    const render = () => {
+      const field = inspect(StylePanel()).find(
+        (node) =>
+          node.type === DockNumberField && node.props["label"] === "X position",
+      );
+      return DockNumberField(
+        field.props as Parameters<typeof DockNumberField>[0],
+      );
+    };
+    capture(render, [
+      (view) => {
+        expect(input(view, "X position").props["value"]).toBe("12.13");
+        call(input(view, "X position"), "onBlur", {
+          target: { value: "12.13" },
+        });
+      },
+    ]);
+    expect(doc().elements[0]!.x).toBe(12.125);
+    expect(state().past).toHaveLength(0);
+    capture(render, [
+      (view) =>
+        call(input(view, "X position"), "onChange", {
+          target: { value: "16.123456" },
+        }),
+      (view) => {
+        expect(input(view, "X position").props["value"]).toBe("16.123456");
+        call(input(view, "X position"), "onKeyDown", keyEvent("Enter"));
+      },
+    ]);
+    expect(doc().elements[0]!.x).toBe(16.123456);
+    expect(state().past).toHaveLength(1);
+    call(
+      input(capture(render), "X position"),
+      "onKeyDown",
+      keyEvent("ArrowUp"),
+    );
+    expect(doc().elements[0]!.x).toBe(17.123456);
+    expect(state().past).toHaveLength(2);
+  });
   it("retains decimal precision, commits on Enter/blur, and ignores empty/invalid drafts", () => {
     const change = vi.fn();
     const render = () =>

@@ -98,13 +98,14 @@ export function commitInspectorEdit(
   context: string,
   edit: (element: SpecElement) => void,
   geometry = false,
-) {
+  history = true,
+): boolean {
   const state = useEditorStore.getState();
-  if (!state.doc || inspectorContext() !== context) return;
+  if (!state.doc || inspectorContext() !== context) return false;
   const selected = state.doc.elements.filter((el) =>
     state.selectedIds.includes(el.id),
   );
-  if (geometry && selected.some((el) => el.locked || !el.visible)) return;
+  if (geometry && selected.some((el) => el.locked || !el.visible)) return false;
   const changes = selected
     .filter((el) => !el.locked)
     .map((el) => {
@@ -117,14 +118,16 @@ export function commitInspectorEdit(
         JSON.stringify(el) !==
         JSON.stringify(selected.find((old) => old.id === el.id)),
     );
-  if (!changes.length) return;
-  if (geometry && changes.some((el) => !Number.isFinite(el.rotation))) return;
+  if (!changes.length) return false;
+  if (geometry && changes.some((el) => !Number.isFinite(el.rotation))) return false;
   state.mutate((doc) =>
     doc.elements.forEach((el) => {
       const next = changes.find((change) => change.id === el.id);
       if (next) edit(el);
     }),
+    history,
   );
+  return true;
 }
 export function commitInspectorGeometry(
   context: string,

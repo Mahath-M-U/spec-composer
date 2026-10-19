@@ -1,3 +1,4 @@
+import { OpaqueColorControl } from "./color-control";
 import { ShapeControls } from "./scene-lighting-controls";
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link2, Type, X } from "lucide-react";
@@ -47,16 +48,6 @@ const KIND_LABEL: Record<ElementKind, string> = {
 };
 const FONTS: string[] = [...FEATURED_FONTS, ...MORE_FONTS];
 const WEIGHTS = [100, 200, 300, 400, 500, 600, 700, 800, 900];
-const HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
-/** `<input type="color">` only takes #rrggbb. */
-const toColorInput = (v: string | undefined, fallback = "#000000") => {
-  const hex = v?.trim() ?? "";
-  if (!HEX.test(hex)) return fallback;
-  return hex.length === 4
-    ? `#${[...hex.slice(1)].map((c) => c + c).join("")}`.toLowerCase()
-    : hex.toLowerCase();
-};
-
 /** Coalesces rapid changes (a color picker drag, typing) into one commit a
  * moment later; anything pending is committed when the editor closes. */
 function useDebouncedCommit<T>(commit: (value: T) => void, delay = 150) {
@@ -100,29 +91,21 @@ function ColorControl({
   onChange: (hex: string) => void;
   linked?: boolean;
 }) {
-  const [local, setLocal] = useState(() => toColorInput(value));
-  useEffect(() => setLocal(toColorInput(value)), [value]);
+  const [local, setLocal] = useState(value);
+  useEffect(() => setLocal(value), [value]);
   const commit = useDebouncedCommit(onChange);
   return (
-    <label className="se-color">
-      <span className="se-color-chip" style={{ background: local }}>
-        <input
-          type="color"
-          value={local}
-          onChange={(e) => {
-            setLocal(e.target.value);
-            commit(e.target.value);
-          }}
-        />
-      </span>
-      <span className="se-color-meta">
-        <small>
-          {label}
-          {linked && <Linked />}
-        </small>
-        <code>{local}</code>
-      </span>
-    </label>
+    <div className="se-color">
+      <OpaqueColorControl
+        label={label}
+        value={local}
+        onChange={(hex) => {
+          setLocal(hex);
+          commit(hex);
+        }}
+      />
+      {linked && <Linked />}
+    </div>
   );
 }
 

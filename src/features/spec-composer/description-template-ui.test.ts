@@ -2,6 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AssetsPanel } from "./assets-panel/AssetsPanel";
+import { ASSET_CATALOG, roleOf, swapAlternatives } from "./asset-catalog";
 import { assetPresetPatch } from "./asset-presets";
 import { DescriptionTemplateControls } from "./description-template-controls";
 import { renderDescriptionTemplate } from "./description-templates";
@@ -9,6 +10,7 @@ import { SelectionContextBar } from "./selection-context-bar";
 import { useEditorStore } from "./store";
 import { createDocument } from "./templates";
 import type { SpecElement } from "./types";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 vi.mock("./store", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./store")>();
@@ -195,25 +197,105 @@ describe("description template UI", () => {
     expect(templateHtml).not.toContain("<script>");
   });
 
-  it("protects template framing in the floating bar and provides Edit fields navigation", () => {
+  it("protects template framing in the floating bar and provides a Design Inspector shortcut", () => {
     const el = model();
     el.detail = renderDescriptionTemplate("person-model", {}) ?? "";
     const html = renderToStaticMarkup(
-      createElement(SelectionContextBar, {
-        el,
-        screenBox: { left: 0, top: 0, width: 240, height: 360 },
-      }),
+      createElement(
+        TooltipProvider,
+        null,
+        createElement(SelectionContextBar, {
+          el,
+          screenBox: { left: 0, top: 0, width: 240, height: 360 },
+        }),
+      ),
     );
-    expect(html).toContain("Edit fields");
-    expect(html).toContain("Person / model");
+    expect(html).toContain('aria-label="Open Design Inspector"');
+    expect(html).not.toContain("Edit fields");
+    expect(html).not.toContain("Person / model");
+    expect(html).not.toContain("Saved description template");
     expect(html).not.toContain('aria-label="Region description"');
+    expect(html).not.toContain('class="selection-context-bar"');
+    expect(html).toContain('class="selection-context-bar is-side"');
+    expect(html).toContain("left:252px;top:0");
+    expect(html.match(/aria-label="Open Design Inspector"/g)).toHaveLength(1);
     delete el.descriptionTemplate;
     const custom = renderToStaticMarkup(
-      createElement(SelectionContextBar, {
-        el,
-        screenBox: { left: 0, top: 0, width: 240, height: 360 },
-      }),
+      createElement(
+        TooltipProvider,
+        null,
+        createElement(SelectionContextBar, {
+          el,
+          screenBox: { left: 0, top: 0, width: 240, height: 360 },
+        }),
+      ),
     );
     expect(custom).toContain('aria-label="Region description"');
+    expect(custom).toContain('class="selection-context-bar"');
+    expect(custom).toContain('class="selection-context-bar is-side"');
+    expect(custom).toContain("left:252px;top:0");
+    expect(custom).toContain("left:0;top:388px");
+    expect(custom.match(/aria-label="Open Design Inspector"/g)).toHaveLength(
+      1,
+    );
+  });
+
+  it("adds the side Design Inspector shortcut beside every selected asset, keeping the bottom bar", () => {
+    const item = ASSET_CATALOG.find(
+      (candidate) =>
+        roleOf(candidate) === "headline" &&
+        swapAlternatives(candidate).length > 0,
+    );
+    expect(item).toBeDefined();
+    const element: SpecElement = {
+      ...model(),
+      id: "swap-test",
+      kind: item!.kind,
+      assetId: item!.id,
+    };
+    delete element.descriptionTemplate;
+    delete element.semanticRole;
+    delete element.detail;
+    const html = renderToStaticMarkup(
+      createElement(
+        TooltipProvider,
+        null,
+        createElement(SelectionContextBar, {
+          el: element,
+          screenBox: { left: 0, top: 0, width: 240, height: 360 },
+        }),
+      ),
+    );
+    expect(html).toContain('aria-label="Swap asset"');
+    expect(html).toContain('class="selection-context-bar"');
+    expect(html).toContain('class="selection-context-bar is-side"');
+    expect(html.match(/aria-label="Open Design Inspector"/g)).toHaveLength(1);
+    expect(html).toContain("left:252px;top:0");
+    expect(html).toContain("left:0;top:388px");
+    expect(html).not.toContain("Region description");
+  });
+
+  it("adds the side Design Inspector shortcut beside a plain element with no bar content", () => {
+    const element: SpecElement = { ...model(), kind: "title" };
+    delete element.assetId;
+    delete element.descriptionTemplate;
+    delete element.semanticRole;
+    delete element.slot;
+    const html = renderToStaticMarkup(
+      createElement(
+        TooltipProvider,
+        null,
+        createElement(SelectionContextBar, {
+          el: element,
+          screenBox: { left: 0, top: 0, width: 240, height: 360 },
+        }),
+      ),
+    );
+    expect(html).toContain('class="selection-context-bar is-side"');
+    expect(html).toContain("left:252px;top:0");
+    expect(html).not.toContain('class="selection-context-bar"');
+    expect(html).not.toContain("Swap asset");
+    expect(html).not.toContain("Region description");
+    expect(html.match(/aria-label="Open Design Inspector"/g)).toHaveLength(1);
   });
 });

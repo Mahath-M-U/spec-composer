@@ -3,8 +3,33 @@ import { compileCopyText } from "./copy-output";
 import { createDocument } from "./templates";
 import { compileDesignSkill } from "./design-md";
 import { compilePromptEditorOutput } from "./compiler";
+import { createElement } from "./registry";
 
 describe("compileCopyText", () => {
+  it("preserves alpha strings in text component descriptions and prompt serialization", () => {
+    const doc = createDocument();
+    const text = createElement("title", doc.format, 0);
+    text.content = "Alpha headline";
+    text.style = {
+      ...text.style,
+      color: "#12345680",
+      background: "#abcdef40",
+      opacity: 0.375,
+    };
+    doc.elements = [text];
+    doc.promptOptions.colors = true;
+    const design = compileCopyText(doc, undefined, "design");
+    expect(design).toContain("#12345680");
+    expect(design).toContain("#abcdef40");
+    expect(compileCopyText(doc, undefined, "prompt")).toContain(
+      "color #12345680",
+    );
+    delete text.style.background;
+    const without = compileCopyText(doc, undefined, "design");
+    expect(without).not.toContain("#abcdef40");
+    expect(without).toContain("#12345680");
+    expect(text.style.opacity).toBe(0.375);
+  });
   it("returns the compiled DESIGN.md for kind \"design\"", () => {
     const doc = createDocument();
     expect(compileCopyText(doc, undefined, "design")).toBe(
