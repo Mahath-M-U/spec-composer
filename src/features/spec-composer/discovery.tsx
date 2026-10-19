@@ -69,6 +69,7 @@ import { BrandKitPanel } from "./brand-kit-panel";
 import { DocumentPreview } from "./static-render";
 import { TemplateCardMedia } from "./template-card-media";
 import { RecentDesignCard } from "./recent-design-card";
+import { HomeTemplateCard } from "./home-template-card";
 import { templateImageFor } from "./template-images";
 import { findImageStyle } from "./image-styles";
 import { useEditorStore } from "./store";
@@ -758,6 +759,7 @@ export function HomePage() {
                 key={template.name}
                 doc={template.document}
                 category={template.category}
+                homePreview
               />
             ))}
           </div>
@@ -997,11 +999,13 @@ function TemplateCard({
   category,
   existing = false,
   priority = false,
+  homePreview = false,
 }: {
   doc: SpecDocument;
   category?: string;
   existing?: boolean;
   priority?: boolean;
+  homePreview?: boolean;
 }) {
   const navigate = useNavigate();
   const router = useRouter();
@@ -1065,6 +1069,20 @@ function TemplateCard({
     }
     void openNewProject(cloneTemplate(doc.name, doc.format.id));
   };
+  if (homePreview) {
+    return (
+      <HomeTemplateCard
+        doc={doc}
+        category={category}
+        priority={priority}
+        copied={copied}
+        copying={copying}
+        onOpen={open}
+        onCopy={copyDesign}
+        onWarmEditor={warmEditor}
+      />
+    );
+  }
   const { primaryColor, secondaryColor } = doc.creativeDirection;
   const swatches = [
     ...(doc.background.type === "solid" ? [doc.background.value] : []),

@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Link, useRouter } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -52,6 +52,42 @@ import { reportStorageError } from "./storage/errors";
 import { useEditorStore } from "./store";
 import type { SpecDocument } from "./types";
 
+export function RecentDesignEditedTime({
+  updatedAt,
+  now,
+}: {
+  updatedAt: string;
+  now: number | null;
+}) {
+  const edited = new Date(updatedAt);
+  if (
+    now === null ||
+    !Number.isFinite(now) ||
+    !Number.isFinite(edited.getTime())
+  )
+    return null;
+  const minutes = Math.floor(Math.max(0, now - edited.getTime()) / 60_000);
+  const label =
+    minutes >= 1440
+      ? `${Math.floor(minutes / 1440)}d ago`
+      : minutes >= 60
+        ? `${Math.floor(minutes / 60)}h ago`
+        : minutes >= 1
+          ? `${minutes}m ago`
+          : "Just now";
+  const timestamp = edited.toISOString();
+  return (
+    <time
+      className="recent-design-edited-chip"
+      dateTime={timestamp}
+      title={timestamp}
+      aria-label={`Last edited ${timestamp}`}
+    >
+      {label}
+    </time>
+  );
+}
+
 export function RecentDesignCard({ doc }: { doc: SpecDocument }) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -62,6 +98,7 @@ export function RecentDesignCard({ doc }: { doc: SpecDocument }) {
   const [copying, setCopying] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [copyingText, setCopyingText] = useState(false);
+  const [now, setNow] = useState<number | null>(null);
   const copyPending = useRef(false);
   const renamePending = useRef(false);
   const textPending = useRef(false);
@@ -69,8 +106,12 @@ export function RecentDesignCard({ doc }: { doc: SpecDocument }) {
   const dialogPending = useRef(false);
   const menuTrigger = useRef<HTMLButtonElement>(null);
   const nameId = useId();
-  const edited = new Date(doc.updatedAt);
-  const hasEditedTime = Number.isFinite(edited.getTime());
+  useEffect(() => {
+    const updateClock = () => setNow(Date.now());
+    updateClock();
+    const interval = setInterval(updateClock, 60_000);
+    return () => clearInterval(interval);
+  }, []);
 
   const warmEditor = () => {
     router
@@ -200,6 +241,7 @@ export function RecentDesignCard({ doc }: { doc: SpecDocument }) {
           >
             <DocumentPreview doc={doc} />
           </Link>
+          <RecentDesignEditedTime updatedAt={doc.updatedAt} now={now} />
           <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
             <DropdownMenuTrigger asChild>
               <button
@@ -278,21 +320,6 @@ export function RecentDesignCard({ doc }: { doc: SpecDocument }) {
           <p className="recent-design-format" title={doc.format.label}>
             {doc.format.label} · {doc.format.width} × {doc.format.height}
           </p>
-          {hasEditedTime && (
-            <time
-              className="recent-design-edited"
-              dateTime={edited.toISOString()}
-              title={edited.toISOString()}
-            >
-              Edited{" "}
-              {edited.toLocaleDateString("en", {
-                timeZone: "UTC",
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-              })}
-            </time>
-          )}
         </div>
       </article>
       <Dialog

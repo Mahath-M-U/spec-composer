@@ -8,7 +8,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { Link } from "@tanstack/react-router";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { RecentDesignCard } from "./recent-design-card";
+import { RecentDesignCard, RecentDesignEditedTime } from "./recent-design-card";
 import { createDocument } from "./templates";
 import type { SpecDocument } from "./types";
 
@@ -142,12 +142,28 @@ describe("recent design card", () => {
     expect(html).toContain("&lt;Long title &amp; &quot;quotes&quot;&gt;");
     expect(html).toContain(doc.format.label);
     expect(html).toContain(`${doc.format.width} × ${doc.format.height}`);
-    expect(html).toContain('dateTime="2026-10-19T08:30:00.000Z"');
-    expect(html).toContain("Edited Oct 19, 2026");
+    expect(html).not.toContain("<time");
+    expect(html).not.toContain("Edited Oct 19, 2026");
     expect(html).toContain('aria-label="More actions for');
     const card = find((element) => element.type === "article");
     expect(card.props["onClick"]).toBeUndefined();
     expect(card.props["onKeyDown"]).toBeUndefined();
+    const preview = find(
+      (element) => element.props["className"] === "recent-design-preview",
+    );
+    const chip = elements(preview.props.children).find(
+      (element) => element.type === RecentDesignEditedTime,
+    );
+    expect(chip?.props).toEqual({ updatedAt: doc.updatedAt, now: null });
+    const metadata = find(
+      (element) => element.props["className"] === "recent-design-metadata",
+    );
+    expect(
+      elements(metadata.props.children).some(
+        (element) =>
+          element.type === RecentDesignEditedTime || element.type === "time",
+      ),
+    ).toBe(false);
   });
 
   it("offers an overflow Open link to the selected design", () => {
@@ -274,5 +290,46 @@ describe("recent design card", () => {
     expect(writeText).toHaveBeenCalledWith("My edited DESIGN.md");
     expect(mocks.compileDesign).not.toHaveBeenCalled();
     vi.unstubAllGlobals();
+  });
+});
+
+describe("recent design edited chip", () => {
+  const updatedAt = "2026-10-01T08:30:00.000Z";
+  const editedAt = Date.parse(updatedAt);
+  const renderChip = (now: number | null, date = updatedAt) =>
+    renderToStaticMarkup(
+      createElement(RecentDesignEditedTime, { updatedAt: date, now }),
+    );
+
+  it.each([
+    [0, "Just now"],
+    [59_999, "Just now"],
+    [60_000, "1m ago"],
+    [15 * 60_000, "15m ago"],
+    [3_599_999, "59m ago"],
+    [3_600_000, "1h ago"],
+    [2 * 3_600_000, "2h ago"],
+    [86_399_999, "23h ago"],
+    [86_400_000, "1d ago"],
+    [23.5 * 86_400_000, "23d ago"],
+  ])("uses whole elapsed units after %i milliseconds", (elapsed, label) => {
+    expect(renderChip(editedAt + elapsed)).toContain(`>${label}</time>`);
+  });
+
+  it("retains the precise accessible timestamp", () => {
+    const html = renderChip(editedAt + 3_600_000);
+    expect(html).toContain(`dateTime="${updatedAt}"`);
+    expect(html).toContain(`title="${updatedAt}"`);
+    expect(html).toContain(`aria-label="Last edited ${updatedAt}"`);
+  });
+
+  it("omits invalid timestamps and uninitialized clocks", () => {
+    expect(renderChip(null)).toBe("");
+    expect(renderChip(editedAt, "invalid")).toBe("");
+    expect(renderChip(Number.NaN)).toBe("");
+  });
+
+  it("clamps future edits to Just now", () => {
+    expect(renderChip(editedAt - 86_400_000)).toContain(">Just now</time>");
   });
 });

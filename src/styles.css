@@ -15922,16 +15922,71 @@ button.de-subrow-tag:focus-visible {
 
 /* Compact Compose sidebar. */
 .compose-panel .asset-workflow-tabs {
+  --asset-workflow-track: var(--color-editor-hover);
+  --asset-workflow-selected: var(--color-editor-surface);
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
   margin-top: 4px;
   margin-bottom: 20px;
+  padding: 3px;
+  border-radius: 11px;
+  background: var(--asset-workflow-track);
+}
+.dark .compose-panel .asset-workflow-tabs {
+  --asset-workflow-track: var(--color-editor);
+  --asset-workflow-selected: var(--color-editor-hover);
 }
 .compose-panel .asset-workflow-tabs button {
-  flex-direction: column;
+  flex-direction: row;
   gap: 6px;
-  min-height: 52px;
-  padding: 8px 4px;
-  font-size: 11px;
+  min-height: 30px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-editor-muted);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+.compose-panel .asset-workflow-tabs button:not([aria-selected="true"]):hover {
+  color: var(--color-editor-foreground);
+}
+.compose-panel .asset-workflow-tabs button[aria-selected="true"] {
+  background: var(--asset-workflow-selected);
+  color: var(--color-editor-foreground);
+  font-weight: 600;
+  box-shadow: none;
+}
+.compose-panel .asset-workflow-tabs button:focus-visible {
+  outline-offset: 1px;
+}
+.compose-panel .asset-workflow-tabs svg {
+  display: block;
+  width: 13px;
+  height: 13px;
+  transition: color 160ms ease;
+}
+.compose-panel .asset-workflow-tabs button[aria-selected="true"] svg {
+  color: var(--editor-action);
+}
+.compose-panel .asset-workflow-tabs button > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (pointer: coarse) {
+  .compose-panel .asset-workflow-tabs button {
+    min-height: 44px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .compose-panel .asset-workflow-tabs button,
+  .compose-panel .asset-workflow-tabs svg {
+    transition: none;
+  }
 }
 .compose-panel .shape-palette {
   padding-bottom: 0;
@@ -16087,19 +16142,21 @@ button.de-subrow-tag:focus-visible {
 /* Home recent designs keep the full canvas visible in a steady preview frame. */
 .recent-design-card {
   min-width: 0;
+  padding: 8px;
   border-radius: 14px;
+  background: var(--color-surface-subtle);
   outline: 1px solid transparent;
-  outline-offset: 2px;
+  outline-offset: 0;
   transition: outline-color 180ms ease, box-shadow 180ms ease;
 }
 .recent-design-card:hover,
 .recent-design-card[data-menu-open] {
-  outline-color: var(--color-border);
-  box-shadow: 0 3px 10px rgb(0 0 0 / 10%);
+  outline-color: var(--color-primary);
+  box-shadow: 0 5px 16px rgb(0 0 0 / 16%);
 }
 .recent-design-card:focus-within:has(:focus-visible) {
   outline-color: var(--color-ring);
-  box-shadow: 0 3px 10px rgb(0 0 0 / 10%);
+  box-shadow: 0 5px 16px rgb(0 0 0 / 16%);
 }
 .recent-design-preview {
   position: relative;
@@ -16157,8 +16214,8 @@ button.de-subrow-tag:focus-visible {
   flex-shrink: 0;
 }
 .recent-design-open {
-  background: #efe9de;
-  color: #242321;
+  background: rgb(24 23 22 / 82%);
+  color: var(--color-primary);
 }
 .recent-design-copy,
 .recent-design-menu-trigger {
@@ -16182,7 +16239,7 @@ button.de-subrow-tag:focus-visible {
 .recent-design-metadata {
   display: grid;
   gap: 3px;
-  padding: 9px 3px 6px;
+  padding: 9px 2px 2px;
 }
 .recent-design-title {
   overflow: hidden;
@@ -16193,14 +16250,29 @@ button.de-subrow-tag:focus-visible {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.recent-design-format,
-.recent-design-edited {
+.recent-design-format {
   overflow: hidden;
   color: var(--color-muted-foreground);
   font-size: 12px;
   line-height: 1.4;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.recent-design-edited-chip {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  max-width: calc(100% - 68px);
+  overflow: hidden;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: rgb(24 23 22 / 82%);
+  color: #efe9de;
+  font-size: 12px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
 }
 .recent-design-menu {
   min-width: 172px;
@@ -16256,4 +16328,15 @@ button.de-subrow-tag:focus-visible {
   .recent-design-actions {
     transition: none;
   }
+}
+
+.home-template-card .template-card-image {
+  object-fit: contain;
+}
+.home-template-card .recent-design-preview-link {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
