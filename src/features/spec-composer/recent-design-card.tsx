@@ -37,11 +37,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  compilePromptEditorOutput,
-  validateExternalToolRequirement,
-} from "./compiler";
-import { compileDesignSkill } from "./design-md";
+import { validateExternalToolRequirement } from "./compiler";
+import { compileCopyText, type CopyKind } from "./copy-output";
 import { projectKeys, useRemoveProject } from "./queries";
 import {
   duplicateRecentDesign,
@@ -95,11 +92,11 @@ export function RecentDesignCard({ doc }: { doc: SpecDocument }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [dialog, setDialog] = useState<"rename" | "delete" | null>(null);
   const [name, setName] = useState(doc.name);
-  const [copying, setCopying] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [copyingText, setCopyingText] = useState(false);
   const [now, setNow] = useState<number | null>(null);
-  const copyPending = useRef(false);
+  const duplicatePending = useRef(false);
   const renamePending = useRef(false);
   const textPending = useRef(false);
   const deletePending = useRef(false);
@@ -120,10 +117,10 @@ export function RecentDesignCard({ doc }: { doc: SpecDocument }) {
   };
   const refreshProjects = () =>
     queryClient.invalidateQueries({ queryKey: projectKeys.all });
-  const copyDesign = async () => {
-    if (copyPending.current) return;
-    copyPending.current = true;
-    setCopying(true);
+  const duplicateDesign = async () => {
+    if (duplicatePending.current) return;
+    duplicatePending.current = true;
+    setDuplicating(true);
     try {
       await duplicateRecentDesign(doc.id);
       await refreshProjects();
@@ -131,13 +128,13 @@ export function RecentDesignCard({ doc }: { doc: SpecDocument }) {
     } catch (error) {
       reportStorageError(error, "duplicate-project");
     } finally {
-      copyPending.current = false;
-      setCopying(false);
+      duplicatePending.current = false;
+      setDuplicating(false);
     }
   };
-  const copyText = async () => {
+  const copyText = async (kind: CopyKind) => {
     if (textPending.current) return;
-    if (doc.promptMode === "visual_prompt") {
+    if (kind === "prompt") {
       const error = validateExternalToolRequirement(
         doc.externalToolRequirement,
       );
@@ -155,14 +152,11 @@ export function RecentDesignCard({ doc }: { doc: SpecDocument }) {
       const kit = useEditorStore
         .getState()
         .brandKits.find((item) => item.id === doc.creativeDirection.brandKitId);
-      const text =
-        doc.promptMode === "design_skill"
-          ? (doc.designEdit ?? compileDesignSkill(doc, kit))
-          : compilePromptEditorOutput(doc);
+      const text = compileCopyText(doc, kit, kind);
       await navigator.clipboard.writeText(text);
-      toast.success("Design copied", {
+      toast.success(kind === "design" ? "DESIGN.md copied" : "Prompt copied", {
         description:
-          doc.promptMode === "design_skill"
+          kind === "design"
             ? "DESIGN.md is ready to paste."
             : "The design prompt is ready to paste.",
       });
@@ -175,6 +169,8 @@ export function RecentDesignCard({ doc }: { doc: SpecDocument }) {
       setCopyingText(false);
     }
   };
+  const copyDesignMarkdown = () => copyText("design");
+  const copyPrompt = () => copyText("prompt");
   const openDialog = (next: "rename" | "delete") => {
     dialogPending.current = true;
     if (next === "rename") setName(doc.name);
@@ -270,15 +266,24 @@ export function RecentDesignCard({ doc }: { doc: SpecDocument }) {
                   <ExternalLink aria-hidden="true" /> Open
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={copyDesign} disabled={copying}>
-                <Copy aria-hidden="true" /> Copy design
+              <DropdownMenuItem
+                onSelect={duplicateDesign}
+                disabled={duplicating}
+              >
+                <Copy aria-hidden="true" /> Duplicate design
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={copyText} disabled={copyingText}>
+              <DropdownMenuItem
+                onSelect={copyDesignMarkdown}
+                disabled={copyingText}
+              >
                 <FileText aria-hidden="true" />
-                {doc.promptMode === "design_skill"
-                  ? "Copy DESIGN.md"
-                  : "Copy prompt"}
+                Copy DESIGN.md
               </DropdownMenuItem>
+              {doc.promptMode === "visual_prompt" && (
+                <DropdownMenuItem onSelect={copyPrompt} disabled={copyingText}>
+                  <FileText aria-hidden="true" /> Copy prompt
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onSelect={() => openDialog("rename")}>
                 <Pencil aria-hidden="true" /> Rename
               </DropdownMenuItem>
@@ -304,10 +309,10 @@ export function RecentDesignCard({ doc }: { doc: SpecDocument }) {
             <button
               type="button"
               className="recent-design-action recent-design-copy"
-              aria-label={`Copy design: ${doc.name}`}
-              aria-busy={copying}
-              disabled={copying}
-              onClick={copyDesign}
+              aria-label={`Copy DESIGN.md: ${doc.name}`}
+              aria-busy={copyingText}
+              disabled={copyingText}
+              onClick={copyDesignMarkdown}
             >
               <Copy size={14} aria-hidden="true" /> Copy
             </button>

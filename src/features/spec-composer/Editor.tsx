@@ -109,6 +109,7 @@ import {
   type SidebarLayout,
 } from "./use-sidebar-layout";
 import { alignUnits } from "./canvas-geometry";
+import { canonicalLayers, canGroupLayers, layerAlignmentItems, selectedLayerIds } from "./layer-tree";
 import { Sep, Tool } from "./toolbar-controls";
 import { loadProjectVersion } from "./persistence";
 import { LS_KEYS } from "./storage";
@@ -314,7 +315,8 @@ export function Editor({ projectId }: { projectId: string }) {
   useShortcuts(() => setPreview(true));
 
   const openStyleFromCanvas = () => {
-    if (useEditorStore.getState().panel !== "assets") openStyleEditor(sidebars);
+    const panel = useEditorStore.getState().panel;
+    if (panel !== "assets" && panel !== "layers") openStyleEditor(sidebars);
   };
 
   if (notFound)
@@ -1817,8 +1819,12 @@ function FloatingControls() {
   const d = s.doc;
   if (!s.selectedIds.length || !d) return null;
   const selectedEls = d.elements.filter((e) => s.selectedIds.includes(e.id));
-  const hasGroup = selectedEls.some((e) => e.groupId);
-  const units = alignUnits(selectedEls);
+  const hasGroup = canonicalLayers(d, s.selectedGroupIds).some(
+    (node) => !node.element && !node.leaves.some((element) => element.locked),
+  );
+  const canGroup = canGroupLayers(d, selectedLayerIds(d, s.selectedIds, s.selectedGroupIds));
+  const units = alignUnits(layerAlignmentItems(d, s.selectedIds, s.selectedGroupIds));
+  const canAlign = units.some((unit) => !unit.locked);
   const canDistribute = units.filter((u) => !u.locked).length >= 3;
   const allLocked = selectedEls.every((element) => element.locked);
   const allVisible = selectedEls.every((element) => element.visible);
@@ -1833,38 +1839,38 @@ function FloatingControls() {
       <Tool
         label="Align left"
         icon={<AlignStartVertical />}
-        disabled={allLocked}
+        disabled={!canAlign}
         onClick={() => s.align("left")}
       />
       <Tool
         label="Align center"
         icon={<AlignCenterVertical />}
-        disabled={allLocked}
+        disabled={!canAlign}
         onClick={() => s.align("center")}
       />
       <Tool
         label="Align right"
         icon={<AlignEndVertical />}
-        disabled={allLocked}
+        disabled={!canAlign}
         onClick={() => s.align("right")}
       />
       <Sep />
       <Tool
         label="Align top"
         icon={<AlignStartHorizontal />}
-        disabled={allLocked}
+        disabled={!canAlign}
         onClick={() => s.align("top")}
       />
       <Tool
         label="Align middle"
         icon={<AlignCenterHorizontal />}
-        disabled={allLocked}
+        disabled={!canAlign}
         onClick={() => s.align("middle")}
       />
       <Tool
         label="Align bottom"
         icon={<AlignEndHorizontal />}
-        disabled={allLocked}
+        disabled={!canAlign}
         onClick={() => s.align("bottom")}
       />
       {canDistribute && (
@@ -1903,7 +1909,7 @@ function FloatingControls() {
         onClick={s.duplicate}
       />
       <Tool
-        disabled={s.selectedIds.length < 2}
+        disabled={!canGroup}
         label="Group"
         shortcut="Ctrl+G"
         icon={<Group />}
@@ -3197,6 +3203,7 @@ function ExportDialog({ close }: { close: () => void }) {
 function useShortcuts(preview: () => void) {
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
       const s = useEditorStore.getState();
       const t = e.target as HTMLElement;
       if (
@@ -3204,7 +3211,7 @@ function useShortcuts(preview: () => void) {
         t.isContentEditable
       )
         return;
-      if (t.closest?.('[role="dialog"], [role="alertdialog"]')) return;
+      if (t.closest?.('[role="dialog"], [role="alertdialog"], [data-layer-interaction]')) return;
       const mod = e.metaKey || e.ctrlKey;
       if (mod && e.key.toLowerCase() === "z") {
         e.preventDefault();

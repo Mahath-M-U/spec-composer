@@ -7,7 +7,7 @@ import {
 import { renderToStaticMarkup } from "react-dom/server";
 import { Link } from "@tanstack/react-router";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RecentDesignCard, RecentDesignEditedTime } from "./recent-design-card";
 import { createDocument } from "./templates";
 import type { SpecDocument } from "./types";
@@ -125,6 +125,7 @@ beforeEach(() => {
   mocks.compilePrompt.mockReturnValue("Compiled prompt");
   mocks.compileDesign.mockReturnValue("Compiled DESIGN.md");
 });
+afterEach(() => vi.unstubAllGlobals());
 
 describe("recent design card", () => {
   it("renders mounted, separate Open and Copy controls with full preview and safe metadata", () => {
@@ -189,7 +190,9 @@ describe("recent design card", () => {
     ).not.toContain("<time");
   });
 
-  it("shares one guarded duplicate handler between the visible button and menu", async () => {
+  it("shares one guarded DESIGN.md clipboard handler between the visible button and menu", async () => {
+    const writeText = vi.fn();
+    vi.stubGlobal("navigator", { clipboard: { writeText } });
     const doc = createDocument();
     renderCard(doc);
     const visible = find(
@@ -198,10 +201,11 @@ describe("recent design card", () => {
         element.props["className"] ===
           "recent-design-action recent-design-copy",
     );
-    const menu = byText("Copy design");
+    const menu = byText("Copy DESIGN.md");
     expect(visible.props["onClick"]).toBe(menu.props["onSelect"]);
+    expect(visible.props["aria-label"]).toBe(`Copy DESIGN.md: ${doc.name}`);
     let resolve!: () => void;
-    mocks.duplicate.mockImplementationOnce(
+    writeText.mockImplementationOnce(
       () =>
         new Promise<void>((done) => {
           resolve = done;
@@ -209,6 +213,81 @@ describe("recent design card", () => {
     );
     const pending = callback(visible, "onClick")();
     await callback(menu, "onSelect")();
+    expect(writeText).toHaveBeenCalledExactlyOnceWith("Compiled DESIGN.md");
+    resolve();
+    await pending;
+    expect(mocks.duplicate).not.toHaveBeenCalled();
+    expect(mocks.invalidate).not.toHaveBeenCalled();
+    expect(mocks.success).toHaveBeenCalledWith("DESIGN.md copied", {
+      description: "DESIGN.md is ready to paste.",
+    });
+  });
+
+  it.each(["visual_prompt", "design_skill"] as const)(
+    "copies DESIGN.md from the primary action in %s mode without external-tool validation",
+    async (promptMode) => {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      vi.stubGlobal("navigator", { clipboard: { writeText } });
+      const doc = {
+        ...createDocument(),
+        promptMode,
+        visualEdit: "Visual prompt only",
+      };
+      mocks.validate.mockReturnValue({
+        message: "Missing external tool settings",
+      });
+      renderCard(doc);
+      const visible = find(
+        (element) =>
+          element.type === "button" &&
+          element.props["className"] ===
+            "recent-design-action recent-design-copy",
+      );
+      await callback(visible, "onClick")();
+      expect(writeText).toHaveBeenCalledExactlyOnceWith("Compiled DESIGN.md");
+      expect(mocks.compileDesign).toHaveBeenCalledWith(doc, undefined);
+      expect(mocks.compilePrompt).not.toHaveBeenCalled();
+      expect(mocks.validate).not.toHaveBeenCalled();
+      expect(mocks.duplicate).not.toHaveBeenCalled();
+      expect(mocks.invalidate).not.toHaveBeenCalled();
+    },
+  );
+
+  it("reports clipboard failures and releases the clipboard guard for retry", async () => {
+    const writeText = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("Clipboard denied"))
+      .mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", { clipboard: { writeText } });
+    renderCard(createDocument());
+    const copy = callback(byText("Copy DESIGN.md"), "onSelect");
+    await copy();
+    expect(mocks.error).toHaveBeenCalledWith("Couldn't copy design", {
+      description: "Allow clipboard access in your browser and try again.",
+    });
+    expect(mocks.success).not.toHaveBeenCalled();
+    await copy();
+    expect(writeText).toHaveBeenCalledTimes(2);
+    expect(mocks.success).toHaveBeenCalledWith(
+      "DESIGN.md copied",
+      expect.any(Object),
+    );
+    expect(mocks.duplicate).not.toHaveBeenCalled();
+  });
+
+  it("keeps duplication guarded and refreshes projects only from Duplicate design", async () => {
+    const doc = createDocument();
+    renderCard(doc);
+    const duplicate = callback(byText("Duplicate design"), "onSelect");
+    let resolve!: () => void;
+    mocks.duplicate.mockImplementationOnce(
+      () =>
+        new Promise<void>((done) => {
+          resolve = done;
+        }),
+    );
+    const pending = duplicate();
+    await duplicate();
     expect(mocks.duplicate).toHaveBeenCalledExactlyOnceWith(doc.id);
     resolve();
     await pending;
@@ -220,7 +299,7 @@ describe("recent design card", () => {
 
   it("reports duplication failures and releases the guard for retry", async () => {
     renderCard(createDocument());
-    const copy = callback(byText("Copy design"), "onSelect");
+    const copy = callback(byText("Duplicate design"), "onSelect");
     const error = new Error("Storage unavailable");
     mocks.duplicate.mockRejectedValueOnce(error);
     await copy();
@@ -275,22 +354,24 @@ describe("recent design card", () => {
     await copyText();
     expect(mocks.compilePrompt).toHaveBeenCalledWith(doc);
     expect(writeText).toHaveBeenCalledWith("Compiled prompt");
-    vi.unstubAllGlobals();
   });
 
-  it("preserves hand-edited DESIGN.md clipboard output", async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    vi.stubGlobal("navigator", { clipboard: { writeText } });
-    renderCard({
-      ...createDocument(),
-      promptMode: "design_skill",
-      designEdit: "My edited DESIGN.md",
-    });
-    await callback(byText("Copy DESIGN.md"), "onSelect")();
-    expect(writeText).toHaveBeenCalledWith("My edited DESIGN.md");
-    expect(mocks.compileDesign).not.toHaveBeenCalled();
-    vi.unstubAllGlobals();
-  });
+  it.each(["My edited DESIGN.md", ""])(
+    "preserves hand-edited DESIGN.md clipboard output %j",
+    async (designEdit) => {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      vi.stubGlobal("navigator", { clipboard: { writeText } });
+      renderCard({
+        ...createDocument(),
+        promptMode: "visual_prompt",
+        designEdit,
+        revision: 3,
+        designEditRevision: 1,
+      });
+      await callback(byText("Copy DESIGN.md"), "onSelect")();
+      expect(writeText).toHaveBeenCalledWith(designEdit);
+    },
+  );
 });
 
 describe("recent design edited chip", () => {

@@ -1,5 +1,16 @@
 import { findTextPreset } from "./assets-panel/text-presets";
 import {
+  canonicalLayers,
+  canGroupLayers,
+  flattenLayers,
+  layerGroups,
+  layerAlignmentItems,
+  movedLayers,
+  pruneLayerGroups,
+  selectedLayerIds,
+  type LayerDestination,
+} from "./layer-tree";
+import {
   centeredCircle,
   isCircleShape,
   shapePatch,
@@ -104,6 +115,7 @@ export interface Guide {
 interface EditorState {
   doc?: SpecDocument | undefined;
   selectedIds: string[];
+  selectedGroupIds: string[];
   backgroundSelected: boolean;
   panel: PanelMode;
   /** Which tab the Style panel shows; lifted out of local state so canvas
@@ -132,6 +144,13 @@ interface EditorState {
   resizeCurrent: (format: Format) => boolean;
   select: (id?: string, add?: boolean) => void;
   selectMany: (ids: string[], add?: boolean) => void;
+  selectLayers: (ids: string[]) => void;
+  renameLayer: (id: string, name: string) => void;
+  updateLayers: (
+    ids: string[],
+    patch: Partial<Pick<SpecElement, "visible" | "locked">>,
+  ) => void;
+  moveLayers: (ids: string[], destination: LayerDestination) => void;
   selectBackground: () => void;
   setPanel: (p: PanelMode) => void;
   setStyleTab: (tab: "style" | "layout") => void;
@@ -244,6 +263,43 @@ interface EditorState {
 export type BrandKitDraft = Partial<
   Pick<BrandKit, "colors" | "emotions" | "style" | "typography" | "profile">
 >;
+
+function moveSelectedStack(
+  state: EditorState,
+  direction: "front" | "back" | "up" | "down",
+) {
+  const doc = state.doc;
+  if (!doc) return;
+  const nodes = canonicalLayers(
+    doc,
+    selectedLayerIds(doc, state.selectedIds, state.selectedGroupIds),
+  );
+  if (
+    !nodes.length ||
+    nodes.some((node) => node.parentId !== nodes[0]!.parentId)
+  )
+    return;
+  const rows = flattenLayers(doc);
+  const selected = new Set(nodes.map((node) => node.id));
+  const siblings = rows.filter((node) => node.parentId === nodes[0]!.parentId);
+  const up = direction === "front" || direction === "up";
+  const index = up
+    ? siblings.findIndex((node) => selected.has(node.id))
+    : siblings.length -
+      1 -
+      [...siblings].reverse().findIndex((node) => selected.has(node.id));
+  const target =
+    direction === "front"
+      ? siblings.find((node) => !selected.has(node.id))
+      : direction === "back"
+        ? [...siblings].reverse().find((node) => !selected.has(node.id))
+        : siblings[index + (up ? -1 : 1)];
+  if (target && !selected.has(target.id))
+    state.moveLayers([...selected], {
+      targetId: target.id,
+      position: up ? "before" : "after",
+    });
+}
 
 const clone = (d: SpecDocument): SpecDocument => structuredClone(d);
 
@@ -444,6 +500,7 @@ const STACK_ROLES: readonly AssetRole[] = ["headline", "offer", "cta"];
 
 export const useEditorStore = create<EditorState>((set, get) => ({
   selectedIds: [],
+  selectedGroupIds: [],
   backgroundSelected: false,
   panel: "assets",
   styleTab: "layout",
@@ -482,6 +539,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       past: [],
       future: [],
       selectedIds: [],
+      selectedGroupIds: [],
       backgroundSelected: false,
       saveStatus: "saved",
       externallyModified: false,
@@ -506,8 +564,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     else delete next.creativeDirection.brandKitId;
     get().mutate((doc) => {
       delete doc.layout;
+      delete doc.groups;
       Object.assign(doc, next);
     });
+    set({ selectedIds: [], selectedGroupIds: [], backgroundSelected: false });
   },
 
   closeDocument: () => {
@@ -518,6 +578,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       past: [],
       future: [],
       selectedIds: [],
+      selectedGroupIds: [],
       backgroundSelected: false,
       saveStatus: "saved",
       externallyModified: false,
@@ -535,6 +596,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     withRevision(next);
     set((s) => ({
       doc: next,
+      selectedIds: s.selectedIds.filter((id) =>
+        next.elements.some((el) => el.id === id),
+      ),
+      selectedGroupIds: s.selectedGroupIds.filter((id) =>
+        layerGroups(next).some((group) => group.id === id),
+      ),
       past: history
         ? [...s.past.slice(1 - historyLimit(current)), clone(current)]
         : s.past,
@@ -576,45 +643,107 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     return true;
   },
 
-  select: (id, add = false) => {
-    if (!id) {
-      set({ selectedIds: [], backgroundSelected: false });
-      return;
-    }
+  selectLayers: (ids) => {
     const doc = get().doc;
-    const el = doc?.elements.find((e) => e.id === id);
-    if (add) {
-      set((s) => ({
-        selectedIds: s.selectedIds.includes(id)
-          ? s.selectedIds.filter((v) => v !== id)
-          : [...s.selectedIds, id],
-        backgroundSelected: false,
-      }));
-      return;
-    }
-    const groupId = el?.groupId;
-    const ids = groupId
-      ? (doc?.elements
-          .filter((e) => e.groupId === groupId)
-          .map((e) => e.id) ?? [id])
-      : [id];
+    if (!doc) return;
+    const nodes = canonicalLayers(doc, ids);
     set({
-      selectedIds: ids,
+      selectedIds: nodes.flatMap((node) => node.leaves.map((el) => el.id)),
+      selectedGroupIds: nodes
+        .filter((node) => !node.element)
+        .map((node) => node.id),
       backgroundSelected: false,
     });
   },
 
-  selectBackground: () =>
-    set({
-      selectedIds: [],
-      backgroundSelected: true,
-    }),
+  select: (id, add = false) => {
+    const doc = get().doc;
+    if (!doc || !id) {
+      set({ selectedIds: [], selectedGroupIds: [], backgroundSelected: false });
+      return;
+    }
+    if (add) {
+      // Canvas modifiers operate on individual objects, even inside groups.
+      get().selectMany(
+        get().selectedIds.includes(id)
+          ? get().selectedIds.filter((value) => value !== id)
+          : [...get().selectedIds, id],
+      );
+      return;
+    }
+    const rows = flattenLayers(doc);
+    let node = rows.find((row) => row.id === id);
+    while (node?.parentId) node = rows.find((row) => row.id === node!.parentId);
+    get().selectLayers(node ? [node.id] : []);
+  },
 
-  selectMany: (ids, add = false) =>
+  selectBackground: () =>
+    set({ selectedIds: [], selectedGroupIds: [], backgroundSelected: true }),
+
+  selectMany: (ids, add = false) => {
+    const valid = new Set(get().doc?.elements.map((el) => el.id));
     set((s) => ({
-      selectedIds: add ? Array.from(new Set([...s.selectedIds, ...ids])) : ids,
+      selectedIds: [...new Set(add ? [...s.selectedIds, ...ids] : ids)].filter(
+        (id) => valid.has(id),
+      ),
+      selectedGroupIds: [],
       backgroundSelected: false,
-    })),
+    }));
+  },
+
+  renameLayer: (id, value) => {
+    const name = value.trim().slice(0, 200);
+    const doc = get().doc;
+    const node = doc && flattenLayers(doc).find((row) => row.id === id);
+    if (!doc || !node || !name || node.name === name) return;
+    get().mutate((next) => {
+      if (node.element) next.elements.find((el) => el.id === id)!.name = name;
+      else {
+        next.groups = layerGroups(next);
+        next.groups.find((group) => group.id === id)!.name = name;
+      }
+    });
+  },
+
+  updateLayers: (ids, patch) => {
+    const doc = get().doc;
+    if (!doc) return;
+    const leaves = new Set(
+      canonicalLayers(doc, ids).flatMap((node) =>
+        node.leaves.map((el) => el.id),
+      ),
+    );
+    const values = Object.entries(patch).filter(
+      ([key, value]) =>
+        (key === "visible" || key === "locked") && typeof value === "boolean",
+    );
+    if (
+      !values.length ||
+      !doc.elements.some(
+        (el) =>
+          leaves.has(el.id) &&
+          values.some(
+            ([key, value]) => el[key as "visible" | "locked"] !== value,
+          ),
+      )
+    )
+      return;
+    get().mutate((next) =>
+      next.elements.forEach((el) => {
+        if (leaves.has(el.id)) Object.assign(el, Object.fromEntries(values));
+      }),
+    );
+  },
+
+  moveLayers: (ids, destination) => {
+    const doc = get().doc;
+    const next = doc && movedLayers(doc, ids, destination);
+    if (next)
+      get().mutate((draft) => {
+        draft.elements = next.elements;
+        draft.groups = next.groups;
+      });
+  },
 
   setPanel: (panel) => set({ panel }),
   setStyleTab: (styleTab) => set({ styleTab }),
@@ -860,7 +989,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const el = insertElement(doc, activeKit, kind, x, y, patch, options);
       id = el.id;
     });
-    set({ selectedIds: [id], backgroundSelected: false });
+    set({ selectedIds: [id], selectedGroupIds: [], backgroundSelected: false });
   },
 
   slotElement: (role, kind, patch, options) => {
@@ -994,7 +1123,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       el.x = Math.max(0, Math.min(el.x, doc.format.width - el.width));
       el.y = Math.max(0, Math.min(el.y, doc.format.height - el.height));
     });
-    set({ selectedIds: [id], backgroundSelected: false });
+    set({ selectedIds: [id], selectedGroupIds: [], backgroundSelected: false });
     return id;
   },
 
@@ -1160,39 +1289,151 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }),
 
   deleteElements: (ids) => {
-    if (!ids.length) return;
-    get().mutate((d) => {
-      d.elements = d.elements.filter((e) => !ids.includes(e.id));
+    const doc = get().doc;
+    if (!doc) return;
+    const nodes = canonicalLayers(doc, ids);
+    if (!nodes.length) return;
+    const leaves = new Set(
+      nodes.flatMap((node) => node.leaves.map((el) => el.id)),
+    );
+    const deletedGroups = new Set(
+      flattenLayers(doc)
+        .filter(
+          (node) =>
+            !node.element &&
+            nodes.some(
+              (parent) =>
+                parent.id === node.id ||
+                node.leaves.every((el) => leaves.has(el.id)),
+            ),
+        )
+        .map((node) => node.id),
+    );
+    get().mutate((next) => {
+      next.elements = next.elements.filter((el) => !leaves.has(el.id));
+      next.groups = layerGroups(next).filter(
+        (group) => !deletedGroups.has(group.id),
+      );
+      pruneLayerGroups(next);
     });
-    set((s) => ({
-      selectedIds: s.selectedIds.filter((id) => !ids.includes(id)),
-    }));
+    const current = get();
+    get().selectLayers(
+      selectedLayerIds(
+        get().doc!,
+        current.selectedIds,
+        current.selectedGroupIds,
+      ).filter((id) => !leaves.has(id) && !deletedGroups.has(id)),
+    );
   },
 
-  deleteSelected: () => get().deleteElements(get().selectedIds),
+  deleteSelected: () => {
+    const state = get();
+    if (state.doc)
+      state.deleteElements(
+        selectedLayerIds(state.doc, state.selectedIds, state.selectedGroupIds),
+      );
+  },
 
   duplicate: () => {
-    const ids = get().selectedIds;
-    const nextIds: string[] = [];
-    get().mutate((d) => {
-      const base = d.elements.length;
-      const copies = d.elements
-        .filter((e) => ids.includes(e.id))
-        .map((e, i) => {
-          const copy: SpecElement = {
-            ...structuredClone(e),
-            id: `${e.kind}_${crypto.randomUUID().slice(0, 8)}`,
-            name: `${e.name} copy`,
-            x: e.x + 24,
-            y: e.y + 24,
-            zIndex: base + i + 1,
-          };
-          nextIds.push(copy.id);
-          return copy;
-        });
-      d.elements.push(...copies);
+    const state = get(),
+      doc = state.doc;
+    if (!doc) return;
+    const nodes = canonicalLayers(
+      doc,
+      selectedLayerIds(doc, state.selectedIds, state.selectedGroupIds),
+    );
+    if (!nodes.length) return;
+    const leaves = new Set(
+      nodes.flatMap((node) => node.leaves.map((el) => el.id)),
+    );
+    const rows = flattenLayers(doc);
+    const selectedGroups = new Set(
+      nodes.filter((node) => !node.element).map((node) => node.id),
+    );
+    const groups = layerGroups(doc).filter((group) => {
+      let id: string | undefined = group.id;
+      while (id) {
+        if (selectedGroups.has(id)) return true;
+        id = rows.find((row) => row.id === id)?.parentId;
+      }
+      return false;
     });
-    set({ selectedIds: nextIds });
+    const ids = new Map(
+      [...groups.map((g) => g.id), ...leaves].map((id) => [
+        id,
+        `layer_${crypto.randomUUID().slice(0, 8)}`,
+      ]),
+    );
+    const selection = nodes.map((node) => ids.get(node.id)!);
+    get().mutate((next) => {
+      next.groups = [
+        ...layerGroups(next),
+        ...groups.map((group) => ({
+          ...group,
+          id: ids.get(group.id)!,
+          name: `${group.name.slice(0, 195)} copy`,
+          parentId: ids.get(group.parentId ?? "") ?? group.parentId,
+        })),
+      ];
+      const base = Math.max(0, ...next.elements.map((el) => el.zIndex));
+      const copies = [...doc.elements]
+        .filter((el) => leaves.has(el.id))
+        .sort((a, b) => a.zIndex - b.zIndex)
+        .map((el, index) => ({
+          ...structuredClone(el),
+          id: ids.get(el.id)!,
+          name: `${el.name} copy`,
+          x: el.x + 24,
+          y: el.y + 24,
+          groupId: ids.get(el.groupId ?? "") ?? el.groupId,
+          zIndex: base + index + 1,
+        }));
+      next.elements.push(...copies);
+      const originals = [...doc.elements]
+        .sort((a, b) => b.zIndex - a.zIndex)
+        .map((el) => el.id);
+      const rootLeaves = new Set(
+        nodes
+          .filter((node) => !node.parentId)
+          .flatMap((node) => node.leaves.map((el) => el.id)),
+      );
+      let ordered = [
+        ...originals
+          .filter((id) => rootLeaves.has(id))
+          .map((id) => ids.get(id)!),
+        ...originals,
+      ];
+      for (const node of nodes.filter((node) => node.parentId)) {
+        const members = new Set(node.leaves.map((el) => el.id));
+        const index = ordered.findIndex((id) => members.has(id));
+        ordered.splice(
+          index,
+          0,
+          ...originals
+            .filter((id) => members.has(id))
+            .map((id) => ids.get(id)!),
+        );
+      }
+      const nextRows = flattenLayers(next);
+      for (const parentId of new Set(
+        nodes.flatMap((node) => (node.parentId ? [node.parentId] : [])),
+      )) {
+        const members = new Set(
+          nextRows
+            .find((node) => node.id === parentId)!
+            .leaves.map((el) => el.id),
+        );
+        const first = ordered.findIndex((id) => members.has(id));
+        const groupOrder = ordered.filter((id) => members.has(id));
+        ordered = ordered.filter((id) => !members.has(id));
+        ordered.splice(first, 0, ...groupOrder);
+      }
+      ordered.forEach((id, index) => {
+        next.elements.find((el) => el.id === id)!.zIndex =
+          ordered.length - index;
+      });
+    });
+    get().selectLayers(selection);
   },
 
   undo: () => {
@@ -1204,6 +1445,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       past: s.past.slice(0, -1),
       future: [clone(doc), ...s.future].slice(0, historyLimit(doc)),
       selectedIds: [],
+      selectedGroupIds: [],
       saveStatus: "saving",
     }));
     clearTimeout(saveTimer);
@@ -1219,6 +1461,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       past: [...s.past, clone(doc)].slice(-historyLimit(doc)),
       future: s.future.slice(1),
       selectedIds: [],
+      selectedGroupIds: [],
       saveStatus: "saving",
     }));
     clearTimeout(saveTimer);
@@ -1230,7 +1473,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const ids = get().selectedIds;
     if (!doc || !ids.length) return;
     const moves = alignOffsets(
-      doc.elements.filter((e) => ids.includes(e.id)),
+      layerAlignmentItems(doc, ids, get().selectedGroupIds),
       a,
       { x: 0, y: 0, width: doc.format.width, height: doc.format.height },
     );
@@ -1251,7 +1494,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const ids = get().selectedIds;
     if (!doc || !ids.length) return;
     const moves = distributeOffsets(
-      doc.elements.filter((e) => ids.includes(e.id)),
+      layerAlignmentItems(doc, ids, get().selectedGroupIds),
       axis,
     );
     if (!Object.keys(moves).length) return;
@@ -1266,82 +1509,77 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     });
   },
 
-  bringToFront: () => {
-    const ids = get().selectedIds;
-    if (!ids.length) return;
-    get().mutate((d) => {
-      const rest = d.elements.filter((e) => !ids.includes(e.id));
-      const moved = d.elements.filter((e) => ids.includes(e.id));
-      d.elements = [...rest, ...moved];
-      d.elements.forEach((e, i) => (e.zIndex = i + 1));
-    });
-  },
-
-  sendToBack: () => {
-    const ids = get().selectedIds;
-    if (!ids.length) return;
-    get().mutate((d) => {
-      const moved = d.elements.filter((e) => ids.includes(e.id));
-      const rest = d.elements.filter((e) => !ids.includes(e.id));
-      d.elements = [...moved, ...rest];
-      d.elements.forEach((e, i) => (e.zIndex = i + 1));
-    });
-  },
-
-  bringForward: () => {
-    const ids = get().selectedIds;
-    if (!ids.length) return;
-    get().mutate((d) => {
-      const ordered = [...d.elements].sort((a, b) => a.zIndex - b.zIndex);
-      for (let i = ordered.length - 2; i >= 0; i--) {
-        const cur = ordered[i]!;
-        const nextEl = ordered[i + 1]!;
-        if (ids.includes(cur.id) && !ids.includes(nextEl.id)) {
-          ordered[i] = nextEl;
-          ordered[i + 1] = cur;
-        }
-      }
-      ordered.forEach((e, i) => (e.zIndex = i + 1));
-      d.elements = ordered;
-    });
-  },
-
-  sendBackward: () => {
-    const ids = get().selectedIds;
-    if (!ids.length) return;
-    get().mutate((d) => {
-      const ordered = [...d.elements].sort((a, b) => a.zIndex - b.zIndex);
-      for (let i = 1; i < ordered.length; i++) {
-        const cur = ordered[i]!;
-        const prevEl = ordered[i - 1]!;
-        if (ids.includes(cur.id) && !ids.includes(prevEl.id)) {
-          ordered[i] = prevEl;
-          ordered[i - 1] = cur;
-        }
-      }
-      ordered.forEach((e, i) => (e.zIndex = i + 1));
-      d.elements = ordered;
-    });
-  },
+  bringToFront: () => moveSelectedStack(get(), "front"),
+  sendToBack: () => moveSelectedStack(get(), "back"),
+  bringForward: () => moveSelectedStack(get(), "up"),
+  sendBackward: () => moveSelectedStack(get(), "down"),
 
   group: () => {
-    const ids = get().selectedIds;
-    if (ids.length < 2) return;
-    const groupId = `group_${crypto.randomUUID().slice(0, 6)}`;
-    get().mutate((d) =>
-      d.elements.forEach((e) => {
-        if (ids.includes(e.id)) e.groupId = groupId;
-      }),
+    const state = get(),
+      doc = state.doc;
+    if (!doc) return;
+    const ids = selectedLayerIds(
+      doc,
+      state.selectedIds,
+      state.selectedGroupIds,
     );
+    if (!canGroupLayers(doc, ids)) return;
+    const nodes = canonicalLayers(doc, ids);
+    const id = `group_${crypto.randomUUID().slice(0, 8)}`;
+    get().mutate((next) => {
+      next.groups = [
+        ...layerGroups(next),
+        {
+          id,
+          name: `Group ${layerGroups(next).length + 1}`,
+          parentId: nodes[0]!.parentId,
+        },
+      ];
+      for (const node of nodes) {
+        const group = next.groups.find((value) => value.id === node.id);
+        if (group) group.parentId = id;
+        else next.elements.find((el) => el.id === node.id)!.groupId = id;
+      }
+      // Make only the new group contiguous at its highest selected sibling.
+      const leaves = new Set(
+        nodes.flatMap((node) => node.leaves.map((el) => el.id)),
+      );
+      const ordered = [...next.elements].sort((a, b) => b.zIndex - a.zIndex);
+      const first = ordered.findIndex((el) => leaves.has(el.id));
+      const members = ordered.filter((el) => leaves.has(el.id));
+      const rest = ordered.filter((el) => !leaves.has(el.id));
+      rest.splice(first, 0, ...members);
+      rest.forEach((el, i) => {
+        el.zIndex = rest.length - i;
+      });
+    });
+    get().selectLayers([id]);
   },
 
   ungroup: () => {
-    const ids = get().selectedIds;
-    get().mutate((d) =>
-      d.elements.forEach((e) => {
-        if (ids.includes(e.id)) delete e.groupId;
-      }),
+    const state = get(),
+      doc = state.doc;
+    if (!doc) return;
+    const nodes = canonicalLayers(doc, state.selectedGroupIds).filter(
+      (node) => !node.element && !node.leaves.some((el) => el.locked),
     );
+    if (!nodes.length) return;
+    const children = nodes.flatMap((node) =>
+      node.children.map((child) => child.id),
+    );
+    get().mutate((next) => {
+      next.groups = layerGroups(next);
+      for (const node of nodes) {
+        for (const el of next.elements)
+          if (el.groupId === node.id) el.groupId = node.parentId;
+        for (const group of next.groups)
+          if (group.parentId === node.id) group.parentId = node.parentId;
+      }
+      next.groups = next.groups.filter(
+        (group) => !nodes.some((node) => node.id === group.id),
+      );
+    });
+    get().selectLayers(children);
   },
 
   tidy: () => get().mutate((d) => applyTidy(d, get().selectedIds)),

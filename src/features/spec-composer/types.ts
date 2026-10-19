@@ -358,46 +358,82 @@ const styleKitSchema = z.object({
 });
 export type StyleKit = z.infer<typeof styleKitSchema>;
 
-const specDocumentShape = z.object({
-  id: z.string(),
-  version: z.literal("1.0"),
-  name: z.string(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-  format: formatSchema,
-  creativeDirection: creativeDirectionSchema,
-  background: z.object({
-    type: z.enum(["solid", "gradient"]),
-    value: z.string(),
-    secondaryValue: z.string().optional(),
-    angle: z.number().optional(),
-  }),
-  elements: z.array(specElementSchema),
-  imageBrief: z.string().default(""),
-  promptMode: z.enum(["visual_prompt", "design_skill"]),
-  promptOptions: promptOptionsSchema,
-  externalToolRequirement: externalToolRequirementSchema.optional(),
-  /** Prompt Editor image style id (see image-styles.ts); unknown ids add nothing. */
-  imageStyle: z.string().optional(),
-  /** Prompt Scene section; free text, see art-direction.ts. */
-  scene: z.string().optional(),
-  /** Prompt Lighting section; free text, see art-direction.ts. */
-  lighting: z.string().optional(),
-  generationSettings: generationSettingsSchema.optional(),
-  savedCustomText: z
-    .object({ visual: z.string().optional(), design: z.string().optional() })
-    .optional(),
-  /** Hand edit for the Design Editor (promptMode "design_skill"). */
-  designEdit: z.string().optional(),
-  designEditRevision: z.number().optional(),
-  /** Hand edit for the Prompt Editor (promptMode "visual_prompt"). */
-  visualEdit: z.string().optional(),
-  visualEditRevision: z.number().optional(),
-  promptParts: z.record(z.string(), z.string()).optional(),
-  /** Last applied Compose layout id (see compose-layouts.ts isComposeLayout). */
-  layout: z.string().optional(),
-  revision: z.number(),
+export const layerGroupSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().trim().min(1).max(200),
+  parentId: z.string().min(1).optional(),
 });
+export type LayerGroup = z.infer<typeof layerGroupSchema>;
+
+const specDocumentShape = z
+  .object({
+    id: z.string(),
+    version: z.literal("1.0"),
+    name: z.string(),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+    format: formatSchema,
+    creativeDirection: creativeDirectionSchema,
+    background: z.object({
+      type: z.enum(["solid", "gradient"]),
+      value: z.string(),
+      secondaryValue: z.string().optional(),
+      angle: z.number().optional(),
+    }),
+    elements: z.array(specElementSchema),
+    groups: z.array(layerGroupSchema).optional(),
+    imageBrief: z.string().default(""),
+    promptMode: z.enum(["visual_prompt", "design_skill"]),
+    promptOptions: promptOptionsSchema,
+    externalToolRequirement: externalToolRequirementSchema.optional(),
+    /** Prompt Editor image style id (see image-styles.ts); unknown ids add nothing. */
+    imageStyle: z.string().optional(),
+    /** Prompt Scene section; free text, see art-direction.ts. */
+    scene: z.string().optional(),
+    /** Prompt Lighting section; free text, see art-direction.ts. */
+    lighting: z.string().optional(),
+    generationSettings: generationSettingsSchema.optional(),
+    savedCustomText: z
+      .object({ visual: z.string().optional(), design: z.string().optional() })
+      .optional(),
+    /** Hand edit for the Design Editor (promptMode "design_skill"). */
+    designEdit: z.string().optional(),
+    designEditRevision: z.number().optional(),
+    /** Hand edit for the Prompt Editor (promptMode "visual_prompt"). */
+    visualEdit: z.string().optional(),
+    visualEditRevision: z.number().optional(),
+    promptParts: z.record(z.string(), z.string()).optional(),
+    /** Last applied Compose layout id (see compose-layouts.ts isComposeLayout). */
+    layout: z.string().optional(),
+    revision: z.number(),
+  })
+  .superRefine((doc, ctx) => {
+    const ids = new Set(doc.elements.map((el) => el.id));
+    const groups = new Map(doc.groups?.map((group) => [group.id, group]));
+    for (const group of doc.groups ?? []) {
+      if (ids.has(group.id))
+        ctx.addIssue({ code: "custom", message: "Layer IDs must be unique." });
+      ids.add(group.id);
+      if (group.parentId && !groups.has(group.parentId))
+        ctx.addIssue({
+          code: "custom",
+          message: "Group parent does not exist.",
+        });
+      const seen = new Set([group.id]);
+      let parent = group.parentId;
+      while (parent) {
+        if (seen.has(parent)) {
+          ctx.addIssue({
+            code: "custom",
+            message: "Groups cannot contain cycles.",
+          });
+          break;
+        }
+        seen.add(parent);
+        parent = groups.get(parent)?.parentId;
+      }
+    }
+  });
 
 /** Projects saved by the retired "agent_spec" mode open in the design editor;
  * their hand-edited spec text no longer matches that output, so it's dropped. */

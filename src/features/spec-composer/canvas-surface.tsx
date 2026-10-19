@@ -140,7 +140,7 @@ export function CanvasWorkspace({
       viewport.manual();
     } else if (id || handle || target.closest("[data-selection-body]")) {
       if (id && !handle) {
-        if (e.shiftKey) {
+        if (e.shiftKey || e.ctrlKey || e.metaKey) {
           state.select(id, true);
           if (useEditorStore.getState().selectedIds.length > 0)
             onCanvasSelect?.();
@@ -162,7 +162,7 @@ export function CanvasWorkspace({
       zoom: state.zoom,
       document: doc,
       kind,
-      additive: e.shiftKey,
+      additive: e.shiftKey || e.ctrlKey || e.metaKey,
       elements,
       bounds: boundsOf(elements),
       ...(handle ? { handle } : {}),
