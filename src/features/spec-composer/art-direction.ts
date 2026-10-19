@@ -49,6 +49,55 @@ export const MATERIAL_PRESETS = [
   "Paper stock",
 ] as const;
 
+/** Suggestions describe the selected subject, rather than a generic material catalog. */
+export function materialSuggestions(elements: SpecElement[]): string[] {
+  const suggestions = (element: SpecElement) => {
+    const role =
+      `${element.semanticRole ?? ""} ${element.slot ?? ""} ${element.kind} ${element.descriptionTemplate?.id ?? ""}`.toLowerCase();
+    if (
+      element.kind === "humanModelImage" ||
+      (element.kind !== "productImage" && /human|person|model/.test(role))
+    )
+      return [
+        "Natural skin texture",
+        "Soft fabric",
+        "Detailed hair",
+        "Fabric weave",
+        "Woven cotton",
+      ];
+    if (element.kind === "productImage" || /product/.test(role))
+      return [
+        "Matte packaging",
+        "Brushed metal",
+        "Clear glass",
+        "Paper stock",
+        "Glossy finish",
+        "Stainless steel",
+      ];
+    if (/background|backdrop/.test(role))
+      return [
+        "Seamless paper",
+        "Textured plaster",
+        "Matte surface",
+        "Natural stone",
+        "Soft gradient",
+      ];
+    if (/text|title|body|heading|cta|price|offer|badge/.test(role))
+      return [
+        "Printed ink",
+        "Paper stock",
+        "Embossed lettering",
+        "Foil lettering",
+      ];
+    if (/logo|brand/.test(role))
+      return ["Printed ink", "Embossed mark", "Foil finish", "Matte finish"];
+    return [];
+  };
+  if (!elements.length) return [];
+  const sets = elements.map(suggestions);
+  return sets[0]!.filter((value) => sets.every((set) => set.includes(value)));
+}
+
 /** Preset chips for the Mood field, refining it as a brand-tone picker.
  * Lower-case, since `TagsControl` lower-cases every tag it stores. */
 export const BRAND_TONES = [

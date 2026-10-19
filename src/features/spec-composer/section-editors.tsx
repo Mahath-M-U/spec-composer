@@ -1,7 +1,4 @@
-import {
-  SceneLightingControls,
-  ShapeControls,
-} from "./scene-lighting-controls";
+import { ShapeControls } from "./scene-lighting-controls";
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link2, Type, X } from "lucide-react";
 import { sectionTarget, type Target } from "./section-target";
@@ -12,7 +9,6 @@ import {
   MATERIAL_PRESETS,
   hasPreset,
   togglePreset,
-  type ArtFieldKey,
 } from "./art-direction";
 import {
   isImageKind,
@@ -631,13 +627,6 @@ function MoodControls({ b }: { b: Bindings }) {
   );
 }
 
-/** The Scene / Lighting section's controls: free text plus preset chips.
- * No debounce, so a chip click's immediate write never races a pending
- * keystroke commit. */
-function ArtFieldControls({ b, field }: { b: Bindings; field: ArtFieldKey }) {
-  return <SceneLightingControls field={field} />;
-}
-
 /** An element's Material and texture field: free text plus preset chips. */
 function MaterialControls({
   value,
@@ -987,9 +976,6 @@ function hasLinked(target: Target, b: Bindings) {
       return false;
     case "components":
       return !!(b.typography.linked || b.text || b.primary);
-    case "scene":
-    case "lighting":
-      return false;
     case "typography":
       return b.typography.linked;
     case "element": {
@@ -1056,10 +1042,6 @@ export function SectionEditor({
       break;
     case "imagery":
       body = <ImageryControls b={b} />;
-      break;
-    case "scene":
-    case "lighting":
-      body = <ArtFieldControls b={b} field={target.type} />;
       break;
     case "typography":
       body = (

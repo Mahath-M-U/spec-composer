@@ -1,7 +1,4 @@
-import {
-  SceneLightingControls,
-  ShapeControls,
-} from "./scene-lighting-controls";
+import { ShapeControls } from "./scene-lighting-controls";
 import { resolveEditorText } from "./output-sync";
 import {
   useCallback,
@@ -92,7 +89,8 @@ import { cn } from "@/lib/utils";
 import { readRaw, writeRaw } from "@/lib/storage/local";
 import { AppIcon } from "@/components/app-icon";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { useEditorStore, type Box, type ComposeLayout } from "./store";
+import { UserSettings } from "./user-settings";
+import { useEditorStore, boundsOf, type Box, type ComposeLayout } from "./store";
 import {
   COMPOSE_LAYOUTS,
   composePool,
@@ -108,6 +106,16 @@ import {
   RIGHT_COLLAPSE_ID,
   type SidebarLayout,
 } from "./use-sidebar-layout";
+import {
+  commonValue,
+  commitInspectorEdit,
+  commitInspectorGeometry,
+  inspectorCategory,
+  inspectorContext,
+  materialState,
+  semanticRole,
+  toggledMaterial,
+} from "./inspector-properties";
 import { alignUnits } from "./canvas-geometry";
 import { canonicalLayers, canGroupLayers, layerAlignmentItems, selectedLayerIds } from "./layer-tree";
 import { Sep, Tool } from "./toolbar-controls";
@@ -148,11 +156,11 @@ import {
 } from "./design-editor-cards";
 import { PromptPart } from "./prompt-visuals";
 import { FEATURED_FONTS, MORE_FONTS } from "./fonts";
-import { SectionEditor, PresetChips } from "./section-editors";
+import { SectionEditor } from "./section-editors";
 import {
   isArtFieldKey,
   ART_FIELDS,
-  MATERIAL_PRESETS,
+  materialSuggestions,
   optionalSectionOf,
   setSectionIncluded,
 } from "./art-direction";
@@ -695,6 +703,7 @@ function ToolRail({
         });
       }}
     >
+      <UserSettings />
       <Hint label="Home" side="right">
         <Link to="/" className="spec-mark editor-top-home" aria-label="Home">
           <AppIcon className="h-full w-full" />
@@ -910,8 +919,8 @@ function TemplatesPanel() {
   );
 }
 
-/** Compact labeled number input for the Style panel (X/Y/W/H, rotation, opacity, angle). */
-function DockNumberField({
+/** Drafts retain precision; only a complete finite value creates an undo step. */
+export function DockNumberField({
   prefix,
   label,
   value,
@@ -923,13 +932,26 @@ function DockNumberField({
 }: {
   prefix: ReactNode;
   label: string;
-  value: number;
+  value: number | undefined;
   onChange: (value: number) => void;
-  min?: number;
-  max?: number;
+  min?: number | undefined;
+  max?: number | undefined;
   suffix?: string;
   disabled?: boolean;
 }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const cancelBlur = useRef(false);
+  const commit = (text: string) => {
+    if (!text.trim()) return;
+    const number = Number(text);
+    if (
+      Number.isFinite(number) &&
+      (min === undefined || number >= min) &&
+      (max === undefined || number <= max) &&
+      number !== value
+    )
+      onChange(number);
+  };
   return (
     <Hint label={label}>
       <label className="style-dock-field">
@@ -938,12 +960,48 @@ function DockNumberField({
         </span>
         <input
           type="number"
+          step="any"
           aria-label={label}
           min={min}
           max={max}
-          value={value}
+          placeholder={value === undefined ? "Mixed" : undefined}
+          value={draft ?? value ?? ""}
           disabled={disabled}
-          onChange={(event) => onChange(Number(event.target.value))}
+          onChange={(event) => setDraft(event.target.value)}
+          onBlur={(event) => {
+            if (!cancelBlur.current && draft !== null)
+              commit(event.target.value);
+            cancelBlur.current = false;
+            setDraft(null);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              event.stopPropagation();
+              cancelBlur.current = true;
+              setDraft(null);
+              event.currentTarget.blur();
+            }
+            if (event.key === "Enter") {
+              event.preventDefault();
+              event.stopPropagation();
+              if (draft !== null) commit(draft);
+              cancelBlur.current = true;
+              setDraft(null);
+              event.currentTarget.blur();
+            }
+            if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+              event.preventDefault();
+              const base = draft === null ? value : Number(draft);
+              if (base === undefined || !Number.isFinite(base) || draft === "")
+                return;
+              const next =
+                base +
+                (event.key === "ArrowUp" ? 1 : -1) * (event.shiftKey ? 10 : 1);
+              commit(String(next));
+              setDraft(null);
+            }
+          }}
         />
         {suffix && <em className="style-dock-field-suffix">{suffix}</em>}
       </label>
@@ -951,11 +1009,53 @@ function DockNumberField({
   );
 }
 
-function StylePanel() {
+function InspectorColor({
+  label,
+  value,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  value: string | undefined;
+  onChange: (value: string) => void;
+  disabled: boolean;
+}) {
+  return (
+    <label className="style-dock-row">
+      <span>{label}</span>
+      <span className="inspector-color">
+        {(value === undefined || !/^#[0-9a-f]{6}$/i.test(value)) && (
+          <small>{value ?? "Mixed"}</small>
+        )}
+        <input
+          aria-label={label}
+          type="color"
+          className="style-dock-swatch"
+          data-mixed={value === undefined || undefined}
+          value={colorInputValue(value, "#ffffff")}
+          disabled={disabled}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      </span>
+    </label>
+  );
+}
+
+export function StylePanel() {
   const s = useEditorStore();
   const d = s.doc;
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [regenCopied, setRegenCopied] = useState(false);
+  const [ratioLocked, setRatioLocked] = useState(false);
+  const [moreMaterials, setMoreMaterials] = useState(false);
+  const [materialDraft, setMaterialDraft] = useState<string | null>(null);
+  const selectionKey = inspectorContext();
+  useEffect(() => {
+    setRatioLocked(false);
+    setMaterialDraft(null);
+    setMoreMaterials(false);
+    setDetailsOpen(false);
+  }, [selectionKey]);
   const storedTab = s.styleTab;
   const setTab = s.setStyleTab;
 
@@ -968,50 +1068,80 @@ function StylePanel() {
   const selectedElements = d.elements.filter((element) =>
     s.selectedIds.includes(element.id),
   );
-  const textElements = selectedElements.filter((element) =>
-    isTextKind(element.kind),
-  );
+  const category = inspectorCategory(selectedElements);
   const firstElement = selectedElements[0];
-  const firstTextElement = textElements[0];
+  const firstTextElement = category === "text" ? firstElement : undefined;
+  const selectionName = commonValue(selectedElements.map((el) => el.name));
+  const selectionRole = commonValue(selectedElements.map(semanticRole));
+  const showSelectionRole =
+    selectionName.mixed ||
+    selectionRole.mixed ||
+    selectionName.value === undefined ||
+    selectionRole.value === undefined ||
+    selectionName.value.trim().replace(/\s+/g, " ").toLowerCase() !==
+      selectionRole.value.trim().replace(/\s+/g, " ").toLowerCase();
+  const commonStyle = <K extends keyof SpecElement["style"]>(
+    key: K,
+    fallback?: SpecElement["style"][K],
+  ) =>
+    commonValue(selectedElements.map((el) => el.style[key] ?? fallback)).value;
+  const imageFit = commonValue(
+    selectedElements.map(
+      (el) => el.style.objectFit ?? (el.src ? "cover" : "contain"),
+    ),
+  ).value;
+  const editableCount = selectedElements.filter((el) => !el.locked).length;
+  const geometryLocked = selectedElements.some(
+    (el) => el.locked || !el.visible,
+  );
+  const selectionBounds = boundsOf(selectedElements);
   const updateSelectedStyles = (
     patch: Partial<SpecElement["style"]>,
     textOnly = false,
   ) =>
-    s.mutate((doc) => {
-      doc.elements.forEach((element) => {
-        if (
-          s.selectedIds.includes(element.id) &&
-          !element.locked &&
-          (!textOnly || isTextKind(element.kind))
-        )
-          Object.assign(element.style, patch);
-      });
+    commitInspectorEdit(selectionKey, (el) => {
+      if (!textOnly || isTextKind(el.kind)) Object.assign(el.style, patch);
     });
-  const updateBackground = (patch: Partial<SpecDocument["background"]>) =>
-    s.mutate((doc) => Object.assign(doc.background, patch));
+  const updateBackground = (patch: Partial<SpecDocument["background"]>) => {
+    const current = useEditorStore.getState();
+    if (
+      inspectorContext() !== selectionKey ||
+      !current.doc ||
+      Object.entries(patch).every(
+        ([key, value]) =>
+          current.doc!.background[key as keyof SpecDocument["background"]] ===
+          value,
+      )
+    )
+      return;
+    current.mutate((doc) => Object.assign(doc.background, patch));
+  };
   const updateSelectedMaterial = (value: string) =>
-    s.mutate((doc) => {
-      doc.elements.forEach((element) => {
-        if (!s.selectedIds.includes(element.id) || element.locked) return;
-        if (value.trim()) element.material = value;
-        else delete element.material;
-      });
+    commitInspectorEdit(selectionKey, (el) => {
+      if (value.trim()) el.material = value;
+      else delete el.material;
     });
   const updateFirstElement = (patch: Partial<SpecElement>) => {
     if (
-      ["x", "y", "width", "height", "rotation"].some((key) => key in patch) &&
-      selectedElements.some((el) => el.locked)
+      selectedElements.length !== 1 ||
+      inspectorContext() !== selectionKey ||
+      !firstElement ||
+      firstElement.locked
     )
       return;
-    if (firstElement) s.updateElement(firstElement.id, patch);
+    useEditorStore.getState().updateElement(firstElement.id, patch);
   };
-  const showImageFit = !!firstElement && isImageKind(firstElement.kind);
-  const showColorControls =
-    !!firstElement &&
-    !s.backgroundSelected &&
-    (isTextKind(firstElement.kind) ||
-      firstElement.kind === "shape" ||
-      firstElement.kind === "divider");
+  const showImageFit = category === "image";
+  const showColorControls = category === "text" || category === "shape";
+  const material = commonValue(selectedElements.map((el) => el.material ?? ""));
+  const suggestions = materialSuggestions(selectedElements);
+  const units = alignUnits(
+    layerAlignmentItems(d, s.selectedIds, s.selectedGroupIds),
+  ).filter(
+    (unit) =>
+      !unit.locked &&
+      unit.ids.every((id) => d.elements.find((el) => el.id === id)?.visible),
+  );
   // Keep the stored tab so selecting something returns to Style.
   const canStyle = !!firstElement || s.backgroundSelected;
   const tab = canStyle ? storedTab : "layout";
@@ -1020,23 +1150,52 @@ function StylePanel() {
     <section className="style-panel" data-tab={tab} aria-label="Style controls">
       <PanelHeader
         icon={Palette}
-        eyebrow="Design"
-        title="Style"
+        title="Design Inspector"
         meta={
           s.backgroundSelected
             ? "Background"
             : s.selectedIds.length
-              ? `${s.selectedIds.length} selected`
+              ? `${selectedElements.length} selected`
               : "Nothing selected"
         }
       />
       <div className="style-dock">
-        <div className="style-dock-tabs" role="tablist">
-          <Hint label={canStyle ? undefined : "Select an element to edit its style"}>
+        <div
+          className="style-dock-tabs"
+          role="tablist"
+          aria-label="Design inspector"
+          onKeyDown={(event) => {
+            if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key))
+              return;
+            event.preventDefault();
+            const next =
+              event.key === "Home"
+                ? canStyle
+                  ? "style"
+                  : "layout"
+                : event.key === "End"
+                  ? "layout"
+                  : tab === "style"
+                    ? "layout"
+                    : canStyle
+                      ? "style"
+                      : "layout";
+            setTab(next);
+            event.currentTarget
+              .querySelector<HTMLButtonElement>(`#inspector-tab-${next}`)
+              ?.focus();
+          }}
+        >
+          <Hint
+            label={canStyle ? undefined : "Select an element to edit its style"}
+          >
             <span className="style-dock-tab-slot">
               <button
                 type="button"
                 role="tab"
+                id="inspector-tab-style"
+                aria-controls="inspector-style"
+                tabIndex={tab === "style" ? 0 : -1}
                 aria-selected={tab === "style"}
                 className={tab === "style" ? "active" : ""}
                 disabled={!canStyle}
@@ -1050,558 +1209,924 @@ function StylePanel() {
           <button
             type="button"
             role="tab"
+            id="inspector-tab-layout"
+            aria-controls="inspector-layout"
+            tabIndex={tab === "layout" ? 0 : -1}
             aria-selected={tab === "layout"}
             className={tab === "layout" ? "active" : ""}
             onClick={() => setTab("layout")}
           >
             <LayoutGrid aria-hidden="true" />
-            Layout
+            Layout Presets
           </button>
         </div>
-        <span className="style-dock-separator" />
 
-        <SceneLightingControls />
-        {tab === "layout" && <ComposeList />}
+        <div
+          id="inspector-layout"
+          role="tabpanel"
+          aria-labelledby="inspector-tab-layout"
+          hidden={tab !== "layout"}
+        >
+          {tab === "layout" && <ComposeList />}
+        </div>
 
-        {tab === "style" && (
-          <>
-            {selectedElements.length === 1 &&
-              firstElement?.kind === "shape" &&
-              !s.backgroundSelected && (
-                <ShapeControls key={firstElement.id} element={firstElement} />
+        <div
+          key={selectionKey}
+          id="inspector-style"
+          role="tabpanel"
+          aria-labelledby="inspector-tab-style"
+          className="inspector-sections"
+          hidden={tab !== "style"}
+        >
+          {tab === "style" && (
+            <>
+              {firstElement && (
+                <div className="inspector-selection">
+                  <strong>{selectionName.value ?? "Mixed"}</strong>
+                  {showSelectionRole && (
+                    <span>{selectionRole.value ?? "Mixed"}</span>
+                  )}
+                  {editableCount !== selectedElements.length && (
+                    <small>
+                      {editableCount} of {selectedElements.length} editable ·
+                      locked layers preserved
+                    </small>
+                  )}
+                </div>
               )}
-            {firstElement && !s.backgroundSelected && (
-              <div className="style-dock-section element-details-section">
-                <h3 className="style-dock-section-title element-details-heading">
-                  <button
-                    type="button"
-                    className="element-details-toggle"
-                    aria-expanded={detailsOpen}
-                    aria-controls="style-panel-element-details"
-                    onClick={() => setDetailsOpen((open) => !open)}
-                  >
-                    <span>Element details</span>
-                    <b className="truncate">{firstElement.name}</b>
-                    <ChevronDown aria-hidden="true" />
-                  </button>
-                </h3>
-
-                {detailsOpen && (
-                  <div
-                    id="style-panel-element-details"
-                    className="element-details-fields"
-                  >
-                    <label>
-                      <span>Name</span>
-                      <input
-                        value={firstElement.name}
-                        onChange={(event) =>
-                          updateFirstElement({ name: event.target.value })
-                        }
-                      />
-                    </label>
-                    {!isTextKind(firstElement.kind) &&
-                      firstElement.content !== undefined && (
-                        <label>
-                          <span>Content</span>
-                          <textarea
-                            rows={3}
-                            value={firstElement.content ?? ""}
-                            onChange={(event) =>
-                              s.setElementText(
-                                firstElement.id,
-                                event.target.value,
-                              )
-                            }
-                          />
-                        </label>
-                      )}
-                    {isImageKind(firstElement.kind) && (
-                      <label>
-                        <span>AI description</span>
-                        <textarea
-                          rows={3}
-                          value={firstElement.aiDescription ?? ""}
-                          onChange={(event) =>
-                            updateFirstElement({
-                              aiDescription: event.target.value,
-                            })
-                          }
-                        />
-                      </label>
-                    )}
-                    {isImageKind(firstElement.kind) && !firstElement.src && (
-                      <label>
-                        <span>Placeholder art</span>
-                        <select
-                          value={
-                            hasPlaceholderArt(firstElement.placeholderArt)
-                              ? firstElement.placeholderArt
-                              : "none"
-                          }
-                          onChange={(event) =>
-                            updateFirstElement({
-                              placeholderArt: event.target.value,
-                            })
-                          }
-                        >
-                          {PLACEHOLDER_ART_GROUPS.map(([group, options]) => (
-                            <optgroup key={group} label={group}>
-                              {options.map((option) => (
-                                <option key={option.key} value={option.key}>
-                                  {option.label}
-                                </option>
-                              ))}
-                            </optgroup>
-                          ))}
-                          <option value="none">None (empty slot)</option>
-                        </select>
-                      </label>
-                    )}
-                    {isImageKind(firstElement.kind) && (
-                      <label>
-                        <span>Replace image (regenerate this region)</span>
-                        <input
-                          type="file"
-                          accept="image/png,image/jpeg,image/webp"
-                          onChange={async (event) => {
-                            const f = event.target.files?.[0];
-                            event.target.value = "";
-                            if (!f) return;
-                            try {
-                              const src = await readImageUpload(f);
-                              updateFirstElement({
-                                src,
-                                aiDescription: f.name,
-                              });
-                            } catch (error) {
-                              toast.error(
-                                error instanceof Error
-                                  ? error.message
-                                  : "Image is invalid",
-                              );
-                            }
-                          }}
-                        />
-                      </label>
-                    )}
-                    <div className="element-constraint-fields">
-                      <h4 className="element-constraint-title">
-                        AI constraints
-                      </h4>
-                      <label>
-                        <span>Lock (anti-slop)</span>
-                        <select
-                          value={firstElement.constraint?.lock ?? "guided"}
-                          onChange={(event) =>
-                            s.updateElementConstraint(firstElement.id, {
-                              lock: event.target.value as
-                                "exact" | "guided" | "free",
-                            })
-                          }
-                        >
-                          <option value="free">Free — fully generative</option>
-                          <option value="guided">Guided — stay in style</option>
-                          <option value="exact">Exact — must not change</option>
-                        </select>
-                      </label>
-                      <label>
-                        <span>Must include</span>
-                        <textarea
-                          rows={3}
-                          placeholder="e.g. photographic, studio lighting"
-                          value={
-                            firstElement.constraint?.positiveConstraint ?? ""
-                          }
-                          onChange={(event) =>
-                            s.updateElementConstraint(firstElement.id, {
-                              positiveConstraint: event.target.value,
-                            })
-                          }
-                        />
-                      </label>
-                      <label>
-                        <span>Must avoid</span>
-                        <textarea
-                          rows={3}
-                          placeholder="e.g. no added text, no watermark"
-                          value={
-                            firstElement.constraint?.negativeConstraint ?? ""
-                          }
-                          onChange={(event) =>
-                            s.updateElementConstraint(firstElement.id, {
-                              negativeConstraint: event.target.value,
-                            })
-                          }
-                        />
-                      </label>
-                      <label className="element-constraint-checkbox">
-                        <input
-                          type="checkbox"
-                          checked={
-                            firstElement.constraint?.brandLocked ?? false
-                          }
-                          onChange={(event) =>
-                            s.updateElementConstraint(firstElement.id, {
-                              brandLocked: event.target.checked,
-                            })
-                          }
-                        />
-                        <span>Brand-locked (colors/fonts non-negotiable)</span>
-                      </label>
-                      <div className="element-constraint-actions">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          type="button"
-                          onClick={() =>
-                            s.mutate((doc) => {
-                              doc.elements.forEach((el) => {
-                                if (el.id !== firstElement.id)
-                                  el.constraint = {
-                                    ...el.constraint,
-                                    lock: "exact",
-                                  };
-                                else if (el.constraint?.lock === "exact")
-                                  el.constraint = {
-                                    ...el.constraint,
-                                    lock: "guided",
-                                  };
-                              });
-                            })
-                          }
-                        >
-                          <Lock size={14} />
-                          Lock all except this
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          type="button"
-                          onClick={async () => {
-                            await navigator.clipboard.writeText(
-                              compileRegionPrompt(d, firstElement.id),
-                            );
-                            setRegenCopied(true);
-                            setTimeout(() => setRegenCopied(false), 1500);
-                          }}
-                        >
-                          {regenCopied ? (
-                            <Check size={14} />
-                          ) : (
-                            <Clipboard size={14} />
-                          )}
-                          {regenCopied ? "Copied" : "Copy region prompt"}
-                        </Button>
-                      </div>
-                    </div>
+              {selectedElements.length === 1 &&
+                firstElement &&
+                !s.backgroundSelected &&
+                isTextKind(firstElement.kind) && (
+                  <div className="style-dock-section element-details-fields">
+                    <h3 className="style-dock-section-title">Content</h3>
+                    <textarea
+                      aria-label="Content"
+                      rows={3}
+                      value={firstElement.content ?? ""}
+                      disabled={firstElement.locked}
+                      onChange={(event) =>
+                        s.setElementText(firstElement.id, event.target.value)
+                      }
+                    />
                   </div>
                 )}
-              </div>
-            )}
 
-            {firstElement &&
-              !s.backgroundSelected &&
-              isTextKind(firstElement.kind) && (
-                <div className="style-dock-section element-details-fields">
-                  <h3 className="style-dock-section-title">Content</h3>
-                  <textarea
-                    aria-label="Content"
-                    rows={3}
-                    value={firstElement.content ?? ""}
-                    disabled={firstElement.locked}
-                    onChange={(event) =>
-                      s.setElementText(firstElement.id, event.target.value)
-                    }
-                  />
-                </div>
-              )}
-
-            {firstElement && !s.backgroundSelected && (
-              <div className="style-dock-section element-details-fields">
-                <h3
-                  className="style-dock-section-title"
-                  id="style-panel-material-title"
-                >
-                  Material and texture
-                </h3>
-                <textarea
-                  aria-labelledby="style-panel-material-title"
-                  rows={2}
-                  placeholder="e.g. Brushed aluminum, soft fabric"
-                  value={firstElement.material ?? ""}
-                  onChange={(event) =>
-                    updateSelectedMaterial(event.target.value)
-                  }
-                />
-                <PresetChips
-                  label="Material and texture"
-                  presets={MATERIAL_PRESETS}
-                  value={firstElement.material ?? ""}
-                  onChange={updateSelectedMaterial}
-                />
-              </div>
-            )}
-
-            {firstElement && !s.backgroundSelected && (
-              <div className="style-dock-section">
-                <h3 className="style-dock-section-title">Transform</h3>
-                <div className="style-dock-grid">
-                  <DockNumberField
-                    prefix="X"
-                    label="X position"
-                    disabled={selectedElements.some((el) => el.locked)}
-                    value={Math.round(firstElement.x)}
-                    onChange={(value) => updateFirstElement({ x: value })}
-                  />
-                  <DockNumberField
-                    prefix="Y"
-                    label="Y position"
-                    disabled={selectedElements.some((el) => el.locked)}
-                    value={Math.round(firstElement.y)}
-                    onChange={(value) => updateFirstElement({ y: value })}
-                  />
-                  <DockNumberField
-                    prefix="W"
-                    label="Width"
-                    disabled={selectedElements.some((el) => el.locked)}
-                    min={1}
-                    value={Math.round(firstElement.width)}
-                    onChange={(value) =>
-                      updateFirstElement({ width: Math.max(1, value) })
-                    }
-                  />
-                  <DockNumberField
-                    prefix="H"
-                    label="Height"
-                    disabled={selectedElements.some((el) => el.locked)}
-                    min={1}
-                    value={Math.round(firstElement.height)}
-                    onChange={(value) =>
-                      updateFirstElement({ height: Math.max(1, value) })
-                    }
-                  />
-                  <DockNumberField
-                    prefix={<RotateCw aria-hidden="true" />}
-                    label="Rotation"
-                    disabled={selectedElements.some((el) => el.locked)}
-                    suffix="°"
-                    value={Math.round(firstElement.rotation)}
-                    onChange={(value) =>
-                      updateFirstElement({ rotation: value })
-                    }
-                  />
-                  <DockNumberField
-                    prefix="O"
-                    label="Opacity"
-                    suffix="%"
-                    min={0}
-                    max={100}
-                    value={Math.round((firstElement.style.opacity ?? 1) * 100)}
-                    onChange={(value) =>
-                      updateSelectedStyles({
-                        opacity: Math.min(100, Math.max(0, value)) / 100,
-                      })
-                    }
-                  />
-                </div>
-                <input
-                  className="style-dock-opacity-range"
-                  type="range"
-                  min="0"
-                  max="100"
-                  step="1"
-                  aria-label="Opacity"
-                  value={Math.round((firstElement.style.opacity ?? 1) * 100)}
-                  onChange={(event) =>
-                    updateSelectedStyles({
-                      opacity: Number(event.target.value) / 100,
-                    })
-                  }
-                />
-              </div>
-            )}
-
-            {firstTextElement && (
-              <div className="style-dock-section">
-                <h3 className="style-dock-section-title">Text</h3>
-                <label className="style-dock-control style-dock-font">
-                  {activeBrandKit?.typography ? (
-                    <Hint label="Set by design kit">
-                      <div className="font-trigger style-dock-font-locked">
-                        <Lock aria-hidden="true" />
-                        <b>
-                          {firstTextElement.style.fontFamily ??
-                            activeBrandKit.typography}
-                        </b>
-                      </div>
-                    </Hint>
-                  ) : (
-                    <select
-                      aria-label="Font"
-                      value={firstTextElement.style.fontFamily ?? "Manrope"}
+              {firstElement && !s.backgroundSelected && (
+                <div className="style-dock-section">
+                  <h3 className="style-dock-section-title">
+                    Transform <span>Canvas</span>
+                  </h3>
+                  {selectedElements.length > 1 && (
+                    <p className="inspector-note">
+                      Selection bounds · unrotated · relative positions
+                      preserved
+                    </p>
+                  )}
+                  {geometryLocked && (
+                    <p className="inspector-note">
+                      Unlock and show every selected layer to transform this
+                      selection.
+                    </p>
+                  )}
+                  <div className="style-dock-grid">
+                    {(
+                      [
+                        ["x", "X", "X position"],
+                        ["y", "Y", "Y position"],
+                        ["width", "W", "Width"],
+                        ["height", "H", "Height"],
+                      ] as const
+                    ).map(([key, prefix, label]) => (
+                      <DockNumberField
+                        key={`${selectionKey}-${key}`}
+                        prefix={prefix}
+                        label={label}
+                        suffix="px"
+                        min={
+                          key === "width" || key === "height" ? 1 : undefined
+                        }
+                        disabled={geometryLocked}
+                        value={selectionBounds[key]}
+                        onChange={(value) =>
+                          commitInspectorGeometry(
+                            selectionKey,
+                            key,
+                            value,
+                            ratioLocked,
+                          )
+                        }
+                      />
+                    ))}
+                  </div>
+                  <div className="style-dock-grid">
+                    <DockNumberField
+                      key={`${selectionKey}-rotation`}
+                      prefix={<RotateCw aria-hidden="true" />}
+                      label="Rotation"
+                      suffix="°"
+                      disabled={geometryLocked}
+                      value={
+                        commonValue(selectedElements.map((el) => el.rotation))
+                          .value
+                      }
+                      onChange={(value) =>
+                        commitInspectorEdit(
+                          selectionKey,
+                          (el) => {
+                            el.rotation = value;
+                          },
+                          true,
+                        )
+                      }
+                    />
+                    <button
+                      type="button"
+                      className="inspector-action"
+                      aria-label="Lock aspect ratio"
+                      aria-pressed={ratioLocked}
+                      disabled={geometryLocked}
+                      onClick={() => setRatioLocked((locked) => !locked)}
+                    >
+                      {ratioLocked ? <Lock size={13} /> : <Unlock size={13} />}{" "}
+                      Ratio
+                    </button>
+                  </div>
+                  <div className="inspector-opacity">
+                    <input
+                      className="style-dock-opacity-range"
+                      type="range"
+                      min="0"
+                      max="100"
+                      step="1"
+                      aria-label="Opacity slider"
+                      aria-valuetext={
+                        commonStyle("opacity", 1) === undefined
+                          ? "Mixed; choose a percentage to apply to editable layers"
+                          : `${commonStyle("opacity", 1)! * 100}%`
+                      }
+                      disabled={!editableCount}
+                      value={(commonStyle("opacity", 1) ?? 1) * 100}
                       onChange={(event) =>
-                        updateSelectedStyles(
-                          { fontFamily: event.target.value },
+                        updateSelectedStyles({
+                          opacity: Number(event.target.value) / 100,
+                        })
+                      }
+                    />
+                    <DockNumberField
+                      key={`${selectionKey}-opacity`}
+                      prefix="O"
+                      label="Opacity"
+                      suffix="%"
+                      min={0}
+                      max={100}
+                      disabled={!editableCount}
+                      value={
+                        commonStyle("opacity", 1) === undefined
+                          ? undefined
+                          : commonStyle("opacity", 1)! * 100
+                      }
+                      onChange={(value) =>
+                        updateSelectedStyles({ opacity: value / 100 })
+                      }
+                    />
+                  </div>
+                  <div className="inspector-actions">
+                    <button
+                      type="button"
+                      disabled={geometryLocked}
+                      onClick={() =>
+                        commitInspectorEdit(
+                          selectionKey,
+                          (el) => {
+                            el.rotation = 0;
+                          },
                           true,
                         )
                       }
                     >
-                      {[...FEATURED_FONTS, ...MORE_FONTS].map((font) => (
-                        <option key={font} value={font}>
-                          {font}
-                        </option>
+                      Reset rotation
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!editableCount}
+                      onClick={() => updateSelectedStyles({ opacity: 1 })}
+                    >
+                      Reset opacity
+                    </button>
+                  </div>
+                  <div
+                    className="inspector-alignment"
+                    role="group"
+                    aria-label="Align selection"
+                  >
+                    {(
+                      [
+                        ["left", AlignStartVertical],
+                        ["center", AlignCenterVertical],
+                        ["right", AlignEndVertical],
+                        ["top", AlignStartHorizontal],
+                        ["middle", AlignCenterHorizontal],
+                        ["bottom", AlignEndHorizontal],
+                      ] as const
+                    ).map(([edge, Icon]) => (
+                      <button
+                        type="button"
+                        key={edge}
+                        aria-label={`Align ${edge}`}
+                        title={`Align ${edge}`}
+                        disabled={geometryLocked || !units.length}
+                        onClick={() => {
+                          if (inspectorContext() === selectionKey)
+                            useEditorStore.getState().align(edge);
+                        }}
+                      >
+                        <Icon size={15} />
+                      </button>
+                    ))}
+                    {units.length >= 3 &&
+                      (
+                        [
+                          ["horizontal", AlignHorizontalDistributeCenter],
+                          ["vertical", AlignVerticalDistributeCenter],
+                        ] as const
+                      ).map(([axis, Icon]) => (
+                        <button
+                          type="button"
+                          key={axis}
+                          aria-label={`Distribute ${axis}`}
+                          title={`Distribute ${axis}`}
+                          disabled={geometryLocked}
+                          onClick={() => {
+                            if (inspectorContext() === selectionKey)
+                              useEditorStore.getState().distribute(axis);
+                          }}
+                        >
+                          <Icon size={15} />
+                        </button>
                       ))}
-                    </select>
-                  )}
-                </label>
-                <div className="style-dock-grid">
-                  <DockNumberField
-                    prefix="Aa"
-                    label="Font size"
-                    min={1}
-                    max={1000}
-                    value={Math.round(firstTextElement.style.fontSize ?? 16)}
-                    onChange={(value) =>
-                      updateSelectedStyles(
-                        { fontSize: Math.max(1, value) },
-                        true,
-                      )
-                    }
-                  />
-                  <Hint label="Font weight">
-                    <label className="style-dock-control style-dock-weight">
+                  </div>
+                </div>
+              )}
+
+              {firstTextElement && (
+                <div className="style-dock-section">
+                  <h3 className="style-dock-section-title">
+                    Appearance <span>Canvas</span>
+                  </h3>
+                  <label className="style-dock-control style-dock-font">
+                    {activeBrandKit?.typography ? (
+                      <Hint label="Set by design kit">
+                        <div className="font-trigger style-dock-font-locked">
+                          <Lock aria-hidden="true" />
+                          <b>
+                            {commonStyle(
+                              "fontFamily",
+                              activeBrandKit.typography,
+                            ) ?? "Mixed"}
+                          </b>
+                        </div>
+                      </Hint>
+                    ) : (
                       <select
-                        aria-label="Font weight"
-                        value={firstTextElement.style.fontWeight ?? 400}
+                        aria-label="Font"
+                        disabled={!editableCount}
+                        value={commonStyle("fontFamily", "Manrope") ?? ""}
                         onChange={(event) =>
                           updateSelectedStyles(
-                            { fontWeight: Number(event.target.value) },
+                            { fontFamily: event.target.value },
                             true,
                           )
                         }
                       >
-                        {[100, 200, 300, 400, 500, 600, 700, 800, 900].map(
-                          (weight) => (
-                            <option key={weight} value={weight}>
-                              {weight}
-                            </option>
-                          ),
+                        {commonStyle("fontFamily", "Manrope") === undefined && (
+                          <option value="">Mixed</option>
                         )}
+                        {[...FEATURED_FONTS, ...MORE_FONTS].map((font) => (
+                          <option key={font} value={font}>
+                            {font}
+                          </option>
+                        ))}
                       </select>
-                    </label>
-                  </Hint>
-                </div>
-                <label className="style-dock-row">
-                  <span>Text color</span>
-                  <input
-                    type="color"
-                    className="style-dock-swatch"
-                    value={colorInputValue(
-                      firstTextElement.style.color,
-                      "#18181b",
                     )}
-                    onChange={(event) =>
-                      updateSelectedStyles(
-                        { color: event.target.value },
-                        true,
-                      )
-                    }
-                  />
-                </label>
-              </div>
-            )}
-
-            {(showImageFit || showColorControls) && (
-              <div className="style-dock-section">
-                <h3 className="style-dock-section-title">Appearance</h3>
-                {showColorControls && firstElement && (
-                  <>
-                    {isTextKind(firstElement.kind) ? (
-                      <label className="style-dock-row">
-                        <span>Background</span>
-                        <input
-                          type="color"
-                          className="style-dock-swatch"
-                          value={colorInputValue(
-                            firstElement.style.background,
-                            "#ffffff",
-                          )}
+                  </label>
+                  <div className="style-dock-grid">
+                    <DockNumberField
+                      prefix="Aa"
+                      label="Font size"
+                      disabled={!editableCount}
+                      min={1}
+                      max={1000}
+                      value={commonStyle("fontSize", 16)}
+                      onChange={(value) =>
+                        updateSelectedStyles(
+                          { fontSize: Math.max(1, value) },
+                          true,
+                        )
+                      }
+                    />
+                    <Hint label="Font weight">
+                      <label className="style-dock-control style-dock-weight">
+                        <select
+                          aria-label="Font weight"
+                          disabled={!editableCount}
+                          value={commonStyle("fontWeight", 400) ?? ""}
                           onChange={(event) =>
                             updateSelectedStyles(
-                              { background: event.target.value },
+                              { fontWeight: Number(event.target.value) },
                               true,
                             )
                           }
-                        />
+                        >
+                          {commonStyle("fontWeight", 400) === undefined && (
+                            <option value="">Mixed</option>
+                          )}
+                          {[100, 200, 300, 400, 500, 600, 700, 800, 900].map(
+                            (weight) => (
+                              <option key={weight} value={weight}>
+                                {weight}
+                              </option>
+                            ),
+                          )}
+                        </select>
                       </label>
-                    ) : firstElement.kind === "shape" ||
-                      firstElement.kind === "divider" ? (
+                    </Hint>
+                  </div>
+                  <label className="style-dock-row">
+                    <span>Alignment</span>
+                    <select
+                      aria-label="Text alignment"
+                      disabled={!editableCount}
+                      value={commonStyle("alignment", "left") ?? ""}
+                      onChange={(event) =>
+                        updateSelectedStyles({
+                          alignment: event.target.value as
+                            "left" | "center" | "right",
+                        })
+                      }
+                    >
+                      {commonStyle("alignment", "left") === undefined && (
+                        <option value="">Mixed</option>
+                      )}
+                      {["left", "center", "right"].map((value) => (
+                        <option key={value} value={value}>
+                          {value}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="style-dock-grid">
+                    <DockNumberField
+                      prefix="LH"
+                      label="Line height"
+                      disabled={!editableCount}
+                      min={0.1}
+                      value={commonStyle("lineHeight", 1.2)}
+                      onChange={(value) =>
+                        updateSelectedStyles({ lineHeight: value })
+                      }
+                    />
+                    <DockNumberField
+                      prefix="LS"
+                      label="Letter spacing"
+                      disabled={!editableCount}
+                      suffix="px"
+                      value={commonStyle("letterSpacing", 0)}
+                      onChange={(value) =>
+                        updateSelectedStyles({ letterSpacing: value })
+                      }
+                    />
+                  </div>
+                  <InspectorColor
+                    label="Text color"
+                    value={commonStyle("color", "#18181b")}
+                    onChange={(color) => updateSelectedStyles({ color })}
+                    disabled={!editableCount}
+                  />
+                  <InspectorColor
+                    label="Text background"
+                    value={commonStyle("background", "transparent")}
+                    onChange={(background) =>
+                      updateSelectedStyles({ background })
+                    }
+                    disabled={!editableCount}
+                  />
+                </div>
+              )}
+              {(showImageFit || (showColorControls && category !== "text")) && (
+                <div className="style-dock-section">
+                  <h3 className="style-dock-section-title">
+                    Appearance <span>Canvas</span>
+                  </h3>
+                  {category === "shape" && (
+                    <>
+                      <InspectorColor
+                        label="Fill"
+                        value={commonStyle("background", "#8b5cf6")}
+                        onChange={(background) =>
+                          updateSelectedStyles({ background })
+                        }
+                        disabled={!editableCount}
+                      />
+                      <InspectorColor
+                        label="Border color"
+                        value={commonStyle("borderColor", "#18181b")}
+                        onChange={(borderColor) =>
+                          updateSelectedStyles({ borderColor })
+                        }
+                        disabled={!editableCount}
+                      />
+                      <DockNumberField
+                        prefix="B"
+                        label="Border width"
+                        min={0}
+                        suffix="px"
+                        disabled={!editableCount}
+                        value={commonStyle("borderWidth", 0)}
+                        onChange={(borderWidth) =>
+                          updateSelectedStyles({ borderWidth })
+                        }
+                      />
+                      {selectedElements.length > 1 &&
+                        selectedElements.every(
+                          (el) => el.style.shapeType === "rounded rectangle",
+                        ) && (
+                          <DockNumberField
+                            prefix="R"
+                            label="Corner radius"
+                            disabled={!editableCount}
+                            min={0}
+                            suffix="px"
+                            value={commonStyle("borderRadius", 0)}
+                            onChange={(borderRadius) =>
+                              commitInspectorEdit(selectionKey, (el) => {
+                                el.style.borderRadius = Math.min(
+                                  borderRadius,
+                                  el.width / 2,
+                                  el.height / 2,
+                                );
+                              })
+                            }
+                          />
+                        )}
+                    </>
+                  )}
+                  {showImageFit && (
+                    <>
                       <label className="style-dock-row">
-                        <span>Element color</span>
+                        <span>Image fit</span>
+                        <select
+                          aria-label="Image fit"
+                          value={imageFit ?? ""}
+                          disabled={!editableCount}
+                          onChange={(event) =>
+                            updateSelectedStyles({
+                              objectFit: event.target.value as
+                                "cover" | "contain",
+                            })
+                          }
+                        >
+                          {imageFit === undefined && (
+                            <option value="">Mixed</option>
+                          )}
+                          <option value="cover">Cover</option>
+                          <option value="contain">Contain</option>
+                        </select>
+                      </label>
+                      {selectedElements.every((el) => !!el.src) && (
+                        <div className="style-dock-grid">
+                          <DockNumberField
+                            prefix="X"
+                            label="Focal point X"
+                            disabled={!editableCount}
+                            suffix="%"
+                            min={0}
+                            max={100}
+                            value={
+                              commonStyle("focalX", 0.5) === undefined
+                                ? undefined
+                                : commonStyle("focalX", 0.5)! * 100
+                            }
+                            onChange={(value) =>
+                              updateSelectedStyles({ focalX: value / 100 })
+                            }
+                          />
+                          <DockNumberField
+                            prefix="Y"
+                            label="Focal point Y"
+                            disabled={!editableCount}
+                            suffix="%"
+                            min={0}
+                            max={100}
+                            value={
+                              commonStyle("focalY", 0.5) === undefined
+                                ? undefined
+                                : commonStyle("focalY", 0.5)! * 100
+                            }
+                            onChange={(value) =>
+                              updateSelectedStyles({ focalY: value / 100 })
+                            }
+                          />
+                        </div>
+                      )}
+                    </>
+                  )}
+                  {selectedElements.length === 1 &&
+                    firstElement?.kind === "shape" &&
+                    !s.backgroundSelected && (
+                      <ShapeControls
+                        key={firstElement.id}
+                        element={firstElement}
+                      />
+                    )}
+                </div>
+              )}
+              {firstElement && !s.backgroundSelected && (
+                <div className="style-dock-section element-details-fields">
+                  <h3
+                    className="style-dock-section-title"
+                    id="style-panel-material-title"
+                  >
+                    Material & Texture <span>Prompt only</span>
+                  </h3>
+                  <textarea
+                    key={`${selectionKey}-material`}
+                    className="inspector-material"
+                    aria-labelledby="style-panel-material-title"
+                    rows={1}
+                    placeholder={
+                      material.mixed ? "Mixed" : "Describe material or texture"
+                    }
+                    disabled={!editableCount}
+                    value={materialDraft ?? material.value ?? ""}
+                    onChange={(event) => setMaterialDraft(event.target.value)}
+                    onBlur={(event) => {
+                      if (materialDraft !== null)
+                        updateSelectedMaterial(event.target.value);
+                      setMaterialDraft(null);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Escape") {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        setMaterialDraft(null);
+                      }
+                      if (event.key === "Enter" && !event.shiftKey) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        if (materialDraft !== null)
+                          updateSelectedMaterial(event.currentTarget.value);
+                        setMaterialDraft(null);
+                      }
+                    }}
+                  />
+                  <div
+                    className="inspector-chips"
+                    role="group"
+                    aria-label="Material suggestions"
+                  >
+                    {suggestions
+                      .slice(0, moreMaterials ? undefined : 4)
+                      .map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          aria-pressed={materialState(selectedElements, preset)}
+                          disabled={!editableCount}
+                          onClick={() => {
+                            const current = useEditorStore.getState();
+                            if (
+                              inspectorContext() !== selectionKey ||
+                              !current.doc
+                            )
+                              return;
+                            const members = current.doc.elements.filter((el) =>
+                              current.selectedIds.includes(el.id),
+                            );
+                            const remove =
+                              materialState(members, preset) === true;
+                            commitInspectorEdit(selectionKey, (el) => {
+                              el.material = toggledMaterial(el, preset, remove);
+                            });
+                          }}
+                        >
+                          {preset}
+                        </button>
+                      ))}
+                    {suggestions.length > 4 && (
+                      <button
+                        type="button"
+                        aria-expanded={moreMaterials}
+                        onClick={() => setMoreMaterials((open) => !open)}
+                      >
+                        {moreMaterials ? "Less" : "More"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+              {selectedElements.length === 1 &&
+                firstElement &&
+                !s.backgroundSelected && (
+                  <div className="style-dock-section element-details-section">
+                    <h3 className="style-dock-section-title element-details-heading">
+                      <button
+                        type="button"
+                        className="element-details-toggle"
+                        aria-expanded={detailsOpen}
+                        aria-controls="style-panel-element-details"
+                        onClick={() => setDetailsOpen((open) => !open)}
+                      >
+                        <span>Element details</span>
+                        <b className="truncate">{firstElement.name}</b>
+                        <ChevronDown aria-hidden="true" />
+                      </button>
+                    </h3>
+
+                    {detailsOpen && (
+                      <div
+                        id="style-panel-element-details"
+                        className="element-details-fields"
+                      >
+                        <label>
+                          <span>Name</span>
+                          <input
+                            value={firstElement.name}
+                            onChange={(event) =>
+                              updateFirstElement({ name: event.target.value })
+                            }
+                          />
+                        </label>
+                        {!isTextKind(firstElement.kind) &&
+                          firstElement.content !== undefined && (
+                            <label>
+                              <span>Content</span>
+                              <textarea
+                                rows={3}
+                                value={firstElement.content ?? ""}
+                                onChange={(event) =>
+                                  s.setElementText(
+                                    firstElement.id,
+                                    event.target.value,
+                                  )
+                                }
+                              />
+                            </label>
+                          )}
+                        {isImageKind(firstElement.kind) && (
+                          <label>
+                            <span>AI description</span>
+                            <textarea
+                              rows={3}
+                              value={firstElement.aiDescription ?? ""}
+                              onChange={(event) =>
+                                updateFirstElement({
+                                  aiDescription: event.target.value,
+                                })
+                              }
+                            />
+                          </label>
+                        )}
+                        {isImageKind(firstElement.kind) &&
+                          !firstElement.src && (
+                            <label>
+                              <span>Placeholder art</span>
+                              <select
+                                value={
+                                  hasPlaceholderArt(firstElement.placeholderArt)
+                                    ? firstElement.placeholderArt
+                                    : "none"
+                                }
+                                onChange={(event) =>
+                                  updateFirstElement({
+                                    placeholderArt: event.target.value,
+                                  })
+                                }
+                              >
+                                {PLACEHOLDER_ART_GROUPS.map(
+                                  ([group, options]) => (
+                                    <optgroup key={group} label={group}>
+                                      {options.map((option) => (
+                                        <option
+                                          key={option.key}
+                                          value={option.key}
+                                        >
+                                          {option.label}
+                                        </option>
+                                      ))}
+                                    </optgroup>
+                                  ),
+                                )}
+                                <option value="none">None (empty slot)</option>
+                              </select>
+                            </label>
+                          )}
+                        {isImageKind(firstElement.kind) && (
+                          <label>
+                            <span>Replace image (regenerate this region)</span>
+                            <input
+                              type="file"
+                              accept="image/png,image/jpeg,image/webp"
+                              onChange={async (event) => {
+                                const f = event.target.files?.[0];
+                                event.target.value = "";
+                                if (!f) return;
+                                try {
+                                  const src = await readImageUpload(f);
+                                  updateFirstElement({
+                                    src,
+                                    aiDescription: f.name,
+                                  });
+                                } catch (error) {
+                                  toast.error(
+                                    error instanceof Error
+                                      ? error.message
+                                      : "Image is invalid",
+                                  );
+                                }
+                              }}
+                            />
+                          </label>
+                        )}
+                        <div className="element-constraint-fields">
+                          <h4 className="element-constraint-title">
+                            AI constraints
+                          </h4>
+                          <label>
+                            <span>Lock (anti-slop)</span>
+                            <select
+                              value={firstElement.constraint?.lock ?? "guided"}
+                              onChange={(event) =>
+                                s.updateElementConstraint(firstElement.id, {
+                                  lock: event.target.value as
+                                    "exact" | "guided" | "free",
+                                })
+                              }
+                            >
+                              <option value="free">
+                                Free — fully generative
+                              </option>
+                              <option value="guided">
+                                Guided — stay in style
+                              </option>
+                              <option value="exact">
+                                Exact — must not change
+                              </option>
+                            </select>
+                          </label>
+                          <label>
+                            <span>Must include</span>
+                            <textarea
+                              rows={3}
+                              placeholder="e.g. photographic, studio lighting"
+                              value={
+                                firstElement.constraint?.positiveConstraint ??
+                                ""
+                              }
+                              onChange={(event) =>
+                                s.updateElementConstraint(firstElement.id, {
+                                  positiveConstraint: event.target.value,
+                                })
+                              }
+                            />
+                          </label>
+                          <label>
+                            <span>Must avoid</span>
+                            <textarea
+                              rows={3}
+                              placeholder="e.g. no added text, no watermark"
+                              value={
+                                firstElement.constraint?.negativeConstraint ??
+                                ""
+                              }
+                              onChange={(event) =>
+                                s.updateElementConstraint(firstElement.id, {
+                                  negativeConstraint: event.target.value,
+                                })
+                              }
+                            />
+                          </label>
+                          <label className="element-constraint-checkbox">
+                            <input
+                              type="checkbox"
+                              checked={
+                                firstElement.constraint?.brandLocked ?? false
+                              }
+                              onChange={(event) =>
+                                s.updateElementConstraint(firstElement.id, {
+                                  brandLocked: event.target.checked,
+                                })
+                              }
+                            />
+                            <span>
+                              Brand-locked (colors/fonts non-negotiable)
+                            </span>
+                          </label>
+                          <div className="element-constraint-actions">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              type="button"
+                              onClick={() =>
+                                s.mutate((doc) => {
+                                  doc.elements.forEach((el) => {
+                                    if (el.id !== firstElement.id)
+                                      el.constraint = {
+                                        ...el.constraint,
+                                        lock: "exact",
+                                      };
+                                    else if (el.constraint?.lock === "exact")
+                                      el.constraint = {
+                                        ...el.constraint,
+                                        lock: "guided",
+                                      };
+                                  });
+                                })
+                              }
+                            >
+                              <Lock size={14} />
+                              Lock all except this
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              type="button"
+                              onClick={async () => {
+                                await navigator.clipboard.writeText(
+                                  compileRegionPrompt(d, firstElement.id),
+                                );
+                                setRegenCopied(true);
+                                setTimeout(() => setRegenCopied(false), 1500);
+                              }}
+                            >
+                              {regenCopied ? (
+                                <Check size={14} />
+                              ) : (
+                                <Clipboard size={14} />
+                              )}
+                              {regenCopied ? "Copied" : "Copy region prompt"}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+              {s.backgroundSelected && (
+                <div className="style-dock-section">
+                  <h3 className="style-dock-section-title">Background</h3>
+                  <label className="style-dock-row">
+                    <span>Fill</span>
+                    <select
+                      className="style-dock-row-select"
+                      value={d.background.type}
+                      onChange={(event) =>
+                        updateBackground({
+                          type: event.target.value as "solid" | "gradient",
+                          ...(event.target.value === "gradient" &&
+                          !d.background.secondaryValue
+                            ? { secondaryValue: d.background.value, angle: 135 }
+                            : {}),
+                        })
+                      }
+                    >
+                      <option value="solid">Solid</option>
+                      <option value="gradient">Gradient</option>
+                    </select>
+                  </label>
+                  {d.background.type === "gradient" ? (
+                    <>
+                      <label className="style-dock-row">
+                        <span>From</span>
                         <input
                           type="color"
                           className="style-dock-swatch"
-                          value={colorInputValue(
-                            firstElement.style.background,
-                            "#8b5cf6",
-                          )}
+                          value={d.background.value}
                           onChange={(event) =>
-                            updateSelectedStyles({
-                              background: event.target.value,
+                            updateBackground({ value: event.target.value })
+                          }
+                        />
+                      </label>
+                      <label className="style-dock-row">
+                        <span>To</span>
+                        <input
+                          type="color"
+                          className="style-dock-swatch"
+                          value={
+                            d.background.secondaryValue ?? d.background.value
+                          }
+                          onChange={(event) =>
+                            updateBackground({
+                              secondaryValue: event.target.value,
                             })
                           }
                         />
                       </label>
-                    ) : null}
-                  </>
-                )}
-                {showImageFit && firstElement && (
-                  <label className="style-dock-row">
-                    <span>Image fit</span>
-                    <select
-                      className="style-dock-row-select"
-                      value={firstElement.style.objectFit ?? "cover"}
-                      onChange={(event) =>
-                        updateSelectedStyles({
-                          objectFit: event.target.value as "cover" | "contain",
-                        })
-                      }
-                    >
-                      <option value="cover">Cover</option>
-                      <option value="contain">Contain</option>
-                    </select>
-                  </label>
-                )}
-              </div>
-            )}
-
-            {s.backgroundSelected && (
-              <div className="style-dock-section">
-                <h3 className="style-dock-section-title">Background</h3>
-                <label className="style-dock-row">
-                  <span>Fill</span>
-                  <select
-                    className="style-dock-row-select"
-                    value={d.background.type}
-                    onChange={(event) =>
-                      updateBackground({
-                        type: event.target.value as "solid" | "gradient",
-                        ...(event.target.value === "gradient" &&
-                        !d.background.secondaryValue
-                          ? { secondaryValue: d.background.value, angle: 135 }
-                          : {}),
-                      })
-                    }
-                  >
-                    <option value="solid">Solid</option>
-                    <option value="gradient">Gradient</option>
-                  </select>
-                </label>
-                {d.background.type === "gradient" ? (
-                  <>
+                    </>
+                  ) : (
                     <label className="style-dock-row">
-                      <span>From</span>
+                      <span>Color</span>
                       <input
                         type="color"
                         className="style-dock-swatch"
@@ -1611,54 +2136,27 @@ function StylePanel() {
                         }
                       />
                     </label>
-                    <label className="style-dock-row">
-                      <span>To</span>
-                      <input
-                        type="color"
-                        className="style-dock-swatch"
-                        value={
-                          d.background.secondaryValue ?? d.background.value
-                        }
-                        onChange={(event) =>
-                          updateBackground({
-                            secondaryValue: event.target.value,
-                          })
-                        }
-                      />
-                    </label>
-                  </>
-                ) : (
-                  <label className="style-dock-row">
-                    <span>Color</span>
-                    <input
-                      type="color"
-                      className="style-dock-swatch"
-                      value={d.background.value}
-                      onChange={(event) =>
-                        updateBackground({ value: event.target.value })
+                  )}
+                  {d.background.type === "gradient" && (
+                    <DockNumberField
+                      prefix={<RotateCw aria-hidden="true" />}
+                      label="Gradient angle"
+                      suffix="°"
+                      min={0}
+                      max={360}
+                      value={d.background.angle ?? 135}
+                      onChange={(value) =>
+                        updateBackground({
+                          angle: Math.min(360, Math.max(0, value)),
+                        })
                       }
                     />
-                  </label>
-                )}
-                {d.background.type === "gradient" && (
-                  <DockNumberField
-                    prefix={<RotateCw aria-hidden="true" />}
-                    label="Gradient angle"
-                    suffix="°"
-                    min={0}
-                    max={360}
-                    value={d.background.angle ?? 135}
-                    onChange={(value) =>
-                      updateBackground({
-                        angle: Math.min(360, Math.max(0, value)),
-                      })
-                    }
-                  />
-                )}
-              </div>
-            )}
-          </>
-        )}
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </section>
   );

@@ -1,4 +1,10 @@
-import { createElement } from "react";
+import {
+  createElement,
+  isValidElement,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AssetsPanel } from "./assets-panel/AssetsPanel";
@@ -6,6 +12,8 @@ import { SceneLightingControls } from "./scene-lighting-controls";
 import { useEditorStore } from "./store";
 import { createStudioLight } from "./studio-lighting";
 import { createDocument } from "./templates";
+import { SectionEditor } from "./section-editors";
+import { sectionTarget } from "./section-target";
 
 // Server rendering normally uses Zustand's initial snapshot. Read the current
 // test document instead, retaining actual store actions and document defaults.
@@ -31,12 +39,54 @@ const renderSettings = (field: "scene" | "lighting") =>
     createElement(SceneLightingControls, { field, presentation: "inline" }),
   );
 
+function renderEnvironment() {
+  function Environment() {
+    const [opened, setOpened] = useState(false);
+    const tree = AssetsPanel();
+    if (!opened) {
+      type Props = { children?: ReactNode; id?: string; onClick?: () => void };
+      const visit = (node: ReactNode): ReactElement<Props>[] =>
+        Array.isArray(node)
+          ? node.flatMap(visit)
+          : isValidElement<Props>(node)
+            ? [node, ...visit(node.props.children)]
+            : [];
+      const tab = visit(tree).find((node) =>
+        node.props.id?.endsWith("environment-tab"),
+      );
+      expect(tab).toBeDefined();
+      tab!.props.onClick!();
+      setOpened(true);
+    }
+    return tree;
+  }
+  return renderToStaticMarkup(createElement(Environment));
+}
+
 describe("asset scene and studio controls", () => {
+  it.each(["scene", "lighting", "skill:scene", "skill:lighting"])(
+    "keeps %s output on the plain-text editing path",
+    (lineKey) => {
+      const doc = useEditorStore.getState().doc!;
+      expect(sectionTarget(lineKey, doc)).toBeNull();
+      const html = renderToStaticMarkup(
+        createElement(SectionEditor, {
+          lineKey,
+          baseText: "Generated scene or lighting description",
+          onEditText: vi.fn(),
+        }),
+      );
+      expect(html).toBe("");
+    },
+  );
   it("exposes linked tabs and panels while retaining every text choice and accurate primitives", () => {
     const html = renderToStaticMarkup(createElement(AssetsPanel));
     expect(html.match(/role="tab"/g)).toHaveLength(2);
     expect(html.match(/role="tabpanel"/g)).toHaveLength(2);
     expect(html).toContain('aria-label="Composition settings"');
+    const environment = renderEnvironment();
+    for (const setting of ["Environment", "Camera angle", "Studio lighting"])
+      expect(environment).toContain(setting);
     for (const tab of ["add", "environment"]) {
       expect(html).toContain(`${tab}-tab`);
       expect(html).toContain(`${tab}-panel`);

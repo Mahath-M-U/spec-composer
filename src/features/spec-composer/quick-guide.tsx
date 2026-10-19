@@ -30,7 +30,7 @@ const STEPS: Record<GuidePage, GuideStep[]> = {
       target: "rail-style",
       section: "Left panel",
       title: "Style and layout",
-      body: "Use the Layout tab for one-click layout presets or to tidy up spacing. Select an element or the background to unlock the Style tab. Clicking the canvas opens it automatically. Scene & Lighting settings describe the generated image and are prompt only.",
+      body: "Use the Layout Presets tab for one-click layout presets or to tidy up spacing. Select an element or the background to unlock the Style tab. Clicking the canvas opens it automatically. Scene & Lighting settings describe the generated image and are prompt only.",
     },
     {
       target: "canvas",

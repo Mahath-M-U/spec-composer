@@ -315,8 +315,8 @@ export function SceneLightingControls({
         Scene & Lighting{" "}
         <span>
           {d.savedCustomText
-            ? "Custom text saved / Prompt only"
-            : "Prompt only"}
+            ? "Global · Prompt only · Custom text saved"
+            : "Global · Prompt only"}
         </span>
       </summary>
       <div id={id}>{content}</div>
