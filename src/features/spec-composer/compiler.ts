@@ -1,4 +1,6 @@
 import { isSemanticVisual, shapeDescription } from "./shape-workflow";
+import { contextualDescription, contextualPromptLines, projectContextualExport } from "./contextual-editor/export";
+import { isConstraint } from "./contextual-editor/catalog";
 import { resolveEditorText } from "./output-sync";
 import {
   findDescriptionTemplate,
@@ -164,6 +166,8 @@ export const withOverrides = (
       : { key, segs, custom: false, ...(off ? { off } : {}) };
   });
 export function compileVisualSegments(doc: SpecDocument): PromptLine[] {
+  const contextual = contextualPromptLines(doc);
+  doc = { ...doc, elements: doc.elements.filter((element) => !isConstraint(element)) };
   const els = doc.elements
     .filter((e) => e.visible)
     .sort(
@@ -257,6 +261,7 @@ export function compileVisualSegments(doc: SpecDocument): PromptLine[] {
         "Avoid additional text, clutter, generic stock-poster styling, illegible type, accidental overlaps, and elements outside the safe area.",
       ],
     ]);
+  lines.push(...contextual);
   return withOverrides(lines, doc);
 }
 export function compileVisualPrompt(doc: SpecDocument) {
@@ -376,7 +381,7 @@ export function compilePromptEditorOutput(doc: SpecDocument) {
  * visual prompt, so a JSON export is directly actionable when pasted into an
  * image generator instead of being inert structured data. */
 export function buildJsonExport(doc: SpecDocument) {
-  const spec = structuredClone(doc);
+  const spec = projectContextualExport(doc);
   for (const el of spec.elements) {
     if (
       el.descriptionTemplate &&
@@ -396,9 +401,11 @@ export function buildJsonExport(doc: SpecDocument) {
 export function compileRegionPrompt(doc: SpecDocument, elementId: string) {
   const el = doc.elements.find((e) => e.id === elementId);
   if (!el) return "";
+  if (isConstraint(el)) return contextualDescription(el, doc);
   const lines = [
     `Regenerate only the "${el.name}" region of this ${doc.format.label.toLowerCase()} (${doc.format.width} × ${doc.format.height}), positioned ${region(el, doc)} at (${el.x}, ${el.y}) sized ${el.width} × ${el.height}. Every other element must remain untouched.`,
     describe(el, doc),
+    contextualDescription(el, doc),
   ];
   if (doc.promptOptions.brandDirectives && doc.creativeDirection.brandKitId)
     lines.push(

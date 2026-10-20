@@ -1,4 +1,7 @@
 import { findTextPreset } from "./assets-panel/text-presets";
+import { contextualCreation } from "./contextual-editor/creation";
+import { findPurpose } from "./contextual-editor/catalog";
+import { remapReferences } from "./contextual-editor/references";
 import {
   canonicalLayers,
   canGroupLayers,
@@ -113,6 +116,8 @@ export interface Guide {
 }
 
 interface EditorState {
+  setCreativePurpose: (id?: string) => void;
+  addContextualElement: (id: string, point?: { x: number; y: number }, preset?: string) => void;
   doc?: SpecDocument | undefined;
   selectedIds: string[];
   selectedGroupIds: string[];
@@ -591,6 +596,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     if (!current) return;
     const next = clone(current);
     fn(next);
+    // Explicit source edits (including the unchanged Inspector) invalidate an old
+    // contextual source reference unless it still resolves to the supplied pixels.
+    next.elements.forEach((element) => {
+      const sourceId = element.contextualProperties?.["asset.source"];
+      if (typeof sourceId === "string" && next.referenceAssets?.[sourceId]?.source !== element.src)
+        delete element.contextualProperties!["asset.source"];
+    });
     synchronizeElementDescriptions(current, next);
     synchronizeStructuredOutput(current, next);
     withRevision(next);
@@ -752,6 +764,17 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set((s) => ({ zoom: Math.min(3, Math.max(0.1, zoom)), pan: pan ?? s.pan })),
   setGuides: (guides) => set({ guides }),
 
+  setCreativePurpose: (id) => {
+    if (id && !findPurpose(id)) return;
+    if (get().doc?.creativePurposeId === id) return;
+    get().mutate((doc) => { doc.creativePurposeId = id; });
+  },
+  addContextualElement: (id, point, preset) => {
+    if (point && (!Number.isFinite(point.x) || !Number.isFinite(point.y))) return;
+    const creation = contextualCreation(id, preset);
+    if (!creation) return;
+    get().addElement(creation.kind, point?.x, point?.y, creation.patch, { preservePatchStyle: true });
+  },
   addTextPreset: (id, point) => {
     const preset = findTextPreset(id);
     if (
@@ -759,10 +782,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       (point && (!Number.isFinite(point.x) || !Number.isFinite(point.y)))
     )
       return;
-    get().addElement(preset.kind, point?.x, point?.y, preset.patch);
+    const catalogElementId = ({ title: "information.headline", subheading: "information.title", body: "information.body", eyebrow: "information.label", offer: "information.offer_value", price: "information.price", badge: "decoration.badge", cta: "actions.cta" })[preset.kind];
+    get().addElement(preset.kind, point?.x, point?.y, { ...preset.patch, catalogElementId, ...(preset.kind === "price" || preset.kind === "offer" ? { content: "" } : {}) });
   },
   addShape: (type, point) => {
-    get().addElement("shape", point?.x, point?.y, shapePatch(type), {
+    get().addElement("shape", point?.x, point?.y, { ...shapePatch(type), catalogElementId: type === "line" ? "decoration.divider" : "decoration.shape" }, {
       preservePatchStyle: true,
     });
     if (get().panel !== "assets") set({ panel: "style", styleTab: "style" });
@@ -776,6 +800,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       return;
     const patch = assetPresetPatch(id, templateId);
     if (!patch) return;
+    patch.catalogElementId = ({ model: "subjects.person", product: "subjects.product", pedestal: "decoration.shape", backdrop: "subjects.background", label: "decoration.badge", "copy-space": undefined })[id];
     const scale = Math.min(
       1,
       doc.format.width / patch.width!,
@@ -1311,6 +1336,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     );
     get().mutate((next) => {
       next.elements = next.elements.filter((el) => !leaves.has(el.id));
+      next.elements.forEach((element) => remapReferences(element, new Map(), leaves));
       next.groups = layerGroups(next).filter(
         (group) => !deletedGroups.has(group.id),
       );
@@ -1388,6 +1414,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           groupId: ids.get(el.groupId ?? "") ?? el.groupId,
           zIndex: base + index + 1,
         }));
+      copies.forEach((element) => remapReferences(element, ids));
       next.elements.push(...copies);
       const originals = [...doc.elements]
         .sort((a, b) => b.zIndex - a.zIndex)

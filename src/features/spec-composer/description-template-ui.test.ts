@@ -46,55 +46,36 @@ const controls = (element: SpecElement) =>
 beforeEach(() => useEditorStore.setState({ doc: createDocument() }));
 
 describe("description template UI", () => {
-  it("offers six direct insertion tiles before compact shapes and text", () => {
+  it("offers the compact purpose library without the old heading or preset palette", () => {
     const html = renderToStaticMarkup(createElement(AssetsPanel));
-    expect(html).toContain('aria-label="Scene elements"');
-    for (const label of [
-      "Person",
-      "Product",
-      "Display",
-      "Backdrop",
-      "Copy space",
-      "Callout",
+    expect(html).toContain('aria-label="Creative Purpose"');
+    expect(html).toContain('class="contextual-library-actions"');
+    for (const action of [
+      "Search elements",
+      "Recommended",
+      "All Elements",
+      "Upload image",
     ])
-      expect(html).toContain(`<strong>${label}</strong>`);
-    expect(html).toContain("Click or drag");
-    expect(html.match(/class="placeholder-art"/g)).toHaveLength(6);
-    expect(html).not.toContain("Choose a starter");
-    expect(html).not.toContain("Add Model / person");
-    expect(html).not.toContain("Description template");
-    for (const shape of [
-      "rectangle",
-      "circle",
-      "rounded rectangle",
-      "ellipse",
-      "triangle",
-      "diamond",
-      "line",
+      expect(html).toContain(`aria-label="${action}"`);
+    for (const group of [
+      "Subjects",
+      "Information",
+      "Data &amp; Proof",
+      "Actions",
+      "Branding",
+      "Structure",
+      "Decoration",
     ])
-      expect(html).toContain(`data-shape="${shape}"`);
-    expect(html).toContain('aria-label="Divider"');
-    expect(html.match(/data-shape="/g)).toHaveLength(7);
-    expect(html.match(/class="asset-text-preview"/g)).toHaveLength(9);
-    for (const text of [
-      "Headline",
-      "Subheading",
-      "Body copy",
-      "Caption",
-      "Eyebrow",
-      "Offer",
-      "Price",
-      "Badge",
-      "Call to action",
+      expect(html).toContain(`<strong>${group}</strong>`);
+    for (const removed of [
+      "Build your scene",
+      "Shape, text &amp; scene presets",
+      'class="shape-palette"',
+      'class="asset-text-preview"',
+      'aria-label="Scene elements"',
     ])
-      expect(html).toContain(text);
-    const addPanel = html
-      .split('class="shape-palette"')[1]!
-      .split("aria-labelledby=")[0]!;
-    expect(addPanel).not.toContain('hidden=""');
-    expect(html).not.toContain("compose-extra-options");
-    expect(html).not.toContain("More shapes");
-    expect(html).not.toContain("View all");
+      expect(html).not.toContain(removed);
+    expect(html).not.toContain('aria-label="Search all elements"');
     expect(html).toContain("Selected element");
   });
 
@@ -236,9 +217,7 @@ describe("description template UI", () => {
     expect(custom).toContain('class="selection-context-bar is-side"');
     expect(custom).toContain("left:252px;top:0");
     expect(custom).toContain("left:0;top:388px");
-    expect(custom.match(/aria-label="Open Design Inspector"/g)).toHaveLength(
-      1,
-    );
+    expect(custom.match(/aria-label="Open Design Inspector"/g)).toHaveLength(1);
   });
 
   it("adds the side Design Inspector shortcut beside every selected asset, keeping the bottom bar", () => {

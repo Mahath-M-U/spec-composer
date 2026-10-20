@@ -1,0 +1,72 @@
+{
+  "creativePurposes": [
+    {
+      "category": "Product & Sales",
+      "items": [
+        "Product Showcase",
+        "Product Launch",
+        "Feature Highlight",
+        "Offers & Discounts",
+        "Product Comparison",
+        "Product Demo",
+        "Service Promotion",
+        "Lead Generation"
+      ]
+    },
+    {
+      "category": "Brand & Marketing",
+      "items": [
+        "Brand Awareness",
+        "Brand Story",
+        "Campaign Creative",
+        "Campaign Teaser",
+        "Announcements",
+        "Brand Collaboration",
+        "Portfolio Showcase"
+      ]
+    },
+    {
+      "category": "Trust & Credibility",
+      "items": [
+        "Testimonials",
+        "Case Studies",
+        "Before & After",
+        "Results & Metrics",
+        "Milestones & Awards"
+      ]
+    },
+    {
+      "category": "Education & Information",
+      "items": [
+        "How-To Guides",
+        "Tips & Lists",
+        "Explainers",
+        "Checklists",
+        "FAQs",
+        "Data & Insights"
+      ]
+    },
+    {
+      "category": "Engagement & Events",
+      "items": [
+        "Questions & Polls",
+        "Giveaways",
+        "Event Promotion",
+        "Seasonal Campaigns",
+        "Quotes & Inspiration"
+      ]
+    }
+  ],
+  "visualTypes": [
+    "Product Photography",
+    "Lifestyle Photography",
+    "Advertising Visual",
+    "Packaging Design",
+    "Product Mockup",
+    "Editorial Visual",
+    "Concept Art",
+    "3D Product Render",
+    "Character Design",
+    "Background & Texture"
+  ]
+}

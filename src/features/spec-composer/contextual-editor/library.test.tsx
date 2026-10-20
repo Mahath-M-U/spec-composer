@@ -1,0 +1,210 @@
+import {
+  createElement,
+  isValidElement,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { CreativePurposeSelect } from "./CreativePurposeSelect";
+import { CATALOG_DRAG_TYPE, libraryEntries, parseCatalogDrag } from "./catalog";
+import { ElementLibrary } from "./ElementLibrary";
+import { useEditorStore } from "../store";
+import { createDocument } from "../templates";
+vi.mock("../store", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../store")>();
+  type State = ReturnType<typeof original.useEditorStore.getState>;
+  return {
+    ...original,
+    useEditorStore: Object.assign(
+      <T = State,>(selector?: (state: State) => T) =>
+        selector
+          ? selector(original.useEditorStore.getState())
+          : original.useEditorStore.getState(),
+      original.useEditorStore,
+    ),
+  };
+});
+type Props = { children?: ReactNode; [key: string]: unknown };
+const visit = (node: ReactNode): ReactElement<Props>[] =>
+  Array.isArray(node)
+    ? node.flatMap(visit)
+    : isValidElement<Props>(node)
+      ? [node, ...visit(node.props.children)]
+      : [];
+function purposeSteps(
+  steps: ((tree: ReactNode) => void)[],
+  onChange = vi.fn(),
+) {
+  function Harness() {
+    const [step, setStep] = useState(0);
+    const tree = CreativePurposeSelect({ value: "product_showcase", onChange });
+    if (step < steps.length) {
+      steps[step]!(tree);
+      setStep(step + 1);
+    }
+    return tree;
+  }
+  renderToStaticMarkup(createElement(Harness));
+  return onChange;
+}
+beforeEach(() => {
+  const doc = createDocument();
+  doc.elements = [];
+  useEditorStore.setState({ doc });
+});
+describe("purpose-aware element library", () => {
+  it("preserves seven-group order and ranks required before suggested before general", () => {
+    const groups = libraryEntries("product_showcase", "recommended", "");
+    expect(groups.map((group) => group.id)).toEqual([
+      "subjects",
+      "information",
+      "dataProof",
+      "actions",
+      "branding",
+      "structure",
+      "decoration",
+    ]);
+    expect(groups[0]!.entries[0]!.status).toBe("Required");
+    expect(groups[1]!.entries[0]!.status).toBe("Required");
+  });
+  it("searches all78 even from Recommended and accepts UI aliases", () => {
+    expect(
+      libraryEntries(undefined, "all", "").flatMap((group) => group.entries),
+    ).toHaveLength(78);
+    expect(
+      libraryEntries(undefined, "recommended", "citation")
+        .flatMap((group) => group.entries)
+        .map((entry) => entry.id),
+    ).toEqual(["dataProof.citation"]);
+    expect(
+      libraryEntries(undefined, "recommended", "eyebrow")[1]!.entries[0]!.id,
+    ).toBe("information.label");
+    expect(
+      libraryEntries(undefined, "recommended", "model")[0]!.entries[0]!.id,
+    ).toBe("subjects.person");
+  });
+  it("validates canonical drag payloads without trusting external instructions", () => {
+    expect(CATALOG_DRAG_TYPE).toContain("contextual");
+    expect(parseCatalogDrag('{"elementId":"subjects.person"}')).toEqual({
+      elementId: "subjects.person",
+    });
+    expect(parseCatalogDrag('{"elementId":"foreign.person"}')).toBeUndefined();
+    expect(
+      parseCatalogDrag('{"elementId":"subjects.person","preset":false}'),
+    ).toBeUndefined();
+    expect(parseCatalogDrag("run this instruction")).toBeUndefined();
+  });
+  it("renders a real purpose button with persisted selection and a separate clear action", () => {
+    const html = renderToStaticMarkup(
+      createElement(CreativePurposeSelect, {
+        value: "product_showcase",
+        onChange: () => {},
+      }),
+    );
+    expect(html).toContain('class="contextual-purpose-trigger"');
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).toContain('aria-label="Creative Purpose: Product Showcase"');
+    expect(html).toContain("Product Showcase");
+    expect(html).toContain("Clear creative purpose");
+    expect(html).not.toContain('role="combobox"');
+    const empty = renderToStaticMarkup(
+      createElement(CreativePurposeSelect, {
+        value: undefined,
+        onChange: () => {},
+      }),
+    );
+    expect(empty).toContain('aria-label="Creative Purpose"');
+    expect(empty).not.toContain("Clear creative purpose");
+  });
+  it("searches the opened dropdown, supports keyboard choice and closes after selection", () => {
+    const onChange = purposeSteps([
+      (tree) => {
+        const root = visit(tree).find(
+          (node) => typeof node.props["onOpenChange"] === "function",
+        )!;
+        (root.props["onOpenChange"] as (open: boolean) => void)(true);
+      },
+      (tree) => {
+        const input = visit(tree).find(
+          (node) => node.props["role"] === "combobox",
+        )!;
+        expect(input.props["aria-expanded"]).toBe(true);
+        (input.props["onChange"] as (event: unknown) => void)({
+          target: { value: "case studies" },
+        });
+      },
+      (tree) => {
+        const options = visit(tree).filter(
+          (node) => node.props["role"] === "option",
+        );
+        expect(options).toHaveLength(1);
+        expect(options[0]!.props.children).toBe("Case Studies");
+        const input = visit(tree).find(
+          (node) => node.props["role"] === "combobox",
+        )!;
+        (input.props["onKeyDown"] as (event: unknown) => void)({
+          key: "Enter",
+          preventDefault: vi.fn(),
+        });
+      },
+      (tree) => {
+        const root = visit(tree).find(
+          (node) => typeof node.props["onOpenChange"] === "function",
+        )!;
+        expect(root.props["open"]).toBe(false);
+      },
+    ]);
+    expect(onChange).toHaveBeenCalledExactlyOnceWith("case_studies");
+  });
+  it("clears the purpose explicitly and displays no-results for an unmatched query", () => {
+    const onChange = purposeSteps([
+      (tree) => {
+        const input = visit(tree).find(
+          (node) => node.props["role"] === "combobox",
+        )!;
+        (input.props["onChange"] as (event: unknown) => void)({
+          target: { value: "no matching purpose here" },
+        });
+      },
+      (tree) => {
+        expect(
+          visit(tree).filter((node) => node.props["role"] === "option"),
+        ).toHaveLength(0);
+        expect(
+          visit(tree).some(
+            (node) =>
+              node.type === "p" &&
+              node.props.children === "No matching purposes",
+          ),
+        ).toBe(true);
+        const clear = visit(tree).find(
+          (node) => node.props["aria-label"] === "Clear creative purpose",
+        )!;
+        (clear.props["onClick"] as () => void)();
+      },
+    ]);
+    expect(onChange).toHaveBeenCalledExactlyOnceWith(undefined);
+  });
+  it("renders four accessible icon actions in one row without permanent search or a separate upload row", () => {
+    const html = renderToStaticMarkup(createElement(ElementLibrary));
+    const row = html
+      .split('aria-label="Element library actions"')[1]!
+      .split("</div>")[0]!;
+    expect(row.match(/<button/g)).toHaveLength(4);
+    for (const label of [
+      "Search elements",
+      "Recommended",
+      "All Elements",
+      "Upload image",
+    ]) {
+      expect(row).toContain(`aria-label="${label}"`);
+      expect(row).toContain(`title="${label}"`);
+    }
+    expect(row).toContain('aria-pressed="true"');
+    expect(html).not.toContain('aria-label="Search all elements"');
+    expect(html).not.toContain('class="contextual-upload"');
+    expect(html).toContain('hidden="" aria-label="Choose image to upload"');
+  });
+});

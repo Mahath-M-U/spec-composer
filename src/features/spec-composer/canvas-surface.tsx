@@ -32,6 +32,8 @@ import { findAssetPreset } from "./asset-presets";
 import { findDescriptionTemplate } from "./description-templates";
 import { addCatalogAsset } from "./assets-panel/add-asset";
 import { SelectionContextBar } from "./selection-context-bar";
+import { FloatingContextualToolbar } from "./contextual-editor/FloatingContextualToolbar";
+import { CATALOG_DRAG_TYPE, parseCatalogDrag, isConstraint } from "./contextual-editor/catalog";
 import {
   ELEMENT_KINDS,
   isTextKind,
@@ -373,6 +375,7 @@ export function CanvasWorkspace({
         onKeyDown={keyDown}
         onDragOver={(e) => {
           if (
+            e.dataTransfer.types.includes(CATALOG_DRAG_TYPE) ||
             e.dataTransfer.types.includes("application/x-spec-asset-preset") ||
             e.dataTransfer.types.includes("spec/shape") ||
             e.dataTransfer.types.includes("spec/asset") ||
@@ -386,6 +389,12 @@ export function CanvasWorkspace({
         onDrop={(e) => {
           e.preventDefault();
           const point = viewport.toDoc(e.clientX, e.clientY);
+          const contextualData = e.dataTransfer.getData(CATALOG_DRAG_TYPE);
+          if (contextualData) {
+            const payload = parseCatalogDrag(contextualData);
+            if (payload) s.addContextualElement(payload.elementId, point, payload.preset);
+            return;
+          }
           const presetData = e.dataTransfer.getData("application/x-spec-asset-preset");
           if (presetData) {
             try {
@@ -569,12 +578,12 @@ export function CanvasWorkspace({
           {doc.format.label} · {doc.format.width} × {doc.format.height} px
         </div>
       </div>
-      {selected.length === 1 &&
+      {selected.length > 0 &&
         !locked &&
         !isEditingSelection &&
         !activeKind &&
         !panning && (
-          <SelectionContextBar el={selected[0]!} screenBox={screenBox} />
+          <FloatingContextualToolbar key={JSON.stringify([doc.id, s.selectedIds])} elements={selected} screenBox={screenBox} onOpenInspector={onCanvasSelect} />
         )}
       {children}
       <div

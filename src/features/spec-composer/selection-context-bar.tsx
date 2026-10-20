@@ -145,9 +145,11 @@ function SelectionInspectorShortcut({
 export function SelectionContextBar({
   el,
   screenBox,
+  embedded = false,
 }: {
   el: SpecElement;
   screenBox: ScreenBox;
+  embedded?: boolean;
 }) {
   const doc = useEditorStore((s) => s.doc);
   const activeKit = useEditorStore((s) =>
@@ -217,9 +219,9 @@ export function SelectionContextBar({
       {showBar && (
         <div
           ref={barRef}
-          className="selection-context-bar"
+          className={`selection-context-bar${embedded ? " contextual-legacy" : ""}`}
           data-canvas-ui
-          style={{ left: pos.left, top: pos.top }}
+          style={embedded ? undefined : { left: pos.left, top: pos.top }}
           onKeyDown={(event) => event.stopPropagation()}
         >
           {alternatives.length > 0 && (
@@ -282,7 +284,7 @@ export function SelectionContextBar({
           )}
         </div>
       )}
-      <SelectionInspectorShortcut el={el} screenBox={screenBox} />
+      {!embedded && <SelectionInspectorShortcut el={el} screenBox={screenBox} />}
     </>
   );
 }

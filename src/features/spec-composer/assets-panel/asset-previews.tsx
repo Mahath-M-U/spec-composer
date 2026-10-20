@@ -63,7 +63,7 @@ export function ArtPreview({
         art={item.art!}
         colors={colors}
         fit={
-          item.style?.objectFit ??
+          (item.style?.objectFit === "cover" || item.style?.objectFit === "contain" ? item.style.objectFit : undefined) ??
           (item.kind === "heroImage" ? "cover" : "contain")
         }
         focalX={item.style?.focalX ?? 0.5}

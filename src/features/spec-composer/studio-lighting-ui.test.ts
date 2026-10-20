@@ -79,7 +79,7 @@ describe("asset scene and studio controls", () => {
       expect(html).toBe("");
     },
   );
-  it("exposes linked tabs and panels while retaining every text choice and accurate primitives", () => {
+  it("exposes linked tabs, compact library actions and unchanged Environment controls", () => {
     const html = renderToStaticMarkup(createElement(AssetsPanel));
     expect(html.match(/role="tab"/g)).toHaveLength(2);
     expect(html.match(/role="tabpanel"/g)).toHaveLength(2);
@@ -93,20 +93,19 @@ describe("asset scene and studio controls", () => {
     }
     expect(html).not.toContain("layers-tab");
     expect(html).not.toContain("layers-panel");
-    for (const shape of ["rectangle", "circle", "rounded rectangle"])
-      expect(html).toContain(`data-shape="${shape}"`);
-    for (const name of [
-      "Headline",
-      "Subheading",
-      "Body copy",
-      "Caption",
-      "Eyebrow",
-      "Offer",
-      "Price",
-      "Badge",
-      "Call to action",
+    for (const action of [
+      "Creative Purpose",
+      "Search elements",
+      "Recommended",
+      "All Elements",
+      "Upload image",
     ])
-      expect(html).toContain(name);
+      expect(html).toContain(`aria-label="${action}"`);
+    expect(html).not.toContain("Build your scene");
+    expect(html).not.toContain("Shape, text &amp; scene presets");
+    expect(html).not.toContain('data-shape="');
+    expect(html).not.toContain('class="asset-text-preview"');
+    expect(html).toContain("Selected element");
     expect(html).not.toContain("Your images");
   });
 

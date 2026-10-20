@@ -1,4 +1,7 @@
 import { effectiveRadius } from "./shape-workflow";
+import { isConstraint } from "./contextual-editor/catalog";
+import { ModelSvg } from "./contextual-editor/ModelSvg";
+import { isEditableModel } from "./contextual-editor/model-preview";
 import {
   createContext,
   useContext,
@@ -58,7 +61,7 @@ export function ArtColorsProvider({
 }
 
 export function StaticElement({ el }: { el: SpecElement }) {
-  if (!el.visible) return null;
+  if (!el.visible || isConstraint(el)) return null;
   return (
     <div
       className="static-element"
@@ -175,7 +178,9 @@ function PolygonShape({
 
 export function ElementContent({ el }: { el: SpecElement }) {
   const artColors = useContext(ArtColorsContext);
+  if (isConstraint(el)) return <div className="contextual-constraint-guide" data-export-exclude="true"><span>{el.name} · Layout guide</span></div>;
   const st = el.style;
+  if (isEditableModel(el)) return <ModelSvg element={el} />;
   if (isImageKind(el.kind)) {
     if (!el.src && el.placeholderArt === "brand-wordmark") {
       return (
@@ -220,7 +225,7 @@ export function ElementContent({ el }: { el: SpecElement }) {
           <PlaceholderArt
             art={art}
             colors={artColors}
-            fit={st.objectFit ?? "contain"}
+            fit={st.objectFit === "cover" ? "cover" : "contain"}
             focalX={st.focalX ?? 0.5}
             focalY={st.focalY ?? 0.5}
           />

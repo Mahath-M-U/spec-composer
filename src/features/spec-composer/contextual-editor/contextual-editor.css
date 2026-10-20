@@ -1,0 +1,670 @@
+.contextual-library {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 12px;
+  color: var(--foreground);
+}
+.contextual-library button,
+.contextual-purpose button {
+  font: inherit;
+  color: inherit;
+}
+.contextual-purpose {
+  position: relative;
+}
+.contextual-purpose-trigger {
+  display: flex;
+  width: 100%;
+  min-height: 38px;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--card);
+  text-align: left;
+  cursor: pointer;
+  font-size: 12px !important;
+}
+.contextual-purpose-trigger > span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.contextual-purpose:has(.contextual-purpose-clear)
+  .contextual-purpose-trigger
+  > span {
+  padding-right: 18px;
+}
+.contextual-purpose-trigger > svg {
+  flex-shrink: 0;
+  color: var(--muted-foreground);
+}
+.contextual-purpose-clear {
+  position: absolute;
+  top: 7px;
+  right: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 3px;
+  border: 0;
+  border-radius: 4px;
+  background: var(--card);
+  cursor: pointer;
+}
+.contextual-purpose-clear:hover {
+  background: var(--muted);
+}
+.contextual-purpose-popover,
+.contextual-search-popover {
+  z-index: 80;
+  width: min(300px, calc(100vw - 24px));
+  max-width: calc(100vw - 24px);
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: 0 12px 32px #0007;
+}
+.contextual-purpose-popover {
+  width: var(--radix-popover-trigger-width, 280px);
+  min-width: min(240px, calc(100vw - 24px));
+  max-height: min(
+    420px,
+    var(--radix-popover-content-available-height, calc(100dvh - 32px))
+  );
+  display: flex;
+  flex-direction: column;
+}
+.contextual-purpose-input,
+.contextual-search-input {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--input);
+  padding: 6px 8px;
+  flex-shrink: 0;
+}
+.contextual-purpose-input input,
+.contextual-search-input input {
+  width: 100%;
+  min-width: 0;
+  min-height: 22px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+}
+.contextual-search-input button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  padding: 3px;
+  cursor: pointer;
+}
+.contextual-purpose-options {
+  min-height: 0;
+  max-height: 320px;
+  overflow-y: auto;
+  padding-top: 4px;
+}
+.contextual-purpose-options strong {
+  display: block;
+  font-size: 10px;
+  color: var(--muted-foreground);
+  padding: 10px 7px 5px;
+}
+.contextual-purpose-options button {
+  display: block;
+  text-align: left;
+  width: 100%;
+  padding: 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.contextual-purpose-options button:hover,
+.contextual-purpose-options .is-active,
+.contextual-purpose-options [aria-selected="true"] {
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+  color: var(--primary);
+}
+.contextual-purpose-options p {
+  padding: 12px 7px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.contextual-library-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
+}
+.contextual-library-actions > button {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.contextual-library-actions > button:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+.contextual-library-actions > [aria-pressed="true"],
+.contextual-library-actions > [data-state="open"] {
+  background: color-mix(in srgb, var(--primary) 16%, var(--card));
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
+  color: var(--primary);
+}
+.contextual-group-heading {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 0;
+  border: 0;
+  background: transparent;
+  font-size: 12px;
+  text-align: left;
+}
+.contextual-group-heading > span {
+  margin-left: auto;
+  color: var(--muted-foreground);
+  font-size: 10px;
+}
+.contextual-group-heading[aria-expanded="false"]::after {
+  content: "+";
+}
+.contextual-element-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+.contextual-element-tile {
+  position: relative;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 6px;
+  text-align: left;
+  border: 0;
+  border-radius: 6px;
+  background: color-mix(
+    in oklab,
+    var(--color-editor-foreground) 6%,
+    var(--color-editor-surface)
+  );
+  padding: 10px 7px;
+  min-height: 48px;
+  font-size: 11px !important;
+  cursor: grab;
+}
+.contextual-element-tile > svg:first-child {
+  color: var(--muted-foreground);
+}
+.contextual-element-tile > span {
+  overflow-wrap: anywhere;
+}
+.contextual-element-tile small {
+  grid-column: 2;
+  margin-top: 4px;
+  color: var(--muted-foreground);
+  font-size: 9px;
+}
+.contextual-element-tile .contextual-tile-add {
+  display: none;
+  position: absolute;
+  right: 3px;
+  top: 3px;
+}
+.contextual-element-tile:hover,
+.contextual-element-tile:focus-visible {
+  background: color-mix(
+    in oklab,
+    var(--color-editor-foreground) 10%,
+    var(--color-editor-surface)
+  );
+}
+.contextual-element-tile:hover .contextual-tile-add,
+.contextual-element-tile:focus-visible .contextual-tile-add {
+  display: block;
+}
+.contextual-empty {
+  padding: 4px 0;
+  color: var(--muted-foreground);
+  font-size: 10px;
+}
+.contextual-purpose-popover :focus-visible,
+.contextual-search-popover :focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.floating-contextual-toolbar {
+  position: absolute;
+  z-index: 35;
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  max-width: calc(100% - 16px);
+  overflow-x: auto;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--popover) 96%, transparent);
+  color: var(--popover-foreground);
+  box-shadow: 0 5px 24px #0005;
+  backdrop-filter: blur(12px);
+}
+.floating-contextual-toolbar > button {
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+.floating-contextual-toolbar > button:hover,
+.floating-contextual-toolbar > [data-state="open"] {
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+  color: var(--primary);
+}
+.floating-contextual-toolbar .contextual-quick {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  max-width: 126px;
+  min-width: 64px;
+  text-align: left;
+}
+.contextual-quick span {
+  color: var(--muted-foreground);
+  font-size: 9px;
+}
+.contextual-quick strong {
+  max-width: 112px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+.contextual-popover {
+  z-index: 80;
+  width: min(340px, calc(100vw - 24px));
+  max-height: min(480px, calc(100dvh - 100px));
+  overflow-y: auto;
+  background: var(--popover);
+  color: var(--popover-foreground);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  box-shadow: 0 12px 40px #0007;
+}
+.contextual-popover h3 {
+  margin: 7px 0 11px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  font-weight: 600;
+}
+.contextual-popover section + section {
+  border-top: 1px solid color-mix(in srgb, var(--foreground) 4%, transparent);
+  padding-top: 9px;
+  margin-top: 13px;
+}
+.contextual-field {
+  margin: 9px 0;
+}
+.contextual-field > label,
+.contextual-field > small {
+  display: block;
+  font-size: 11px;
+  margin-bottom: 5px;
+  color: var(--muted-foreground);
+}
+.contextual-field > small {
+  color: var(--primary);
+}
+.contextual-field input:not([type="checkbox"]):not([type="color"]),
+.contextual-field select,
+.contextual-field textarea {
+  width: 100%;
+  min-height: 32px;
+  padding: 6px 8px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--input);
+  color: var(--foreground);
+  font-size: 12px;
+}
+.contextual-field select[multiple] {
+  min-height: 92px;
+}
+.contextual-field textarea {
+  min-height: 76px;
+  resize: vertical;
+}
+.contextual-field input:disabled,
+.contextual-field select:disabled {
+  opacity: 0.5;
+}
+.contextual-field button,
+.contextual-secondary button {
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--foreground) 5%, transparent);
+  color: inherit;
+  font-size: 11px;
+}
+.contextual-row,
+.contextual-color {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 5px;
+}
+.contextual-color input[type="color"] {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+.contextual-checks {
+  display: grid;
+  gap: 6px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.contextual-checks label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+.contextual-asset > label {
+  display: block;
+  margin-top: 7px;
+  font-size: 11px;
+}
+.contextual-asset input {
+  margin-top: 5px;
+}
+.contextual-data fieldset {
+  padding: 8px 0;
+  margin: 8px 0;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+}
+.contextual-data legend,
+.contextual-data label {
+  font-size: 10px;
+  color: var(--muted-foreground);
+}
+.contextual-data label {
+  display: block;
+  margin-bottom: 5px;
+}
+.contextual-secondary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 1px solid var(--border);
+}
+.contextual-secondary select {
+  flex: 1 1 100%;
+  min-height: 30px;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--input);
+  color: var(--foreground);
+  font-size: 11px;
+}
+.contextual-legacy.selection-context-bar {
+  position: static;
+  transform: none;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  max-width: 100%;
+  margin-top: 10px;
+}
+.contextual-constraint-guide {
+  height: 100%;
+  border: 1px dashed var(--primary);
+  background: color-mix(in srgb, var(--primary) 7%, transparent);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  font-size: 12px;
+}
+.contextual-library :focus-visible,
+.floating-contextual-toolbar :focus-visible,
+.contextual-popover :focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+@media (max-width: 640px) {
+  .floating-contextual-toolbar .contextual-quick {
+    min-width: 52px;
+    max-width: 80px;
+    padding: 7px 5px;
+  }
+  .contextual-quick strong {
+    max-width: 70px;
+    font-size: 10px;
+  }
+  .contextual-popover {
+    position: fixed !important;
+    left: 8px !important;
+    right: 8px !important;
+    bottom: 76px !important;
+    top: auto !important;
+    width: calc(100vw - 16px);
+    max-height: 55dvh;
+    transform: none !important;
+  }
+}
+
+/* Local scroll surfaces include popovers portaled outside the editor shell. */
+:is(
+  .contextual-purpose-options,
+  .floating-contextual-toolbar,
+  .contextual-popover,
+  .contextual-checks,
+  .contextual-field textarea,
+  .contextual-field select[multiple]
+) {
+  --contextual-scroll-thumb: color-mix(
+    in srgb,
+    var(--foreground) 25%,
+    transparent
+  );
+  --contextual-scroll-thumb-hover: color-mix(
+    in srgb,
+    var(--foreground) 42%,
+    transparent
+  );
+  --contextual-scroll-thumb-active: color-mix(
+    in srgb,
+    var(--foreground) 55%,
+    transparent
+  );
+  --contextual-scroll-current: var(--contextual-scroll-thumb);
+}
+:is(
+  .contextual-purpose-options,
+  .floating-contextual-toolbar,
+  .contextual-popover,
+  .contextual-checks,
+  .contextual-field textarea,
+  .contextual-field select[multiple]
+):is(:hover, :focus-within) {
+  --contextual-scroll-current: var(--contextual-scroll-thumb-hover);
+}
+:is(
+  .contextual-purpose-options,
+  .floating-contextual-toolbar,
+  .contextual-popover,
+  .contextual-checks,
+  .contextual-field textarea,
+  .contextual-field select[multiple]
+):active {
+  --contextual-scroll-current: var(--contextual-scroll-thumb-active);
+}
+@supports not selector(::-webkit-scrollbar) {
+  :is(
+    .contextual-purpose-options,
+    .floating-contextual-toolbar,
+    .contextual-popover,
+    .contextual-checks,
+    .contextual-field textarea,
+    .contextual-field select[multiple]
+  ) {
+    scrollbar-width: thin;
+    scrollbar-color: var(--contextual-scroll-current) transparent;
+  }
+}
+@supports selector(::-webkit-scrollbar) {
+  :is(
+    .contextual-purpose-options,
+    .floating-contextual-toolbar,
+    .contextual-popover,
+    .contextual-checks,
+    .contextual-field textarea,
+    .contextual-field select[multiple]
+  ) {
+    scrollbar-width: auto;
+    scrollbar-color: auto;
+  }
+  :is(
+    .contextual-purpose-options,
+    .floating-contextual-toolbar,
+    .contextual-popover,
+    .contextual-checks,
+    .contextual-field textarea,
+    .contextual-field select[multiple]
+  )::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  :is(
+    .contextual-purpose-options,
+    .floating-contextual-toolbar,
+    .contextual-popover,
+    .contextual-checks,
+    .contextual-field textarea,
+    .contextual-field select[multiple]
+  )::-webkit-scrollbar-track,
+  :is(
+    .contextual-purpose-options,
+    .floating-contextual-toolbar,
+    .contextual-popover,
+    .contextual-checks,
+    .contextual-field textarea,
+    .contextual-field select[multiple]
+  )::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  :is(
+    .contextual-purpose-options,
+    .floating-contextual-toolbar,
+    .contextual-popover,
+    .contextual-checks,
+    .contextual-field textarea,
+    .contextual-field select[multiple]
+  )::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+  :is(
+    .contextual-purpose-options,
+    .floating-contextual-toolbar,
+    .contextual-popover,
+    .contextual-checks,
+    .contextual-field textarea,
+    .contextual-field select[multiple]
+  )::-webkit-scrollbar-thumb {
+    min-width: 24px;
+    min-height: 24px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--contextual-scroll-current);
+  }
+  :is(
+      .contextual-purpose-options,
+      .floating-contextual-toolbar,
+      .contextual-popover,
+      .contextual-checks,
+      .contextual-field textarea,
+      .contextual-field select[multiple]
+    )::-webkit-scrollbar-thumb:hover {
+    background: var(--contextual-scroll-thumb-hover);
+  }
+  :is(
+      .contextual-purpose-options,
+      .floating-contextual-toolbar,
+      .contextual-popover,
+      .contextual-checks,
+      .contextual-field textarea,
+      .contextual-field select[multiple]
+    )::-webkit-scrollbar-thumb:active {
+    background: var(--contextual-scroll-thumb-active);
+  }
+}
+
+/* Dedicated model controls reuse the local renderer for every pose thumbnail. */
+.model-control-popover { width: min(326px, calc(100vw - 24px)); padding: 10px; }
+.model-preview-status { padding: 6px 0 10px; color: var(--muted-foreground); font-size: 10px; line-height: 1.5; }
+.model-visual-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 6px; }
+.model-visual-grid button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; min-height: 35px; padding: 6px; border: 0; border-radius: 7px; background: color-mix(in oklab,var(--foreground) 6%,var(--card)); color: var(--foreground); font-size: 11px; text-transform: capitalize; cursor: pointer; }
+.model-visual-grid button svg { width: 72px; height: 92px; }
+.model-visual-grid button:hover, .model-visual-grid button:focus-visible { background: color-mix(in oklab,var(--foreground) 10%,var(--card)); }
+.model-visual-grid button[aria-pressed="true"], .model-pose-segments button[aria-pressed="true"], .model-look-sections button[aria-pressed="true"] { background: color-mix(in oklab,var(--primary) 16%,var(--card)); color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }
+.model-pose-segments,.model-look-sections { display: flex; flex-wrap: wrap; gap: 4px; padding-bottom: 10px; }
+.model-pose-segments button,.model-pose-segments select,.model-look-sections button { flex: 1; min-width: 48px; min-height: 28px; padding: 5px; border: 0; border-radius: 5px; background: color-mix(in oklab,var(--foreground) 6%,var(--card)); color: var(--foreground); font-size: 10px; text-transform: capitalize; }
+.model-look-sections button { flex-basis: 40%; }
+.model-control-popover details { margin-top: 10px; }
+.model-control-popover summary { padding: 7px 0; cursor: pointer; color: var(--muted-foreground); font-size: 11px; }
+.model-garment-colors { display: flex; gap: 8px; margin: 10px 0; }
+.model-garment-colors label { display: flex; flex: 1; flex-direction: column; gap: 7px; color: var(--muted-foreground); font-size: 10px; }
+.model-garment-colors input { height: 30px; width: 100%; padding: 0; border: 0; background: transparent; cursor: pointer; }
+.contextual-capability { font-size: 9px !important; color: var(--muted-foreground); }
+.contextual-capability.is-generation { color: var(--primary); }
+.contextual-quick > span { display: flex; gap: 4px; align-items: center; }

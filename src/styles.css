@@ -17163,3 +17163,150 @@ button.de-subrow-tag:focus-visible {
   text-overflow: clip;
   white-space: normal;
 }
+
+/* Inspector control surfaces share the borderless Layers treatment. */
+.style-panel {
+  --inspector-layer-surface: color-mix(
+    in oklab,
+    var(--color-editor-foreground) 6%,
+    var(--color-editor-surface)
+  );
+  --inspector-layer-hover: color-mix(
+    in oklab,
+    var(--color-editor-foreground) 10%,
+    var(--color-editor-surface)
+  );
+  --inspector-layer-selected: color-mix(
+    in oklab,
+    var(--color-editor-foreground) 9%,
+    var(--color-secondary)
+  );
+}
+.style-panel
+  #inspector-style
+  :is(
+    .style-dock-field
+      input:not(
+        [type="color"],
+        [type="range"],
+        [type="checkbox"],
+        [type="radio"],
+        [type="file"]
+      ),
+    select,
+    textarea,
+    .element-details-fields
+      input:not(
+        [type="color"],
+        [type="range"],
+        [type="checkbox"],
+        [type="radio"],
+        [type="file"]
+      ),
+    .font-trigger,
+    .text-color-trigger,
+    .inspector-chips button,
+    .inspector-action,
+    .inspector-alignment button,
+    .inspector-actions button
+  ) {
+  border: 0;
+  background: var(--inspector-layer-surface);
+}
+.style-panel
+  #inspector-style
+  :is(
+    .style-dock-field
+      input:not(
+        [type="color"],
+        [type="range"],
+        [type="checkbox"],
+        [type="radio"],
+        [type="file"]
+      ),
+    select,
+    textarea,
+    .element-details-fields
+      input:not(
+        [type="color"],
+        [type="range"],
+        [type="checkbox"],
+        [type="radio"],
+        [type="file"]
+      ),
+    .font-trigger,
+    .text-color-trigger,
+    .inspector-chips button,
+    .inspector-action,
+    .inspector-alignment button,
+    .inspector-actions button
+  ):hover:where(:not(:disabled)) {
+  background: var(--inspector-layer-hover);
+}
+.style-panel[data-tab="style"]
+  #inspector-style
+  :is(
+    .font-trigger,
+    .text-color-trigger,
+    .inspector-chips button,
+    .inspector-action,
+    .inspector-alignment button,
+    .inspector-actions button
+  ):is(
+    [aria-pressed="true"],
+    [aria-pressed="mixed"],
+    [aria-expanded="true"],
+    [data-state="open"]
+  ) {
+  background: var(--inspector-layer-selected);
+}
+.style-panel
+  #inspector-style
+  :is(
+    .style-dock-field
+      input:not(
+        [type="color"],
+        [type="range"],
+        [type="checkbox"],
+        [type="radio"],
+        [type="file"]
+      ),
+    select,
+    textarea,
+    .element-details-fields
+      input:not(
+        [type="color"],
+        [type="range"],
+        [type="checkbox"],
+        [type="radio"],
+        [type="file"]
+      ),
+    .font-trigger,
+    .text-color-trigger,
+    .inspector-chips button,
+    .inspector-action,
+    .inspector-alignment button,
+    .inspector-actions button
+  ):focus-visible {
+  outline: 2px solid var(--editor-focus, var(--color-primary));
+  outline-offset: 2px;
+}
+.style-panel[data-tab="layout"] :is(.compose-item, .compose-tidy) {
+  border: 0;
+  background: var(--inspector-layer-surface);
+}
+.style-panel[data-tab="layout"]
+  :is(.compose-item, .compose-tidy):is(:hover, :active, :focus-visible):where(
+    :not(:disabled)
+  ) {
+  background: var(--inspector-layer-hover);
+}
+.style-panel[data-tab="layout"]
+  :is(.compose-item, .compose-tidy)[aria-pressed="true"] {
+  background: var(--inspector-layer-selected);
+}
+.style-panel[data-tab="layout"]
+  :is(.compose-item, .compose-tidy):focus-visible {
+  outline: 2px solid var(--editor-focus, var(--color-primary));
+  outline-offset: 2px;
+}

@@ -1,39 +1,15 @@
 import { useId, useRef, useState } from "react";
+import { ElementLibrary } from "../contextual-editor/ElementLibrary";
 import { Box, Shapes, SlidersHorizontal, Sun } from "lucide-react";
 import { SceneLightingControls } from "../scene-lighting-controls";
-import { PanelHeader } from "../panel-header";
 import { useEditorStore } from "../store";
-import {
-  SHAPE_TYPE_LABELS,
-  shapeRoleLabel,
-  type ShapeType,
-} from "../shape-workflow";
-import { ASSET_PRESETS } from "../asset-presets";
-import { PRIMARY_TEXT_PRESETS, MORE_TEXT_PRESETS } from "./text-presets";
+import { shapeRoleLabel } from "../shape-workflow";
 import { isTextKind } from "../types";
-import { PlaceholderArt } from "../illustrations";
 
 const VIEWS = [
   { id: "add", label: "Add", icon: Shapes },
   { id: "environment", label: "Environment", icon: Sun },
 ] as const;
-const SCENE_TILES = {
-  model: { label: "Person" },
-  product: { label: "Product" },
-  pedestal: { label: "Display" },
-  backdrop: { label: "Backdrop" },
-  "copy-space": { label: "Copy space" },
-  label: { label: "Callout" },
-};
-const PRIMARY_SHAPES: readonly ShapeType[] = [
-  "rectangle",
-  "circle",
-  "rounded rectangle",
-  "triangle",
-  "diamond",
-];
-const MORE_SHAPES: readonly ShapeType[] = ["ellipse", "line"];
-
 export function AssetsPanel() {
   const s = useEditorStore();
   const [view, setView] = useState<(typeof VIEWS)[number]["id"]>("add");
@@ -43,57 +19,8 @@ export function AssetsPanel() {
     s.doc?.elements.filter((element) => s.selectedIds.includes(element.id)) ??
     [];
   const element = selected.length === 1 ? selected[0] : undefined;
-  const artColors = s.doc?.creativeDirection
-    ? {
-        ink: s.doc.creativeDirection.primaryColor,
-        accent: s.doc.creativeDirection.secondaryColor,
-      }
-    : { ink: "#18181B", accent: "#A78BFA" };
-  const renderShape = (type: ShapeType) => (
-    <button
-      key={type}
-      type="button"
-      data-primitive={type}
-      draggable
-      aria-label={SHAPE_TYPE_LABELS[type]}
-      title={SHAPE_TYPE_LABELS[type]}
-      onClick={() => s.addShape(type)}
-      onDragStart={(event) => {
-        event.dataTransfer.setData("spec/shape", type);
-        event.dataTransfer.effectAllowed = "copy";
-      }}
-    >
-      <span className="shape-preview" data-shape={type} aria-hidden="true" />
-    </button>
-  );
-  const renderText = (
-    preset:
-      | (typeof PRIMARY_TEXT_PRESETS)[number]
-      | (typeof MORE_TEXT_PRESETS)[number],
-  ) => (
-    <button
-      key={preset.id}
-      type="button"
-      draggable
-      onClick={() => s.addTextPreset(preset.id)}
-      onDragStart={(event) => {
-        event.dataTransfer.setData("spec/text-preset", preset.id);
-        event.dataTransfer.effectAllowed = "copy";
-      }}
-    >
-      <span
-        className="asset-text-preview"
-        data-kind={preset.kind}
-        aria-hidden="true"
-      >
-        {preset.sample}
-      </span>
-      {preset.label}
-    </button>
-  );
   return (
     <div className="assets-panel compose-panel">
-      <PanelHeader eyebrow="Compose" title="Build your scene" />
       <div
         className="asset-workflow-tabs"
         role="tablist"
@@ -143,77 +70,7 @@ export function AssetsPanel() {
         hidden={view !== "add"}
         tabIndex={0}
       >
-        <div className="shape-palette">
-          <section className="compose-section">
-            <div className="asset-section-heading">
-              <h3>Scene elements</h3>
-              <span>Click or drag</span>
-            </div>
-            <div
-              className="asset-starter-grid"
-              role="group"
-              aria-label="Scene elements"
-            >
-              {ASSET_PRESETS.map((preset) => {
-                const { label } = SCENE_TILES[preset.id];
-                return (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    draggable
-                    onClick={() => s.addAssetPreset(preset.id)}
-                    onDragStart={(event) => {
-                      event.dataTransfer.setData(
-                        "application/x-spec-asset-preset",
-                        JSON.stringify({
-                          presetId: preset.id,
-                          templateId: preset.templateId,
-                        }),
-                      );
-                      event.dataTransfer.effectAllowed = "copy";
-                    }}
-                  >
-                    <span
-                      className="asset-starter-art"
-                      aria-hidden="true"
-                      style={{
-                        background: preset.style.background,
-                        borderRadius:
-                          preset.shapeType === "rounded rectangle" ? 4 : 1,
-                      }}
-                    >
-                      <PlaceholderArt
-                        art={preset.art}
-                        colors={artColors}
-                        fit={preset.role === "background" ? "cover" : "contain"}
-                      />
-                    </span>
-                    <strong>{label}</strong>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-          <section className="compose-section">
-            <div className="asset-section-heading">
-              <h3>Shapes</h3>
-              <span>Click or drag</span>
-            </div>
-            <div className="shape-palette-grid">
-              {PRIMARY_SHAPES.map(renderShape)}
-              {MORE_SHAPES.map(renderShape)}
-            </div>
-          </section>
-          <section className="compose-section">
-            <div className="asset-section-heading">
-              <h3>Text</h3>
-            </div>
-            <div className="shape-text-options">
-              {PRIMARY_TEXT_PRESETS.map(renderText)}
-              {MORE_TEXT_PRESETS.map(renderText)}
-            </div>
-          </section>
-        </div>
+        <ElementLibrary />
       </div>
       <div
         role="tabpanel"

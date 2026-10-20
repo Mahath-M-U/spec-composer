@@ -4,6 +4,8 @@ import {
   shapeDescription,
   shapeRoleLabel,
 } from "./shape-workflow";
+import { contextualPromptLines } from "./contextual-editor/export";
+import { isConstraint } from "./contextual-editor/catalog";
 import { imageStyleLine } from "./image-styles";
 import {
   an,
@@ -448,7 +450,8 @@ export function compileDesignSkillSegments(
   source: SpecDocument,
   kit?: BrandKit,
 ): PromptLine[] {
-  const doc = lowerHex(source);
+  const contextual = contextualPromptLines(source);
+  const doc = lowerHex({ ...source, elements: source.elements.filter((element) => !isConstraint(element)) });
   const o = doc.promptOptions;
   const f = doc.format;
   const m = measure(doc, kit);
@@ -697,6 +700,7 @@ export function compileDesignSkillSegments(
   ]);
   for (const e of visible) lines.push([`skill:el:${e.id}`, slotSegs(e, doc)]);
 
+  lines.push(...contextual);
   return withOverrides(lines, doc);
 }
 

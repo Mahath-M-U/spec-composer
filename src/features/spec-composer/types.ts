@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+export type ContextualValue = string | number | boolean | null | ContextualValue[] | { [key: string]: ContextualValue };
+const contextualValueSchema: z.ZodType<ContextualValue> = z.lazy(() => z.union([
+  z.string(), z.number().finite(), z.boolean(), z.null(),
+  z.array(contextualValueSchema), z.record(z.string(), contextualValueSchema),
+]));
+
 export const TEXT_KINDS = [
   "title",
   "subheading",
@@ -165,10 +171,10 @@ const elementStyleSchema = z.object({
   fontStyle: z.enum(["normal", "italic"]).optional(),
   lineHeight: z.number().optional(),
   letterSpacing: z.number().optional(),
-  alignment: z.enum(["left", "center", "right"]).optional(),
+  alignment: z.enum(["left", "center", "right", "justify"]).optional(),
   color: z.string().optional(),
   background: z.string().optional(),
-  objectFit: z.enum(["cover", "contain"]).optional(),
+  objectFit: z.enum(["cover", "contain", "fill", "none"]).optional(),
   focalX: z.number().optional(),
   focalY: z.number().optional(),
   opacity: z.number().optional(),
@@ -234,6 +240,9 @@ export type DescriptionDrafts = z.infer<typeof descriptionDraftsSchema>;
 
 const specElementSchema = z.object({
   id: z.string(),
+  /** Semantic catalog identity supplements the existing rendering kind. */
+  catalogElementId: z.string().optional(),
+  contextualProperties: z.record(z.string(), contextualValueSchema).optional(),
   kind: z.enum(ELEMENT_KINDS),
   name: z.string(),
   content: z.string().optional(),
@@ -381,6 +390,10 @@ const specDocumentShape = z
       angle: z.number().optional(),
     }),
     elements: z.array(specElementSchema),
+    creativePurposeId: z.string().optional(),
+    referenceAssets: z.record(z.string(), z.object({
+      source: z.string(), name: z.string(), type: z.string(),
+    })).optional(),
     groups: z.array(layerGroupSchema).optional(),
     imageBrief: z.string().default(""),
     promptMode: z.enum(["visual_prompt", "design_skill"]),
