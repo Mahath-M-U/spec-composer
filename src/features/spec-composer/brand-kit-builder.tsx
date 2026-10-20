@@ -605,33 +605,56 @@ export function BrandKitBuilder({
           </div>
         </DialogContent>
       </Dialog>
-      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <AlertDialogContent className="bk-builder-delete-dialog">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete “{initialKit?.name}”?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This removes the design kit, its palette, typography, and brand
-              preferences. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Keep design kit</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => {
-                if (!initialKit) return;
-                if (initialKit.sourceKind === "material3")
-                  s.deleteMaterialKit(initialKit.id);
-                else s.deleteBrandKit(initialKit.id);
-                setDeleteOpen(false);
-                changeOpen(false);
-              }}
-            >
-              Delete design kit
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <BrandKitDeleteDialog
+        kit={initialKit}
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        onDeleted={() => changeOpen(false)}
+      />
     </>
+  );
+}
+
+/** The confirmation dialog for permanently deleting a design kit, shared by
+ * the builder's own Delete action and the design kit library's "⋯" menu. */
+export function BrandKitDeleteDialog({
+  kit,
+  open,
+  onOpenChange,
+  onDeleted,
+}: {
+  kit?: BrandKit | undefined;
+  open: boolean;
+  onOpenChange: (next: boolean) => void;
+  onDeleted?: (() => void) | undefined;
+}) {
+  const s = useEditorStore();
+  return (
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent className="bk-builder-delete-dialog">
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete “{kit?.name}”?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This removes the design kit, its palette, typography, and brand
+            preferences. This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Keep design kit</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            onClick={() => {
+              if (!kit) return;
+              if (kit.sourceKind === "material3") s.deleteMaterialKit(kit.id);
+              else s.deleteBrandKit(kit.id);
+              onOpenChange(false);
+              onDeleted?.();
+            }}
+          >
+            Delete design kit
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

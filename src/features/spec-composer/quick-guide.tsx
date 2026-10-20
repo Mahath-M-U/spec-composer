@@ -71,7 +71,7 @@ const STEPS: Record<GuidePage, GuideStep[]> = {
     },
     {
       target: "kit-new",
-      title: "New design kit",
+      title: "Create kit",
       body: "Name a blank kit, then add your colors, typeface, style and mood.",
     },
     {
@@ -97,7 +97,7 @@ const STEPS: Record<GuidePage, GuideStep[]> = {
     {
       target: "kit-edit",
       title: "Edit kit",
-      body: "Change the name, creative style, typeface, colors and emotions, or delete the kit.",
+      body: "Click the pencil to change the creative style, typeface, colors and emotions. Rename or delete the kit from the “⋯” menu.",
     },
   ],
   home: [

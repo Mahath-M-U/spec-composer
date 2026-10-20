@@ -1,21 +1,35 @@
-import { useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
   Check,
-  ChevronRight,
   Gem,
+  MoreHorizontal,
   Pencil,
   Plus,
   Search,
   Sparkles,
+  Trash2,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Hint } from "@/components/ui/tooltip";
-import { BrandKitBuilder, type BrandKitBuilderMode } from "./brand-kit-builder";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  BrandKitBuilder,
+  BrandKitDeleteDialog,
+  type BrandKitBuilderMode,
+} from "./brand-kit-builder";
 import { getBrandKitColor } from "./brand-kits";
-import { matchesBrandKitQuery } from "./brand-kit-search";
-import { brandKitTileForeground, nearestColorName } from "./color-names";
+import {
+  matchesBrandKitQuery,
+  orderBrandKitsActiveFirst,
+} from "./brand-kit-search";
+import { brandKitTileForeground, readableTextOn } from "./color-names";
 import { PanelHeader } from "./panel-header";
 import { useEditorStore } from "./store";
 import type { BrandKit, BrandKitColor } from "./types";
@@ -64,11 +78,9 @@ export function BrandKitPreview({
   const backgroundPaint = background
     ? brandKitPaint(background)
     : "var(--color-editor)";
-  const headlineColor = text
-    ? text.hex
-    : background
-      ? brandKitTileForeground(background.hex)
-      : "var(--color-editor-foreground)";
+  const headlineColor = background
+    ? readableTextOn(background.hex, text?.hex)
+    : (text?.hex ?? "var(--color-editor-foreground)");
   const ctaPaint = primary
     ? brandKitPaint(primary)
     : "var(--color-editor-muted)";
@@ -89,7 +101,9 @@ export function BrandKitPreview({
           : {}),
       }}
     >
-      {kit.style && <span className="bk-preview-style">{kit.style}</span>}
+      {variant === "builder" && kit.style && (
+        <span className="bk-preview-style">{kit.style}</span>
+      )}
       <strong
         className="bk-preview-headline"
         style={{
@@ -101,6 +115,17 @@ export function BrandKitPreview({
       </strong>
       {variant === "builder" && (
         <span className="bk-preview-specimen">Aa Bb 0123</span>
+      )}
+      {variant === "card" && kit.emotions.length > 0 && (
+        <span
+          className="bk-preview-support"
+          style={{
+            color: headlineColor,
+            fontFamily: kit.typography || undefined,
+          }}
+        >
+          {kit.emotions.slice(0, 3).join(" · ")}
+        </span>
       )}
       <span
         className="bk-preview-cta"
@@ -177,6 +202,16 @@ export const BRAND_COLOR_ROLES: Array<{
   { value: "accent", label: "Accent" },
 ];
 
+/** Compact labels for the five-slot palette row, where "Background" and
+ * "Font color" are too long to fit under a small swatch. */
+export const BRAND_COLOR_SHORT_LABELS: Record<BrandKitColor["role"], string> = {
+  primary: "Primary",
+  secondary: "Secondary",
+  background: "Canvas",
+  text: "Text",
+  accent: "Accent",
+};
+
 export const BRAND_COLOR_USECASES: Record<
   BrandKitColor["role"],
   readonly string[]
@@ -236,19 +271,21 @@ export function BrandKitPanel({
     initialKit?: BrandKit;
   } | null>(null);
   const [kitQuery, setKitQuery] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<BrandKit | null>(null);
 
   if (!standalone && !d) return null;
-
-  // Search only exists in the editor panel; standalone pages list every kit.
-  const visibleKits = standalone
-    ? s.brandKits
-    : s.brandKits.filter((kit) => matchesBrandKitQuery(kit, kitQuery));
 
   // In the editor the toggle switches this poster's kit; on the design kit
   // pages it picks the default kit new posters start with.
   const activeKitId = standalone
     ? s.defaultBrandKitId
     : d?.creativeDirection.brandKitId;
+
+  // Search only exists in the editor panel; standalone pages list every kit.
+  const filteredKits = standalone
+    ? s.brandKits
+    : s.brandKits.filter((kit) => matchesBrandKitQuery(kit, kitQuery));
+  const visibleKits = orderBrandKitsActiveFirst(filteredKits, activeKitId);
 
   return (
     <div
@@ -300,15 +337,15 @@ export function BrandKitPanel({
           onClick={() => setDialogSession({ mode: "create" })}
         >
           <Plus size={14} />
-          New design kit
+          Create kit
         </Button>
 
-        <Hint label="Generate M3 kit">
+        <Hint label="Generate a kit from one seed color (Material 3)">
           <Button
             size="sm"
             variant="outline"
             className="brandkit-m3-trigger-button"
-            aria-label="Generate from Material 3"
+            aria-label="Generate kit from a seed color"
             data-tour="kit-generate"
             onClick={() => setDialogSession({ mode: "generate" })}
           >
@@ -330,6 +367,15 @@ export function BrandKitPanel({
         }}
       />
 
+      <BrandKitDeleteDialog
+        kit={deleteTarget ?? undefined}
+        open={!!deleteTarget}
+        onOpenChange={(next) => {
+          if (!next) setDeleteTarget(null);
+        }}
+        onDeleted={() => setDeleteTarget(null)}
+      />
+
       {!s.brandKits.length && (
         <div className="asset-empty">
           <Gem aria-hidden="true" />
@@ -342,7 +388,7 @@ export function BrandKitPanel({
         <div className="asset-empty">
           <Search aria-hidden="true" />
           <b>No design kits found</b>
-          <span>Try a different search term.</span>
+          <span>No results for “{kitQuery}”. Try a different search term.</span>
         </div>
       )}
 
@@ -366,6 +412,8 @@ export function BrandKitPanel({
                 initialKit: structuredClone(kit),
               })
             }
+            onRename={(name) => s.updateBrandKit(kit.id, { name })}
+            onDelete={() => setDeleteTarget(kit)}
             applyMode={!standalone}
           />
         ))}
@@ -380,6 +428,8 @@ function BrandKitCard({
   onActivate,
   onDeactivate,
   onEdit,
+  onRename,
+  onDelete,
   applyMode = false,
 }: {
   kit: BrandKit;
@@ -387,9 +437,26 @@ function BrandKitCard({
   onActivate: () => void;
   onDeactivate: () => void;
   onEdit: () => void;
+  onRename: (name: string) => void;
+  onDelete: () => void;
   /** The toggle applies the kit to the open poster rather than setting the default. */
   applyMode?: boolean;
 }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [draftName, setDraftName] = useState(kit.name);
+  const nameInput = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (renaming) nameInput.current?.focus();
+  }, [renaming]);
+
+  const commitRename = () => {
+    const trimmed = draftName.trim();
+    if (trimmed && trimmed !== kit.name) onRename(trimmed);
+    setRenaming(false);
+  };
+
   return (
     <div
       className={`brandkit-card bk-showcase-card${active ? " active" : ""}`}
@@ -397,30 +464,109 @@ function BrandKitCard({
     >
       <div className="bk-face">
         <div className="bk-face-top">
-          <span className="truncate bk-face-name">
-            {kit.name}
-          </span>
-          <button
-            type="button"
-            className={`bk-default-toggle${active ? " active" : ""}`}
-            aria-pressed={active}
-            aria-label={
-              applyMode
-                ? `${active ? "Remove" : "Apply"} ${kit.name}`
-                : `${active ? "Remove" : "Set"} ${kit.name} as default`
+          {renaming ? (
+            <input
+              ref={nameInput}
+              className="bk-face-name-input"
+              aria-label="Kit name"
+              value={draftName}
+              onChange={(e) => setDraftName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  commitRename();
+                } else if (e.key === "Escape") {
+                  e.preventDefault();
+                  setRenaming(false);
+                }
+              }}
+              onBlur={commitRename}
+            />
+          ) : (
+            <span className="truncate bk-face-name" title={kit.name}>
+              {kit.name}
+            </span>
+          )}
+
+          <Hint
+            label={
+              active
+                ? applyMode
+                  ? "Remove from design"
+                  : "Clear default"
+                : undefined
             }
-            data-tour="kit-default-toggle"
-            onClick={active ? onDeactivate : onActivate}
           >
-            {active && <Check size={12} aria-hidden="true" />}
-            {applyMode
-              ? active
-                ? "Applied"
-                : "Apply"
-              : active
-                ? "Default"
-                : "Set as default"}
-          </button>
+            <button
+              type="button"
+              className={`bk-default-toggle${active ? " active" : ""}`}
+              aria-pressed={active}
+              aria-label={
+                applyMode
+                  ? `${active ? "Remove" : "Apply"} ${kit.name}`
+                  : `${active ? "Remove" : "Set"} ${kit.name} as default`
+              }
+              data-tour="kit-default-toggle"
+              onClick={active ? onDeactivate : onActivate}
+            >
+              {active && <Check size={12} aria-hidden="true" />}
+              {applyMode
+                ? active
+                  ? "Applied"
+                  : "Apply"
+                : active
+                  ? "Default"
+                  : "Set as default"}
+            </button>
+          </Hint>
+
+          <Hint label="Edit kit">
+            <button
+              type="button"
+              className="bk-icon-action"
+              aria-label={`Edit ${kit.name}`}
+              data-tour="kit-edit"
+              onClick={onEdit}
+            >
+              <Pencil size={14} aria-hidden="true" />
+            </button>
+          </Hint>
+
+          <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+            <Hint label="More actions">
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="bk-icon-action"
+                  aria-label={`More actions for ${kit.name}`}
+                >
+                  <MoreHorizontal size={14} aria-hidden="true" />
+                </button>
+              </DropdownMenuTrigger>
+            </Hint>
+            <DropdownMenuContent
+              className="editor-menu"
+              align="end"
+              onCloseAutoFocus={(e) => {
+                if (renaming) e.preventDefault();
+              }}
+            >
+              <DropdownMenuItem
+                onSelect={() => {
+                  setDraftName(kit.name);
+                  setRenaming(true);
+                }}
+              >
+                <Pencil aria-hidden="true" /> Rename
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-destructive"
+                onSelect={onDelete}
+              >
+                <Trash2 aria-hidden="true" /> Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         <BrandKitPreview kit={kit} />
@@ -431,81 +577,72 @@ function BrandKitCard({
           aria-label={`${kit.name} palette`}
           data-tour="kit-palette"
         >
-          {kit.colors.length ? (
-            kit.colors.map((color) => (
-              <Hint key={color.id} label={`Copy ${color.hex.toUpperCase()}`}>
+          {BRAND_COLOR_ROLES.map((role) => {
+            const color = getBrandKitColor(kit, role.value);
+            const shortLabel = BRAND_COLOR_SHORT_LABELS[role.value];
+            if (!color) {
+              return (
+                <Hint
+                  key={role.value}
+                  label={`No ${role.label.toLowerCase()} color — edit kit to add`}
+                >
+                  <button
+                    type="button"
+                    className="bk-palette-slot is-empty"
+                    onClick={onEdit}
+                  >
+                    <i className="bk-palette-swatch" aria-hidden="true" />
+                    <span className="bk-palette-role">{shortLabel}</span>
+                    <code>—</code>
+                  </button>
+                </Hint>
+              );
+            }
+            const hex = color.hex.toUpperCase();
+            return (
+              <Hint
+                key={color.id}
+                label={`${role.label} · ${hex} · Click to copy`}
+              >
                 <button
                   type="button"
-                  className="bk-palette-block"
-                  style={{
-                    background: brandKitPaint(color),
-                    color: brandKitTileForeground(color.hex),
-                  }}
+                  className="bk-palette-slot"
+                  aria-label={`Copy ${role.label} ${hex}`}
                   onClick={() => copyBrandColorHex(color.hex)}
                 >
-                  <span className="bk-palette-role">
-                    {brandColorRoleLabel(color.role)}
-                  </span>
+                  <i
+                    className="bk-palette-swatch"
+                    aria-hidden="true"
+                    style={{ background: brandKitPaint(color) }}
+                  />
+                  <span className="bk-palette-role">{shortLabel}</span>
+                  <code>{hex}</code>
                 </button>
               </Hint>
-            ))
-          ) : (
-            <button
-              type="button"
-              className="bk-palette-block bk-palette-empty"
-              onClick={onEdit}
-            >
-              <Plus size={14} aria-hidden="true" />
-              <span>Add colors</span>
-            </button>
-          )}
+            );
+          })}
         </div>
 
-        {kit.colors.length > 0 && (
-          <div className="bk-palette-labels">
-            {kit.colors.map((color) => (
-              <button
-                key={color.id}
-                type="button"
-                className="bk-palette-label"
-                onClick={() => copyBrandColorHex(color.hex)}
-              >
-                <strong>{nearestColorName(color.hex)}</strong>
-                <code>{color.hex.toUpperCase()}</code>
-              </button>
-            ))}
-          </div>
-        )}
-
-        <div className="bk-meta-row">
-          <span
-            className="bk-meta-glyph"
-            style={{ fontFamily: kit.typography || undefined }}
-            aria-hidden="true"
+        <Hint label="Edit typography">
+          <button
+            type="button"
+            className="bk-type-row"
+            aria-label={`Edit typography for ${kit.name}`}
+            onClick={onEdit}
           >
-            Aa
-          </span>
-          <span className="bk-meta-copy">
-            <strong>{kit.typography || "No typeface set"}</strong>
-            <small>
-              {kit.style || "No style"}
-              {kit.emotions.length > 0
-                ? ` · ${kit.emotions.slice(0, 3).join(", ")}`
-                : ""}
-            </small>
-          </span>
-        </div>
-
-        <button
-          type="button"
-          className="bk-edit-button"
-          data-tour="kit-edit"
-          onClick={onEdit}
-        >
-          <Pencil size={14} aria-hidden="true" />
-          Edit kit
-          <ChevronRight aria-hidden="true" />
-        </button>
+            <span
+              className="bk-type-glyph"
+              style={{ fontFamily: kit.typography || undefined }}
+              aria-hidden="true"
+            >
+              Aa
+            </span>
+            <span className="bk-type-copy">
+              <strong>{kit.typography || "No typeface set"}</strong>
+              {kit.style && <small>{kit.style}</small>}
+            </span>
+          </button>
+        </Hint>
       </div>
     </div>
   );

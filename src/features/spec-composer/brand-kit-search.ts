@@ -27,3 +27,24 @@ export function matchesBrandKitQuery(kit: BrandKit, query: string): boolean {
     .toLowerCase();
   return trimmed.split(/\s+/).every((term) => haystack.includes(term));
 }
+
+/**
+ * Returns a new array with the active kit (if any) moved to index 0, keeping
+ * the relative order of every other kit unchanged. Does not mutate `kits`.
+ * When `activeId` is undefined or doesn't match any kit, the order is
+ * unchanged.
+ */
+export function orderBrandKitsActiveFirst(
+  kits: BrandKit[],
+  activeId?: string,
+): BrandKit[] {
+  if (!activeId) return [...kits];
+  const activeIndex = kits.findIndex((kit) => kit.id === activeId);
+  if (activeIndex <= 0) return [...kits];
+  const active = kits[activeIndex]!;
+  return [
+    active,
+    ...kits.slice(0, activeIndex),
+    ...kits.slice(activeIndex + 1),
+  ];
+}

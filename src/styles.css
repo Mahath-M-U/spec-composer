@@ -2418,20 +2418,14 @@ button:disabled {
   padding: 0.6rem;
 }
 .home-page-content .brandkit-home-panel .bk-preview {
-  min-height: 92px;
+  height: 108px;
   padding: 0.6rem;
 }
 .home-page-content .brandkit-home-panel .bk-preview-headline {
-  font-size: 16px;
+  font-size: 15px;
 }
-.home-page-content .brandkit-home-panel .bk-palette-block {
-  min-height: 32px;
-}
-.home-page-content .brandkit-home-panel .bk-meta-row {
-  padding-top: 0.35rem;
-}
-.home-page-content .brandkit-home-panel .bk-edit-button {
-  padding: 0.4rem;
+.home-page-content .brandkit-home-panel .bk-type-row {
+  padding-inline: 0;
 }
 .home-page-content .brandkit-home-panel .asset-empty {
   width: min(calc(100% - 1.6rem), 280px);
@@ -5277,14 +5271,17 @@ button:disabled {
   overflow: visible;
   background: transparent;
 }
+.brandkit-panel .asset-search-wrap {
+  padding-block: 0.5rem;
+}
 .brandkit-create-toolbar {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.4rem;
   width: 100%;
-  padding: 0.75rem 0.8rem;
+  padding: 0.5rem 0.8rem 0.6rem;
 }
 .brandkit-home-panel .brandkit-create-toolbar {
   width: min(100%, 406px);
@@ -5323,10 +5320,11 @@ button:disabled {
   width: auto;
 }
 .brandkit-m3-trigger-button {
-  flex: 0 0 10%;
-  min-width: 40px;
-  width: auto;
-  padding-inline: 0;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  min-width: 0;
+  padding: 0;
 }
 .brandkit-m3-form {
   flex: 1 1 100%;
@@ -5380,19 +5378,37 @@ button:disabled {
 .bk-face {
   display: flex;
   flex-direction: column;
-  gap: 0.7rem;
-  padding: 0.9rem;
+  gap: 0.5rem;
+  padding: 0.75rem;
 }
 .bk-face-top {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
+  gap: 0.375rem;
 }
 .bk-face-name {
   min-width: 0;
+  flex: 1 1 0%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
+}
+.bk-face-name-input {
+  min-width: 0;
+  flex: 1 1 0%;
+  border: 1px solid var(--color-editor-border);
+  border-radius: 0.3rem;
+  background: var(--color-editor);
+  padding: 0.1rem 0.4rem;
+  color: var(--color-editor-foreground);
+  font-size: 13px;
+  font-weight: 600;
+  outline: none;
+}
+.bk-face-name-input:focus-visible {
+  border-color: var(--color-primary);
 }
 .bk-default-toggle {
   display: inline-flex;
@@ -5415,19 +5431,45 @@ button:disabled {
   color: var(--color-editor-foreground);
 }
 .bk-default-toggle.active {
-  border-color: var(--color-primary);
-  background: var(--color-primary);
-  color: var(--color-primary-foreground);
+  border-color: color-mix(
+    in oklab,
+    var(--color-editor-foreground) 35%,
+    var(--color-editor-border)
+  );
+  background: transparent;
+  color: var(--color-editor-foreground);
+}
+.bk-icon-action {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  width: 24px;
+  border-radius: 0.375rem;
+  color: var(--color-editor-muted);
+  transition:
+    background-color 160ms ease,
+    color 160ms ease;
+}
+.bk-icon-action:hover {
+  background: var(--color-editor-hover);
+  color: var(--color-editor-foreground);
+}
+.bk-icon-action svg {
+  height: 14px;
+  width: 14px;
 }
 .bk-preview {
   position: relative;
   display: flex;
-  min-height: 132px;
+  height: 120px;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;
+  gap: 0.25rem;
   overflow: hidden;
   border-radius: 0.6rem;
-  padding: 0.9rem;
+  padding: 0.75rem;
 }
 .bk-preview-style {
   align-self: flex-start;
@@ -5442,16 +5484,23 @@ button:disabled {
 }
 .bk-preview-headline {
   z-index: 1;
-  display: -webkit-box;
   overflow: hidden;
-  font-size: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 16px;
   line-height: 1.2;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+}
+.bk-preview-support {
+  z-index: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
 }
 .bk-preview-cta {
   z-index: 1;
   align-self: flex-start;
+  margin-top: auto;
   border-radius: 999px;
   padding: 0.4rem 0.9rem;
   font-size: 11px;
@@ -5459,10 +5508,10 @@ button:disabled {
 }
 .bk-preview-accent {
   position: absolute;
-  right: -22px;
-  bottom: -22px;
-  height: 72px;
-  width: 72px;
+  right: -14px;
+  bottom: -14px;
+  height: 48px;
+  width: 48px;
   border-radius: 999px;
   opacity: 0.85;
 }
@@ -5472,6 +5521,9 @@ button:disabled {
   padding-right: 160px;
 }
 .bk-preview--builder .bk-preview-headline {
+  display: -webkit-box;
+  white-space: normal;
+  -webkit-box-orient: vertical;
   -webkit-line-clamp: 1;
 }
 .bk-preview--builder .bk-preview-specimen {
@@ -5501,124 +5553,99 @@ button:disabled {
   }
 }
 .bk-palette {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+}
+.bk-palette-slot {
   display: flex;
-  overflow: hidden;
-  border-radius: 0.5rem;
-}
-.bk-palette-block {
-  display: flex;
-  min-height: 46px;
-  min-width: 0;
-  flex: 1 1 0%;
-  align-items: flex-end;
-  padding: 0.4rem;
-}
-.bk-palette-role {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 9px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-.bk-palette-empty {
-  align-items: center;
-  justify-content: center;
-  gap: 0.3rem;
-  border: 1px dashed var(--color-editor-border);
-  color: var(--color-editor-muted);
-  font-size: 11px;
-  font-weight: 600;
-}
-.bk-palette-labels {
-  display: flex;
-}
-.bk-palette-label {
-  display: flex;
-  min-width: 0;
-  flex: 1 1 0%;
   flex-direction: column;
   align-items: center;
-  gap: 1px;
-  padding: 0.3rem 0.15rem;
+  gap: 2px;
+  min-width: 0;
+  border-radius: 0.375rem;
+  padding: 2px;
   text-align: center;
 }
-.bk-palette-label:hover {
+.bk-palette-slot:hover {
   background: var(--color-editor-hover);
-  border-radius: 0.35rem;
 }
-.bk-palette-label strong {
+.bk-palette-swatch {
+  display: block;
+  height: 22px;
+  width: 100%;
+  border-radius: 0.3rem;
+  outline: 1px solid
+    color-mix(in oklab, var(--color-editor-foreground) 14%, transparent);
+  outline-offset: -1px;
+}
+.bk-palette-role {
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--color-editor-foreground);
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
 }
-.bk-palette-label code {
-  font-size: 9px;
+.bk-palette-slot code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--color-editor-muted);
+  font-size: 9px;
 }
-.bk-meta-row {
+.bk-palette-slot.is-empty .bk-palette-swatch {
+  border: 1px dashed var(--color-editor-border);
+  background: transparent;
+  outline: none;
+}
+.bk-type-row {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  border-top: 1px dashed var(--color-editor-border);
-  padding-top: 0.6rem;
+  gap: 0.5rem;
+  border-radius: 0.375rem;
+  padding: 0.25rem 0.375rem;
 }
-.bk-meta-glyph {
+.bk-type-row:hover {
+  background: var(--color-editor-hover);
+}
+.bk-type-glyph {
   flex: 0 0 auto;
-  width: 32px;
+  width: 24px;
   text-align: center;
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 700;
 }
-.bk-meta-copy {
+.bk-type-copy {
   display: grid;
   min-width: 0;
+  flex: 1 1 0%;
   gap: 0.05rem;
+  text-align: left;
 }
-.bk-meta-copy strong {
+.bk-type-copy strong {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 12px;
   font-weight: 700;
 }
-.bk-meta-copy small {
+.bk-type-copy small {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--color-editor-muted);
   font-size: 10px;
 }
-.bk-edit-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  border: 1px solid var(--color-editor-border);
-  border-radius: 0.5rem;
-  padding: 0.5rem;
-  font-size: 11px;
-  font-weight: 700;
-}
-.bk-edit-button:hover {
-  border-color: var(--color-primary);
-  background: var(--color-editor-hover);
-}
 .bk-showcase-card .brandkit-card-body {
   border-top: 1px solid var(--color-editor-border);
 }
 @media (max-width: 480px) {
   .bk-preview-headline {
-    font-size: 17px;
+    font-size: 15px;
   }
   .bk-palette-role {
-    font-size: 8px;
-  }
-  .bk-palette-label strong {
     font-size: 9px;
   }
 }
@@ -5626,7 +5653,7 @@ button:disabled {
 @container (max-width: 300px) {
   .bk-face {
     gap: 0.55rem;
-    padding: 0.65rem;
+    padding: 0.625rem;
   }
   .bk-face-name {
     font-size: 12px;
@@ -5636,49 +5663,43 @@ button:disabled {
     font-size: 9px;
   }
   .bk-preview {
-    min-height: 96px;
-    padding: 0.7rem;
+    height: 96px;
+    padding: 0.6rem;
   }
   .bk-preview-headline {
-    font-size: 15px;
+    font-size: 14px;
   }
   .bk-preview-cta {
     padding: 0.3rem 0.7rem;
     font-size: 10px;
   }
   .bk-preview-accent {
-    height: 56px;
-    width: 56px;
+    height: 40px;
+    width: 40px;
   }
-  .bk-palette-block {
-    min-height: 38px;
-    padding: 0.3rem;
+  .bk-palette {
+    gap: 3px;
   }
   .bk-palette-role {
-    font-size: 7.5px;
+    font-size: 9px;
   }
-  .bk-palette-label strong {
-    display: none;
-  }
-  .bk-palette-label code {
-    font-size: 8px;
-  }
-  .bk-meta-glyph {
-    width: 26px;
-    font-size: 17px;
-  }
-  .bk-edit-button {
-    padding: 0.4rem;
-    font-size: 10px;
-  }
+}
+.brandkit-panel
+  :is(
+    .bk-icon-action,
+    .bk-default-toggle,
+    .bk-palette-slot,
+    .bk-type-row
+  ):focus-visible {
+  outline: 2px solid var(--color-editor-foreground);
+  outline-offset: 2px;
 }
 .editor-shell .bk-default-toggle.active {
   border-color: var(--color-editor-foreground);
-  background: var(--color-editor-foreground);
-  color: var(--color-editor);
+  background: transparent;
+  color: var(--color-editor-foreground);
 }
-.editor-shell .bk-default-toggle:hover,
-.editor-shell .bk-edit-button:hover {
+.editor-shell .bk-default-toggle:hover {
   border-color: var(--color-editor-muted);
 }
 .brandkit-home-panel .brandkit-card {
@@ -5738,10 +5759,23 @@ button:disabled {
   border-radius: 0.75rem;
   background: var(--color-editor-surface);
   overflow: hidden;
-  transition: border-color 160ms ease;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+.brandkit-card:hover {
+  border-color: color-mix(
+    in oklab,
+    var(--color-editor-foreground) 18%,
+    var(--color-editor-border)
+  );
 }
 .brandkit-card.active {
-  border-color: var(--color-primary);
+  border-color: color-mix(
+    in oklab,
+    var(--color-primary) 65%,
+    var(--color-editor-border)
+  );
 }
 .brandkit-swatches {
   display: flex;
@@ -15081,8 +15115,8 @@ button.de-subrow-tag:focus-visible {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  width: calc(100% - 6px);
+  gap: 4px;
+  width: calc(100% - 15px);
   height: 52px;
   padding: 0;
 }
