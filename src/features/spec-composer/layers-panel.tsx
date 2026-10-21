@@ -27,17 +27,12 @@ import {
   ChevronRight,
   Eye,
   EyeOff,
-  Folder,
   GripVertical,
   Group,
-  Image,
   Layers3,
   Lock,
   MoreHorizontal,
-  Package,
-  Shapes,
   SlidersHorizontal,
-  Type,
   Ungroup,
   Unlock,
 } from "lucide-react";
@@ -49,9 +44,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { PanelHeader } from "./panel-header";
-import { backgroundStyle } from "./static-render";
+import { backgroundStyle, ElementContent, ArtColorsProvider } from "./static-render";
+import { layerThumbBackground } from "./layer-thumb-background";
 import { useEditorStore } from "./store";
-import { isTextKind } from "./types";
+import type { SpecDocument } from "./types";
+import { isConstraint } from "./contextual-editor/catalog";
 import {
   canonicalLayers,
   canGroupLayers,
@@ -127,6 +124,81 @@ function DropZone({
   );
 }
 
+const THUMB_PAD = 3;
+const THUMB_W = 42 - THUMB_PAD * 2;
+const THUMB_H = 26 - THUMB_PAD * 2;
+const fit = (w: number, h: number) =>
+  Math.min(THUMB_W / Math.max(1, w), THUMB_H / Math.max(1, h));
+
+function LayerThumb({ row, doc }: { row: LayerRow; doc: SpecDocument }) {
+  const el = row.element;
+  if (el) {
+    if (isConstraint(el))
+      return <span className="layer-thumb is-guide" aria-hidden="true" />;
+    return (
+      <span className="layer-thumb" aria-hidden="true" style={layerThumbBackground(doc, [el])}>
+        <span
+          className="layer-thumb-page"
+          style={{
+            width: Math.max(1, el.width),
+            height: Math.max(1, el.height),
+            transform: `translate(-50%, -50%) scale(${fit(el.width, el.height)})`,
+          }}
+        >
+          <ElementContent el={el} />
+        </span>
+      </span>
+    );
+  }
+  const candidates = row.leaves.filter((leaf) => !isConstraint(leaf));
+  const visibleCandidates = candidates.filter((leaf) => leaf.visible);
+  const pool = (visibleCandidates.length > 0 ? visibleCandidates : candidates)
+    .slice()
+    .sort((a, b) => b.zIndex - a.zIndex)
+    .slice(0, 12)
+    .reverse();
+  if (!pool.length)
+    return row.leaves.length > 0 ? (
+      <span className="layer-thumb is-guide" aria-hidden="true" />
+    ) : (
+      <span className="layer-thumb" aria-hidden="true" style={backgroundStyle(doc)} />
+    );
+  const minX = Math.min(...pool.map((leaf) => leaf.x));
+  const minY = Math.min(...pool.map((leaf) => leaf.y));
+  const maxX = Math.max(...pool.map((leaf) => leaf.x + leaf.width));
+  const maxY = Math.max(...pool.map((leaf) => leaf.y + leaf.height));
+  const boxW = maxX - minX;
+  const boxH = maxY - minY;
+  return (
+    <span className="layer-thumb" aria-hidden="true" style={layerThumbBackground(doc, pool)}>
+      <span
+        className="layer-thumb-page"
+        style={{
+          width: Math.max(1, boxW),
+          height: Math.max(1, boxH),
+          transform: `translate(-50%, -50%) scale(${fit(boxW, boxH)})`,
+        }}
+      >
+        {pool.map((leaf) => (
+          <span
+            key={leaf.id}
+            className="layer-thumb-leaf"
+            style={{
+              left: leaf.x - minX,
+              top: leaf.y - minY,
+              width: leaf.width,
+              height: leaf.height,
+              transform: `rotate(${leaf.rotation}deg)`,
+            }}
+          >
+            <ElementContent el={leaf} />
+          </span>
+        ))}
+      </span>
+    </span>
+  );
+}
+
 function LayerItem({
   row,
   selected,
@@ -189,15 +261,6 @@ function LayerItem({
       id: row.id,
       disabled: multiSelect || locked || dragBlocked || rename?.id === row.id,
     });
-  const Icon = !row.element
-    ? Folder
-    : isTextKind(row.element.kind)
-      ? Type
-      : row.element.kind === "productImage"
-        ? Package
-        : row.element.kind === "shape" || row.element.kind === "divider"
-          ? Shapes
-          : Image;
   const selectedNodes = menuOpen ? canonicalLayers(doc, effectiveIds) : [];
   const siblings = menuOpen
     ? flattenLayers(doc).filter(
@@ -305,7 +368,7 @@ function LayerItem({
           <>{collapsed ? <ChevronRight /> : <ChevronDown />}</>
         </button>
       )}
-      <Icon className="layer-type" aria-hidden="true" />
+      <LayerThumb row={row} doc={doc} />
       {rename?.id === row.id ? (
         <input
           autoFocus
@@ -778,70 +841,76 @@ export function LayersPanel({ showHeader = true }: { showHeader?: boolean }) {
           aria-label="Layers"
           aria-multiselectable="true"
         >
-          {rows.map((row) => (
-            <LayerItem
-              key={row.id}
-              row={row}
-              selected={selected.includes(row.id)}
-              multiSelect={multiSelect}
-              onToggleSelection={(id) => {
-                s.selectLayers(
-                  toggleLayerSelection(doc, selected, id, "explicit"),
-                );
-                setAnchor(id);
-                setFocusedId(id);
-              }}
-              collapsed={collapsed.has(row.id)}
-              tabIndex={focusId === row.id ? 0 : -1}
-              activeDrag={dragIds.length > 0}
-              drop={drop}
-              validDrop={validDrop}
-              dragBlocked={
-                selected.includes(row.id) &&
-                nodes.some((node) => node.leaves.some((el) => el.locked))
-              }
-              position={
-                allRows
-                  .filter((item) => item.parentId === row.parentId)
-                  .findIndex((item) => item.id === row.id) + 1
-              }
-              size={
-                allRows.filter((item) => item.parentId === row.parentId).length
-              }
-              restoreFocus={(id) =>
-                requestAnimationFrame(() => {
-                  const panel = panelRef.current;
-                  const layer = Array.from(
-                    panel?.querySelectorAll<HTMLElement>("[data-layer-id]") ??
-                      [],
-                  ).find((el) => el.dataset["layerId"] === id);
-                  const target =
-                    panel?.querySelector<HTMLElement>(".layer-rename") ??
-                    layer ??
-                    panel?.querySelector<HTMLElement>(
-                      '[role="treeitem"][aria-selected="true"], [role="treeitem"][tabindex="0"], .layer-row-background',
-                    );
-                  target?.focus();
-                })
-              }
-              onSelect={(event, id) => selectRow(id, event)}
-              onFocus={() => setFocusedId(row.id)}
-              onToggle={() => {
-                toggle(row.id);
-                setFocusedId(row.id);
-              }}
-              onKeyDown={keyDown}
-              rename={rename}
-              setDraft={(draft) => {
-                renameRef.current = { id: row.id, draft };
-                setRename(renameRef.current);
-              }}
-              commitRename={(restoreFocus) => finishRename(true, restoreFocus)}
-              cancelRename={() => finishRename(false)}
-              startRename={startRename}
-              effectiveIds={selected.includes(row.id) ? selected : [row.id]}
-            />
-          ))}
+          <ArtColorsProvider doc={doc}>
+            {rows.map((row) => (
+              <LayerItem
+                key={row.id}
+                row={row}
+                selected={selected.includes(row.id)}
+                multiSelect={multiSelect}
+                onToggleSelection={(id) => {
+                  s.selectLayers(
+                    toggleLayerSelection(doc, selected, id, "explicit"),
+                  );
+                  setAnchor(id);
+                  setFocusedId(id);
+                }}
+                collapsed={collapsed.has(row.id)}
+                tabIndex={focusId === row.id ? 0 : -1}
+                activeDrag={dragIds.length > 0}
+                drop={drop}
+                validDrop={validDrop}
+                dragBlocked={
+                  selected.includes(row.id) &&
+                  nodes.some((node) => node.leaves.some((el) => el.locked))
+                }
+                position={
+                  allRows
+                    .filter((item) => item.parentId === row.parentId)
+                    .findIndex((item) => item.id === row.id) + 1
+                }
+                size={
+                  allRows.filter((item) => item.parentId === row.parentId)
+                    .length
+                }
+                restoreFocus={(id) =>
+                  requestAnimationFrame(() => {
+                    const panel = panelRef.current;
+                    const layer = Array.from(
+                      panel?.querySelectorAll<HTMLElement>(
+                        "[data-layer-id]",
+                      ) ?? [],
+                    ).find((el) => el.dataset["layerId"] === id);
+                    const target =
+                      panel?.querySelector<HTMLElement>(".layer-rename") ??
+                      layer ??
+                      panel?.querySelector<HTMLElement>(
+                        '[role="treeitem"][aria-selected="true"], [role="treeitem"][tabindex="0"], .layer-row-background',
+                      );
+                    target?.focus();
+                  })
+                }
+                onSelect={(event, id) => selectRow(id, event)}
+                onFocus={() => setFocusedId(row.id)}
+                onToggle={() => {
+                  toggle(row.id);
+                  setFocusedId(row.id);
+                }}
+                onKeyDown={keyDown}
+                rename={rename}
+                setDraft={(draft) => {
+                  renameRef.current = { id: row.id, draft };
+                  setRename(renameRef.current);
+                }}
+                commitRename={(restoreFocus) =>
+                  finishRename(true, restoreFocus)
+                }
+                cancelRename={() => finishRename(false)}
+                startRename={startRename}
+                effectiveIds={selected.includes(row.id) ? selected : [row.id]}
+              />
+            ))}
+          </ArtColorsProvider>
           {!rows.length && (
             <p className="layer-empty">Add elements to organize your canvas.</p>
           )}

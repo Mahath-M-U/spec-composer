@@ -4537,6 +4537,13 @@ button:disabled {
   border-bottom: 1px solid var(--color-editor-border);
   padding: 0.55rem 0.9rem;
 }
+/* Pin the shared panel header while the left panel scrolls (matches the Design Inspector). */
+.context-panel .panel-header {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  background: var(--color-editor-surface);
+}
 .panel-header-title {
   display: flex;
   min-width: 0;
@@ -5157,6 +5164,25 @@ button:disabled {
 .layer-row.is-hidden .layer-type { opacity: 0.5; }
 .layer-row.is-dragging { opacity: 0.4; }
 .layer-group-count { color: var(--color-editor-muted); font-size: 11px; padding: 0 4px; }
+.layer-thumb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 28px;
+  margin-right: 4px;
+  overflow: hidden;
+  border: 1px solid var(--color-editor-border);
+  border-radius: 4px;
+  pointer-events: none;
+}
+.layer-thumb-page { position: absolute; left: 50%; top: 50%; transform-origin: center; }
+.layer-row .layer-thumb-page svg:not(.lucide) { width: 100%; height: 100%; }
+.layer-thumb-leaf { position: absolute; transform-origin: center; }
+.layer-thumb.is-guide { border-style: dashed; border-color: var(--color-editor-muted); background: transparent; }
+.layers-panel .layer-row.active .layer-thumb { border-color: var(--color-primary); }
+.layer-row.is-hidden .layer-thumb { opacity: 0.5; }
 .layer-rename {
   min-width: 0;
   width: 100%;
@@ -5225,8 +5251,8 @@ button:disabled {
 .layer-toolbar button { display: flex; flex: 1; min-width: 0; justify-content: center; align-items: center; gap: 6px; min-height: 34px; padding: 6px 8px; border-radius: 6px; font-size: 12px; border: 1px solid var(--color-editor-border); background: var(--color-editor-surface); color: var(--color-editor-foreground); font-weight: 500; }
 .layer-toolbar button:hover:not(:disabled) { background: var(--color-editor-hover); }
 .layer-toolbar svg { height: 14px; width: 14px; }
-.layer-toolbar .layer-properties { border-color: var(--editor-action, var(--color-primary)); background: var(--editor-action, var(--color-primary)); color: var(--editor-action-foreground, var(--color-primary-foreground)); font-weight: 600; }
-.layer-toolbar .layer-properties:hover:not(:disabled) { border-color: color-mix(in oklab, var(--editor-action, var(--color-primary)) 90%, white); background: color-mix(in oklab, var(--editor-action, var(--color-primary)) 90%, white); }
+.layer-toolbar .layer-properties { border-color: var(--editor-action, var(--color-primary)); background: var(--editor-action-foreground, var(--color-primary-foreground)); color: var(--editor-action, var(--color-primary)); font-weight: 600; }
+.layer-toolbar .layer-properties:hover:not(:disabled) { border-color: var(--editor-action, var(--color-primary)); background: color-mix(in oklab, var(--editor-action-foreground, var(--color-primary-foreground)) 88%, var(--editor-action, var(--color-primary))); }
 .layer-empty { padding: 16px 8px; color: var(--color-editor-muted); font-size: 12px; }
 .layer-menu { background: var(--color-editor); color: var(--color-editor-foreground); border-color: var(--color-editor-border); }
 .layer-menu [role="menuitem"] { font-size: 12px; min-height: 32px; gap: 24px; }

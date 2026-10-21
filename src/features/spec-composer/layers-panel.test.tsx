@@ -392,6 +392,32 @@ describe("Layers panel markup and selection states", () => {
     expect(html).not.toContain("Delete selected");
     expect(html).not.toContain("layer-toolbar");
   });
+  it("shows real content thumbnails for text, shapes and groups", () => {
+    setup();
+    const html = renderToStaticMarkup(<LayersPanel />);
+    expect(html).not.toContain(">Aa<");
+    expect(html).not.toContain("is-icon");
+    expect(html).not.toContain("is-text");
+    expect(html).toContain("layer-thumb-page");
+    expect((html.match(/canvas-text kind-title/g) ?? []).length).toBe(2);
+    expect((html.match(/class="layer-thumb-leaf"/g) ?? []).length).toBe(2);
+  });
+  it("swaps a thumbnail's backing when its content would blend into the document background", () => {
+    setup();
+    const doc = state().doc!;
+    doc.background = { type: "solid", value: "#FFFFFF" };
+    const title = doc.elements.find((el) => el.id === "Title")!;
+    title.style = { ...title.style, color: "#FFFFFF" };
+    state().setDocument(doc);
+    const html = renderToStaticMarkup(<LayersPanel />);
+    expect(html).toContain("background:#1c1c1c");
+  });
+  it("still composites both leaves in a group thumbnail when they are hidden", () => {
+    setup();
+    state().updateLayers(["Title", "Product"], { visible: false });
+    const html = renderToStaticMarkup(<LayersPanel />);
+    expect((html.match(/class="layer-thumb-leaf"/g) ?? []).length).toBe(2);
+  });
   it("highlights a group independently from children and shows only applicable contextual toolbar", () => {
     setup();
     state().selectLayers(["g"]);

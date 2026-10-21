@@ -77,7 +77,7 @@
 }
 .ui-segmented-item[aria-selected="true"],
 .ui-segmented-item.active {
-  background: var(--ui-selected-bg);
+  background: var(--color-editor-surface);
   color: var(--color-editor-foreground);
 }
 .ui-segmented-item[aria-selected="true"] svg,
