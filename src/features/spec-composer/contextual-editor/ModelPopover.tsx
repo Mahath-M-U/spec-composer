@@ -17,11 +17,18 @@ export function ModelTileGrid({children,label}:{children:React.ReactNode;label:s
  const offset=event.key==="ArrowRight"?1:event.key==="ArrowLeft"?-1:event.key==="ArrowDown"?2:event.key==="ArrowUp"?-2:0;if(!offset)return;
  const buttons=[...event.currentTarget.querySelectorAll<HTMLButtonElement>("button:not([disabled])")];const index=buttons.indexOf(event.target as HTMLButtonElement);if(index<0)return;event.preventDefault();buttons[(index+offset+buttons.length)%buttons.length]?.focus();
  }}>{children}</div>;}
+function tileDisabled(elements:SpecElement[],key:string,properties:unknown[]){
+ return properties.some(next=>!next)||elements.some(el=>el.locked||!el.visible||(Array.isArray(el.contextualProperties?.["model.references.lockFields"])&&el.contextualProperties["model.references.lockFields"].includes(key)));
+}
 export function ModelPopover(props:ModelControlProps){
  const element=props.elements[0]!;
  return <><PreviewStatus elements={props.elements}/><ModelTileGrid label="Model type">{(["man","woman","boy","girl"] as const).map(value=>{
  const properties=props.elements.map(el=>normalizedModelEdit(el,"model.identity.modelPreset",value)),candidate=properties[0]?{...element,contextualProperties:properties[0]}:element;
- const unavailable=properties.some(next=>!next)||props.elements.some(el=>el.locked||!el.visible||(Array.isArray(el.contextualProperties?.["model.references.lockFields"])&&el.contextualProperties["model.references.lockFields"].includes("model.identity.modelPreset")));
+ const unavailable=tileDisabled(props.elements,"model.identity.modelPreset",properties);
  return <button type="button" key={value} aria-label={`Model ${value}`} aria-pressed={props.elements.every(el=>modelValue(el,"model.identity.modelPreset")===value)} disabled={unavailable} onClick={()=>commitContextualEdit(props.context,"model.identity.modelPreset",value)}><span className="model-tile-preview" aria-hidden="true">{candidate.src?<img src={candidate.src} alt="" style={{width:"100%",height:"100%",objectFit:"contain"}}/>:<ModelSvg thumbnail element={candidate}/>}</span><span>{value}</span></button>;})}</ModelTileGrid>
+ <ModelTileGrid label="Framing">{([["full_body","Full avatar"],["headshot","Portrait"]] as const).map(([value,label])=>{
+ const properties=props.elements.map(el=>normalizedModelEdit(el,"model.framing.shot",value)),candidate=properties[0]?{...element,contextualProperties:properties[0]}:element;
+ const unavailable=tileDisabled(props.elements,"model.framing.shot",properties);
+ return <button type="button" key={value} aria-label={`Framing ${label}`} aria-pressed={props.elements.every(el=>modelValue(el,"model.framing.shot")===value)} disabled={unavailable} onClick={()=>commitContextualEdit(props.context,"model.framing.shot",value)}><span className="model-tile-preview" aria-hidden="true">{candidate.src?<img src={candidate.src} alt="" style={{width:"100%",height:"100%",objectFit:"contain"}}/>:<ModelSvg element={candidate}/>}</span><span>{label}</span></button>;})}</ModelTileGrid>
  <details><summary>Appearance & source</summary><ModelFields {...props} fields={props.fields.filter(field=>field.key!=="model.identity.modelPreset")}/></details></>;
 }

@@ -4,6 +4,7 @@ import { applyPose, poseVariationKey } from "./model-poses";
 
 export type Point = [number, number];
 export type ModelSource = "editable_vector" | "uploaded_svg" | "photograph" | "generated_image" | "reference_only";
+export const PORTRAIT_SHOTS = ["headshot"];
 export function modelValue(element: SpecElement, key: string): unknown {
   const aliases:Record<string,string>={"model.pose_action.bodyDirection":"model.pose_action.bodyOrientation","model.pose_action.headDirection":"model.pose_action.headOrientation","model.pose_action.standingVariation":"model.pose_action.standingPose","model.pose_action.sittingVariation":"model.pose_action.sittingPose"};
   if(element.contextualProperties?.[key]===undefined && aliases[key] && element.contextualProperties?.[aliases[key]!])return element.contextualProperties[aliases[key]!] ;

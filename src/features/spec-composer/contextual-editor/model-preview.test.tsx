@@ -74,6 +74,25 @@ it.each([['woman','long'],['girl','bun']])('renders an existing saved %s with de
  expect(commitContextualEdit(inspectorContext(),'model.appearance.hairStyle','pixie')).toBe(true);
  expect(renderToStaticMarkup(createElement(ElementContent,{el:selected()}))).toContain('data-hairstyle="pixie"');
 });
+it.each([
+ {},
+ {'model.pose_action.action':'sitting'},
+ {'model.identity.modelPreset':'girl','model.identity.ageGroup':'child'},
+])('crops to a head-and-shoulders viewBox for headshot framing without changing stored geometry (%#)',properties=>{
+ state().addContextualElement('subjects.person');state().mutate(doc=>{const el=doc.elements[0]!;el.contextualProperties={...el.contextualProperties,...properties};el.x=12;el.y=18;el.width=150;el.height=260;el.rotation=5;});
+ const layer=({id,x,y,width,height,rotation}:ReturnType<typeof selected>)=>({id,x,y,width,height,rotation}),before=layer(selected());
+ const render=()=>renderToStaticMarkup(createElement(ModelSvg,{element:selected()}));
+ const original=render().match(/viewBox="([^"]+)"/)![1]!.split(' ').map(Number);
+ expect(commitContextualEdit(inspectorContext(),'model.framing.shot','headshot')).toBe(true);
+ const html=render();expect(html).not.toMatch(/NaN|Infinity/);
+ const [x,y,width,height]=html.match(/viewBox="([^"]+)"/)![1]!.split(' ').map(Number) as [number,number,number,number];
+ expect(height).toBeLessThan(original[3]!);
+ const geometry=modelGeometry(selected());
+ expect(y+height).toBeLessThan(geometry.joints.leftHip[1]);
+ expect(y).toBeLessThanOrEqual(geometry.joints.head[1]-geometry.headRadius[1]);
+ expect(layer(selected())).toEqual(before);
+ state().undo();expect(render().match(/viewBox="([^"]+)"/)![1]).toBe(original.join(' '));
+});
 it.each(['standing','sitting','running','reaching'])('fits the full %s thumbnail silhouette including hair, hands and shoes',action=>{
  state().addContextualElement('subjects.person');const subject={...selected(),contextualProperties:{'model.identity.modelPreset':'girl','model.identity.ageGroup':'child','model.pose_action.action':action,'model.appearance.hairStyle':'bun','model.pose_action.headDirection':'up'}};
  const html=renderToStaticMarkup(createElement(ModelSvg,{element:subject,thumbnail:true}));expect(html).not.toMatch(/NaN|Infinity/);

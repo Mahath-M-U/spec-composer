@@ -76,45 +76,7 @@ describe("description template UI", () => {
     ])
       expect(html).not.toContain(removed);
     expect(html).not.toContain('aria-label="Search all elements"');
-    expect(html).toContain("Selected element");
-  });
-
-  it("provides selected-element editing for single, multiple and empty selections", () => {
-    const elements = [
-      model(),
-      { ...model(), id: "second", name: "Second model" },
-    ];
-    useEditorStore.setState({
-      doc: { ...createDocument(), elements },
-      selectedIds: [elements[0]!.id],
-    });
-    let html = renderToStaticMarkup(createElement(AssetsPanel));
-    expect(html).toContain('aria-label="Edit Model / person"');
-    expect(html).toContain('class="asset-role-badge">Subject</span>');
-    useEditorStore.setState({
-      selectedIds: elements.map((element) => element.id),
-    });
-    html = renderToStaticMarkup(createElement(AssetsPanel));
-    expect(html).toContain("Edit 2 selected elements");
-    useEditorStore.setState({ selectedIds: [] });
-    html = renderToStaticMarkup(createElement(AssetsPanel));
-    expect(html).toContain("Select an element on the canvas to edit it.");
-  });
-
-  it("labels unassigned shapes, images and text accurately in the selection footer", () => {
-    for (const [kind, label] of [
-      ["shape", "Shape"],
-      ["heroImage", "Image"],
-      ["body", "Text"],
-    ] as const) {
-      const element = { ...model(), kind, semanticRole: undefined };
-      useEditorStore.setState({
-        doc: { ...createDocument(), elements: [element] },
-        selectedIds: [element.id],
-      });
-      const html = renderToStaticMarkup(createElement(AssetsPanel));
-      expect(html).toContain(`class="asset-role-badge">${label}</span>`);
-    }
+    expect(html).not.toContain('aria-label="Selected element"');
   });
 
   it("shows bounded editable slots and a read-only generated description", () => {

@@ -1,5 +1,5 @@
 import type { SpecElement } from "../types";
-import { modelGeometry, type Point } from "./model-preview";
+import { modelGeometry, modelValue, PORTRAIT_SHOTS, type Point } from "./model-preview";
 import { ModelHeadArtwork } from "./ModelArtwork";
 
 // Curved tapered contours follow the existing rig without changing stored geometry.
@@ -38,6 +38,13 @@ export function ModelSvg({ element, thumbnail = false }: { element: SpecElement;
     bounds.y=Math.min(...points.map(point=>point[1]-18),headY-(sourceHead?model.headRadius[1]*205/140:34))-padding;
     bounds.right=Math.max(...points.map(point=>point[0]+23),headX+(sourceHead?model.headRadius[0]*180/115:28))+padding;
     bounds.bottom=Math.max(...points.map(point=>point[1]+18),headY+(sourceHead?model.headRadius[1]*190/140:34))+padding;
+  }
+  if(!thumbnail && PORTRAIT_SHOTS.includes(String(modelValue(element,"model.framing.shot")))){
+    const padding=6;
+    bounds.x=Math.min(headX-(sourceHead?model.headRadius[0]*200/115:28),j.leftShoulder[0]-18)-padding;
+    bounds.y=headY-(sourceHead?model.headRadius[1]*205/140:34)-padding;
+    bounds.right=Math.max(headX+(sourceHead?model.headRadius[0]*180/115:28),j.rightShoulder[0]+18)+padding;
+    bounds.bottom=Math.max(j.leftShoulder[1],j.rightShoulder[1])+(hipMid[1]-shoulderMid[1])*0.45+padding;
   }
   const torso = `M${j.leftShoulder[0]},${j.leftShoulder[1]-2}Q${shoulderMid[0]-12},${j.neck[1]+5} ${shoulderMid[0]},${j.neck[1]+8}Q${shoulderMid[0]+12},${j.neck[1]+5} ${j.rightShoulder[0]},${j.rightShoulder[1]-2}C${j.rightShoulder[0]+6},${j.rightShoulder[1]+35} ${j.rightHip[0]+2},${j.rightHip[1]-20} ${j.rightHip[0]+8},${j.rightHip[1]+6}Q${hipMid[0]},${hipMid[1]+14} ${j.leftHip[0]-8},${j.leftHip[1]+6}C${j.leftHip[0]-2},${j.leftHip[1]-20} ${j.leftShoulder[0]-6},${j.leftShoulder[1]+35} ${j.leftShoulder[0]},${j.leftShoulder[1]-2}Z`;
   return <svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label={`Editable vector model, ${model.action}`} viewBox={`${bounds.x} ${bounds.y} ${bounds.right-bounds.x} ${bounds.bottom-bounds.y}`} preserveAspectRatio="xMidYMax meet" width="100%" height="100%" style={{opacity:element.style.opacity,overflow:"hidden"}}>

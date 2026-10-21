@@ -1,6 +1,6 @@
 import type { SpecElement } from "../types";
 import { inferCatalogId } from "./catalog";
-import { modelSource, modelValue } from "./model-preview";
+import { modelSource, modelValue, PORTRAIT_SHOTS } from "./model-preview";
 import { supportedExpressions, supportedHairStyles } from "./ModelArtwork";
 
 export type PreviewMode="live"|"simplified"|"spec_only"|"generation";
@@ -11,6 +11,7 @@ export function previewCapability(element:SpecElement,key:string):PreviewCapabil
  if(key.startsWith("transform.")&&["x","y","width","height","rotation","opacity"].includes(key.slice(10)))return status("live","Updates the existing layer transform.");
  if(id==="subjects.person"){
   if(key.startsWith("model.")&&modelSource(element)!=="editable_vector")return status("spec_only","The supplied image is preserved. Pose and wardrobe need an explicit image edit.");
+  if(key==="model.framing.shot")return status(value==="full_body"||PORTRAIT_SHOTS.includes(value)?"simplified":"spec_only","Crops the illustrated vector to full body or head-and-shoulders; layer bounds are unchanged.");
   if(key==="model.visual_treatment.renderStyle"&&!["vector","illustration","cartoon","inherit","silhouette"].includes(value))return status("generation","This treatment needs explicit image generation; the vector remains a simplified preview.");
   if(key.startsWith("model.pose_action.")&&!key.includes("interact")&&key!=="model.pose_action.actionDetails")return status(value==="custom"?"spec_only":"simplified",value==="custom"?"No authored geometry exists for this custom pose.":"Uses composable local SVG joints; unsupported combinations show an unavailable state.");
   if(key==="model.appearance.hairStyle")return status(supportedHairStyles.includes(value)?"simplified":"spec_only",supportedHairStyles.includes(value)?"Mapped Croods hairstyle updates the illustrated front view.":"This hairstyle has no matching bundled artwork; saved as a specification.");

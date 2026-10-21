@@ -95,6 +95,27 @@ describe("model option artwork matches the committed canvas", () => {
     expect(commitContextualEdit(inspectorContext(),"model.identity.modelPreset",identity)).toBe(identity!=="man");
     const canvas=renderToStaticMarkup(createElement(ElementContent,{el:selected()}));expect(canvas).toContain(`data-hairstyle="${hairstyle}"`);expect(withoutFraming(svg)).toBe(withoutFraming(canvas));
   });
+
+  function framing(label: string) {
+    const html = renderToStaticMarkup(createElement(ModelPopover, { elements: [selected()], fields: [], context: inspectorContext() }));
+    return html.match(new RegExp(`<button[^>]*aria-label="Framing ${label}"[\\s\\S]*?</button>`))![0];
+  }
+  it("toggles between full avatar and portrait framing as one undoable edit, and respects a framing lock", () => {
+    setup({ "model.identity.modelPreset": "man" });
+    expect(framing("Full avatar")).toContain('aria-pressed="true"');
+    expect(framing("Portrait")).toContain('aria-pressed="false"');
+    const before = structuredClone(useEditorStore.getState().past);
+    expect(commitContextualEdit(inspectorContext(), "model.framing.shot", "headshot")).toBe(true);
+    expect(useEditorStore.getState().past.length).toBe(before.length + 1);
+    expect(framing("Full avatar")).toContain('aria-pressed="false"');
+    expect(framing("Portrait")).toContain('aria-pressed="true"');
+    useEditorStore.getState().mutate(doc => {
+      doc.elements[0]!.contextualProperties = { ...doc.elements[0]!.contextualProperties, "model.references.lockFields": ["model.framing.shot"] };
+    });
+    expect(framing("Full avatar")).toContain('disabled=""');
+    expect(framing("Portrait")).toContain('disabled=""');
+    expect(commitContextualEdit(inspectorContext(), "model.framing.shot", "full_body")).toBe(false);
+  });
 });
 beforeEach(() => {
   vi.useFakeTimers();

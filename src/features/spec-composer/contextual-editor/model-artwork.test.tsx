@@ -29,14 +29,19 @@ it("applies skin/hair through escaped styles while retaining white teeth and sou
   expect(html).toContain('data-expression="happy"');
   expect(html).not.toContain("<script");
 });
-it("maps authored hairstyles/expressions and leaves unimplemented wardrobe/framing as specification only", () => {
+it("maps authored hairstyles/expressions and leaves unimplemented wardrobe as specification only", () => {
   const subject = { ...element(), contextualProperties: { "model.appearance.hairStyle": "bun", "model.expression.expression": "sad" } };
   const html = renderToStaticMarkup(createElement(ModelPortrait, { element: subject }));
   expect(html).toContain('data-hairstyle="bun"'); expect(html).toContain('data-expression="sad"');
   expect(html).toContain('aria-hidden="true"');
   expect(previewCapability(subject, "model.appearance.hairStyle").mode).toBe("simplified");
   expect(previewCapability(subject, "model.outfit.garmentPreset").mode).toBe("spec_only");
-  expect(previewCapability(subject, "model.framing.shot").mode).toBe("spec_only");
+});
+it("simplifies full-body framing but leaves other crops as specification only", () => {
+  const subject = element();
+  expect(previewCapability(subject, "model.framing.shot").mode).toBe("simplified");
+  const waistUp = { ...subject, contextualProperties: { "model.framing.shot": "waist_up" } };
+  expect(previewCapability(waistUp, "model.framing.shot").mode).toBe("spec_only");
 });
 it("gives each identity a distinct default hairstyle while preserving explicit supported choices",()=>{
  for(const [identity,head]of Object.entries({man:'normal',woman:'long',boy:'pixie',girl:'bun'})){

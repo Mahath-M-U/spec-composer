@@ -16627,33 +16627,6 @@ button.de-subrow-tag:focus-visible {
 .compose-panel .shape-palette button:hover {
   background: color-mix(in srgb, var(--color-editor-foreground) 6%, var(--color-editor-hover));
 }
-.compose-selection {
-  padding: 0 16px 12px;
-}
-.compose-selection-edit {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  min-height: 50px;
-  padding: 12px;
-  margin-bottom: 8px;
-  gap: 10px;
-  border-radius: 8px;
-  background: var(--color-editor-hover);
-  color: var(--color-editor-foreground);
-  font-size: 12px;
-  text-align: left;
-}
-.compose-selection-edit span {
-  min-width: 0;
-  overflow-wrap: anywhere;
-  flex: 1;
-}
-.compose-selection-edit svg {
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-}
 .light-source-presets {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -16677,7 +16650,6 @@ button.de-subrow-tag:focus-visible {
 .light-source-presets button[aria-pressed="true"] {
   box-shadow: inset 0 0 0 1px var(--primary);
 }
-.compose-selection-edit:focus-visible,
 .light-source-presets button:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
@@ -17101,24 +17073,61 @@ button.de-subrow-tag:focus-visible {
 .style-panel[data-tab="layout"] .compose-group {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 6px;
 }
 .style-panel[data-tab="layout"] .compose-group-label {
   grid-column: 1 / -1;
 }
 .style-panel[data-tab="layout"] .compose-group .compose-item {
   min-width: 0;
-  flex-direction: column;
-  text-align: center;
+  text-align: left;
 }
-.style-panel[data-tab="layout"] .compose-group .compose-item-copy {
-  width: 100%;
-}
-.style-panel[data-tab="layout"] .compose-group .compose-item-copy b,
-.style-panel[data-tab="layout"] .compose-group .compose-item-copy small {
-  overflow: visible;
-  overflow-wrap: anywhere;
-  text-overflow: clip;
+.style-panel[data-tab="layout"] .compose-group .compose-item-copy b {
+  display: -webkit-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: normal;
+  overflow-wrap: normal;
+  hyphens: none;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  line-height: 1.2;
+}
+.style-panel[data-tab="layout"] .compose-group .compose-item-copy small {
+  display: -webkit-box;
+  overflow: hidden;
+  white-space: normal;
+  overflow-wrap: normal;
+  hyphens: none;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+.style-panel[data-tab="layout"]
+  .compose-group
+  .compose-item:not([aria-pressed="true"]):is(:hover, :focus-visible)
+  .compose-item-copy
+  b {
+  color: var(--color-editor-foreground);
+}
+.style-panel[data-tab="layout"] .compose-group .compose-item:disabled {
+  opacity: 1;
+}
+.style-panel[data-tab="layout"]
+  .compose-group
+  .compose-item:disabled
+  .compose-thumb {
+  opacity: 0.45;
+  filter: grayscale(1);
+}
+.style-panel[data-tab="layout"]
+  .compose-group
+  .compose-item:disabled
+  .compose-item-copy
+  b {
+  color: var(--color-editor-muted);
 }
 
 /* Inspector control surfaces share the borderless Layers treatment. */
