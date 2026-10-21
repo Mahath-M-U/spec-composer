@@ -215,4 +215,16 @@ describe("purpose-aware element library", () => {
     expect(html).toMatch(/<small>[^<]*<span class="ui-count">Added 1<\/span><\/small>/);
     expect(html).not.toMatch(/class="ui-count">\d+</);
   });
+  it("renders a horizontal card per entry with a thumbnail and no legacy tile-add affordance", () => {
+    const totalEntries = libraryEntries(undefined, "recommended", "").reduce(
+      (sum, group) => sum + group.entries.length,
+      0,
+    );
+    const html = renderToStaticMarkup(createElement(ElementLibrary));
+    expect(html.match(/class="contextual-element-card"/g)).toHaveLength(
+      totalEntries,
+    );
+    expect(html).not.toContain("contextual-tile-add");
+    expect(html).toContain("Browse All Elements");
+  });
 });

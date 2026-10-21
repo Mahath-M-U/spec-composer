@@ -1,19 +1,5 @@
 import { memo, useRef, useState } from "react";
-import {
-  Image,
-  Type,
-  ChartNoAxesCombined,
-  MousePointerClick,
-  BadgeCheck,
-  LayoutTemplate,
-  Shapes,
-  Plus,
-  Upload,
-  Search,
-  Sparkles,
-  Grid2X2,
-  X,
-} from "lucide-react";
+import { Upload, Search, Sparkles, Grid2X2, X } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -25,17 +11,9 @@ import { readImageUpload } from "../image-upload";
 import { inspectorContext } from "../inspector-properties";
 import { CATALOG_DRAG_TYPE, inferCatalogId, libraryEntries } from "./catalog";
 import { CreativePurposeSelect } from "./CreativePurposeSelect";
+import { ElementThumbnail, LibraryGroupIcon } from "./element-thumbnails";
 import "./contextual-editor.css";
 
-const icons = [
-  Image,
-  Type,
-  ChartNoAxesCombined,
-  MousePointerClick,
-  BadgeCheck,
-  LayoutTemplate,
-  Shapes,
-];
 let collapsedGroups = new Set<string>();
 export const ElementLibrary = memo(function ElementLibrary() {
   const doc = useEditorStore((state) => state.doc);
@@ -173,8 +151,7 @@ export const ElementLibrary = memo(function ElementLibrary() {
           }
         }}
       />
-      {groups.map((group, index) => {
-        const Icon = icons[index]!;
+      {groups.map((group) => {
         const expanded = !!search || !collapsed.has(group.id);
         return (
           <section key={group.id} className="contextual-library-group">
@@ -192,10 +169,10 @@ export const ElementLibrary = memo(function ElementLibrary() {
                 })
               }
             >
-              <Icon
-                size={15}
+              <LibraryGroupIcon
+                groupId={group.id}
+                size={16}
                 className="ui-section-heading-icon"
-                aria-hidden="true"
               />
               <strong>{group.label}</strong>
               <span>{group.entries.length}</span>
@@ -206,7 +183,8 @@ export const ElementLibrary = memo(function ElementLibrary() {
                   <button
                     key={entry.id}
                     type="button"
-                    className="contextual-element-tile"
+                    className="contextual-element-card"
+                    data-added={counts.get(entry.id) ? "true" : undefined}
                     title={`Add ${entry.label}`}
                     draggable
                     onClick={() => state.addContextualElement(entry.id)}
@@ -218,29 +196,29 @@ export const ElementLibrary = memo(function ElementLibrary() {
                       event.dataTransfer.effectAllowed = "copy";
                     }}
                   >
-                    <Icon size={17} aria-hidden="true" />
-                    <span>{entry.label}</span>
-                    <Plus
-                      className="contextual-tile-add"
-                      size={12}
-                      aria-hidden="true"
-                    />
-                    {(entry.status || counts.get(entry.id)) && (
-                      <small>
-                        {entry.status}
-                        {entry.status && counts.get(entry.id) ? " · " : ""}
-                        {counts.get(entry.id) ? (
-                          <span className="ui-count">{`Added ${counts.get(entry.id)}`}</span>
-                        ) : null}
-                      </small>
-                    )}
+                    <ElementThumbnail id={entry.id} />
+                    <span className="contextual-element-text">
+                      <span className="contextual-element-name">
+                        {entry.label}
+                      </span>
+                      {(entry.status || counts.get(entry.id)) && (
+                        <small>
+                          {entry.status}
+                          {entry.status && counts.get(entry.id) ? " · " : ""}
+                          {counts.get(entry.id) ? (
+                            <span className="ui-count">{`Added ${counts.get(entry.id)}`}</span>
+                          ) : null}
+                        </small>
+                      )}
+                    </span>
                   </button>
                 ))}
               </div>
             )}
             {expanded && !group.entries.length && (
               <p className="contextual-empty">
-                {search ? "No matches" : "Browse All Elements"}
+                <LibraryGroupIcon groupId={group.id} size={14} />
+                <span>{search ? "No matches" : "Browse All Elements"}</span>
               </p>
             )}
           </section>
