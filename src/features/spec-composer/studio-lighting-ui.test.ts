@@ -105,7 +105,7 @@ describe("asset scene and studio controls", () => {
     expect(html).not.toContain("Shape, text &amp; scene presets");
     expect(html).not.toContain('data-shape="');
     expect(html).not.toContain('class="asset-text-preview"');
-    expect(html).toContain("Selected element");
+    expect(html).not.toContain('aria-label="Selected element"');
     expect(html).not.toContain("Your images");
   });
 
