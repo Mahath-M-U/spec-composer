@@ -69,6 +69,7 @@ export const ElementLibrary = memo(function ElementLibrary() {
           <PopoverTrigger asChild>
             <button
               type="button"
+              className="ui-icon-button"
               aria-label="Search elements"
               title="Search elements"
               aria-pressed={searchOpen || !!search}
@@ -77,7 +78,7 @@ export const ElementLibrary = memo(function ElementLibrary() {
             </button>
           </PopoverTrigger>
           <PopoverContent
-            className="contextual-search-popover"
+            className="ui-popover contextual-search-popover"
             align="start"
             collisionPadding={12}
             onOpenAutoFocus={(event) => {
@@ -112,6 +113,7 @@ export const ElementLibrary = memo(function ElementLibrary() {
         </Popover>
         <button
           type="button"
+          className="ui-icon-button"
           aria-label="Recommended"
           title="Recommended"
           aria-pressed={view === "recommended"}
@@ -121,6 +123,7 @@ export const ElementLibrary = memo(function ElementLibrary() {
         </button>
         <button
           type="button"
+          className="ui-icon-button"
           aria-label="All Elements"
           title="All Elements"
           aria-pressed={view === "all"}
@@ -130,6 +133,7 @@ export const ElementLibrary = memo(function ElementLibrary() {
         </button>
         <button
           type="button"
+          className="ui-icon-button"
           aria-label="Upload image"
           title="Upload image"
           onClick={() => upload.current?.click()}
@@ -188,7 +192,11 @@ export const ElementLibrary = memo(function ElementLibrary() {
                 })
               }
             >
-              <Icon size={15} aria-hidden="true" />
+              <Icon
+                size={15}
+                className="ui-section-heading-icon"
+                aria-hidden="true"
+              />
               <strong>{group.label}</strong>
               <span>{group.entries.length}</span>
             </button>
@@ -221,9 +229,9 @@ export const ElementLibrary = memo(function ElementLibrary() {
                       <small>
                         {entry.status}
                         {entry.status && counts.get(entry.id) ? " · " : ""}
-                        {counts.get(entry.id)
-                          ? `Added ${counts.get(entry.id)}`
-                          : ""}
+                        {counts.get(entry.id) ? (
+                          <span className="ui-count">{`Added ${counts.get(entry.id)}`}</span>
+                        ) : null}
                       </small>
                     )}
                   </button>

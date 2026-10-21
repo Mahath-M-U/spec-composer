@@ -1,6 +1,7 @@
 @import "tailwindcss" source(none);
 @source "../src";
 @import "tw-animate-css";
+@import "./features/spec-composer/ui-primitives.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -4310,7 +4311,7 @@ button:disabled {
 }
 .tool-rail button.active {
   background: var(--color-editor-hover);
-  color: var(--color-primary);
+  color: var(--color-editor-foreground);
 }
 .tool-rail svg {
   height: 17px;
@@ -4338,19 +4339,13 @@ button:disabled {
 .tool-rail .tool-rail-divider-footer + .tool-rail-tour {
   margin-top: 0;
 }
-.tool-rail .user-settings-icon {
-  display: grid;
-  width: 25px;
-  height: 25px;
-  flex-shrink: 0;
-  place-items: center;
-  border-radius: 50%;
-  background: color-mix(
-    in oklab,
-    var(--color-primary) 14%,
-    var(--color-editor-hover)
-  );
-  color: var(--color-editor-foreground);
+@media (min-width: 768px) {
+  .tool-rail .tool-rail-divider-footer {
+    transform: translateY(-20px);
+  }
+  .tool-rail .user-settings-trigger {
+    margin-top: 20px;
+  }
 }
 @media (max-width: 767px) {
   .tool-rail .tool-rail-divider {
@@ -5132,8 +5127,7 @@ button:disabled {
   height: 28px;
   width: 24px;
 }
-.layer-row button:hover:not(:disabled),
-.layer-toolbar button:hover {
+.layer-row button:hover:not(:disabled) {
   background: color-mix(in oklab, var(--color-editor-foreground) 8%, transparent);
   color: var(--color-editor-foreground);
 }
@@ -5215,6 +5209,7 @@ button:disabled {
   font-size: 12px;
   text-align: left;
 }
+.layers-panel > .layer-row-background { flex: none; width: auto; margin: 8px 8px 0; }
 .layer-background-swatch {
   height: 18px;
   width: 18px;
@@ -5222,15 +5217,16 @@ button:disabled {
   border: 1px solid var(--color-editor-border);
   border-radius: 3px;
 }
-.layer-toolbar { display: flex; flex-direction: column; gap: 8px; padding: 12px 0 0; font-size: 12px; }
+.layer-toolbar { display: flex; flex-direction: column; gap: 8px; padding: 0; font-size: 12px; }
 .layer-selection-summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; padding: 0 4px; }
 .layer-selection-summary > span { flex: none; color: var(--color-editor-muted); font-size: 11px; }
 .layer-selection-summary > strong { min-width: 0; font-size: 13px; font-weight: 500; text-align: right; }
 .layer-toolbar-actions { display: flex; gap: 8px; }
-.layer-toolbar button { display: flex; flex: 1; min-width: 0; justify-content: center; align-items: center; gap: 6px; min-height: 34px; padding: 6px 8px; border-radius: 6px; font-size: 12px; background: var(--color-editor-hover); }
-.layer-toolbar-actions > button:first-child { background: var(--color-editor-foreground); color: var(--color-editor); }
-.layer-toolbar-actions > button:first-child:hover { background: color-mix(in oklab, var(--color-editor-foreground) 90%, var(--color-editor)); color: var(--color-editor); }
+.layer-toolbar button { display: flex; flex: 1; min-width: 0; justify-content: center; align-items: center; gap: 6px; min-height: 34px; padding: 6px 8px; border-radius: 6px; font-size: 12px; border: 1px solid var(--color-editor-border); background: var(--color-editor-surface); color: var(--color-editor-foreground); font-weight: 500; }
+.layer-toolbar button:hover:not(:disabled) { background: var(--color-editor-hover); }
 .layer-toolbar svg { height: 14px; width: 14px; }
+.layer-toolbar .layer-properties { border-color: var(--editor-action, var(--color-primary)); background: var(--editor-action, var(--color-primary)); color: var(--editor-action-foreground, var(--color-primary-foreground)); font-weight: 600; }
+.layer-toolbar .layer-properties:hover:not(:disabled) { border-color: color-mix(in oklab, var(--editor-action, var(--color-primary)) 90%, white); background: color-mix(in oklab, var(--editor-action, var(--color-primary)) 90%, white); }
 .layer-empty { padding: 16px 8px; color: var(--color-editor-muted); font-size: 12px; }
 .layer-menu { background: var(--color-editor); color: var(--color-editor-foreground); border-color: var(--color-editor-border); }
 .layer-menu [role="menuitem"] { font-size: 12px; min-height: 32px; gap: 24px; }
@@ -11313,7 +11309,17 @@ ol.md-list {
 /* Editor chrome has its own hierarchy; document and brand-kit colors stay authored. */
 .editor-shell,
 .editor-skeleton,
-.editor-menu {
+.editor-menu,
+.layer-menu,
+.bk-ms-popover,
+.bk-select-content,
+.font-picker-popover,
+.text-color-popover,
+.prompt-options-menu,
+.contextual-popover,
+.contextual-purpose-popover,
+.contextual-search-popover,
+.ui-popover {
   --color-editor: #e9e4dc;
   --color-editor-surface: #f5f1eb;
   --color-editor-hover: #e0d9cf;
@@ -11328,7 +11334,17 @@ ol.md-list {
 
 .dark .editor-shell,
 .dark .editor-skeleton,
-.dark .editor-menu {
+.dark .editor-menu,
+.dark .layer-menu,
+.dark .bk-ms-popover,
+.dark .bk-select-content,
+.dark .font-picker-popover,
+.dark .text-color-popover,
+.dark .prompt-options-menu,
+.dark .contextual-popover,
+.dark .contextual-purpose-popover,
+.dark .contextual-search-popover,
+.dark .ui-popover {
   --color-editor: #141414;
   --color-editor-surface: #1e1e1e;
   --color-editor-hover: #282828;
@@ -14261,7 +14277,8 @@ button.de-subrow-tag:focus-visible {
   white-space: nowrap;
 }
 
-.editor-shell .tool-rail button.active {
+.editor-shell .tool-rail button.active,
+.editor-shell .tool-rail .user-settings-trigger[data-state="open"] {
   background: var(--editor-accent-soft);
   color: var(--editor-accent-ink);
 }
@@ -15134,6 +15151,11 @@ button.de-subrow-tag:focus-visible {
   font-weight: 500;
   line-height: 12px;
   text-transform: none;
+  color: var(--color-editor-foreground);
+}
+.editor-shell .tool-rail button.active:not(#editor-toggle-left) > span,
+.editor-shell .tool-rail .user-settings-trigger[data-state="open"] > span {
+  font-weight: 650;
 }
 /* Keep the "not live yet" dot on the icon's top-right corner. */
 .editor-shell .tool-rail .tool-rail-connect::after {
@@ -15798,36 +15820,7 @@ button.de-subrow-tag:focus-visible {
 
 /* Asset workflow navigation and compact studio controls share editor tokens. */
 .asset-workflow-tabs {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 4px;
   margin: 16px;
-  padding: 4px;
-  border-radius: 9px;
-  background: color-mix(in srgb, var(--foreground) 5%, transparent);
-}
-.asset-workflow-tabs button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-width: 0;
-  padding: 8px;
-  min-height: 36px;
-  border-radius: 6px;
-  color: var(--muted-foreground);
-  font-size: 12px;
-  font-weight: 500;
-}
-.asset-workflow-tabs button[aria-selected="true"] {
-  color: var(--foreground);
-  background: var(--background);
-  box-shadow: 0 1px 3px color-mix(in srgb, var(--foreground) 8%, transparent);
-}
-.asset-workflow-tabs svg {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
 }
 .asset-settings-view {
   padding: 0 16px 20px;
@@ -16111,7 +16104,6 @@ button.de-subrow-tag:focus-visible {
   font-size: 10px;
   line-height: 1.4;
 }
-.asset-workflow-tabs button:focus-visible,
 .assets-panel [role="tabpanel"]:focus-visible,
 .studio-lighting-editor button:focus-visible,
 .studio-lighting-editor input:focus-visible,
@@ -16501,7 +16493,6 @@ button.de-subrow-tag:focus-visible {
 @media (pointer: coarse) {
   .shape-palette button,
   .shape-palette-grid button[data-primitive="line"],
-  .asset-workflow-tabs button,
   .asset-starter-controls .se-input {
     min-height: 44px;
   }
@@ -16509,71 +16500,11 @@ button.de-subrow-tag:focus-visible {
 
 /* Compact Compose sidebar. */
 .compose-panel .asset-workflow-tabs {
-  --asset-workflow-track: var(--color-editor-hover);
-  --asset-workflow-selected: var(--color-editor-surface);
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0;
   margin-top: 4px;
   margin-bottom: 20px;
-  padding: 3px;
-  border-radius: 11px;
-  background: var(--asset-workflow-track);
 }
-.dark .compose-panel .asset-workflow-tabs {
-  --asset-workflow-track: var(--color-editor);
-  --asset-workflow-selected: var(--color-editor-hover);
-}
-.compose-panel .asset-workflow-tabs button {
-  flex-direction: row;
-  gap: 6px;
-  min-height: 30px;
-  padding: 0 6px;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--color-editor-muted);
-  font-size: 12px;
-  font-weight: 500;
-  white-space: nowrap;
-  transition: background-color 160ms ease, color 160ms ease;
-}
-.compose-panel .asset-workflow-tabs button:not([aria-selected="true"]):hover {
-  color: var(--color-editor-foreground);
-}
-.compose-panel .asset-workflow-tabs button[aria-selected="true"] {
-  background: var(--asset-workflow-selected);
-  color: var(--color-editor-foreground);
-  font-weight: 600;
-  box-shadow: none;
-}
-.compose-panel .asset-workflow-tabs button:focus-visible {
-  outline-offset: 1px;
-}
-.compose-panel .asset-workflow-tabs svg {
-  display: block;
-  width: 13px;
-  height: 13px;
-  transition: color 160ms ease;
-}
-.compose-panel .asset-workflow-tabs button[aria-selected="true"] svg {
-  color: var(--editor-action);
-}
-.compose-panel .asset-workflow-tabs button > span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-@media (pointer: coarse) {
-  .compose-panel .asset-workflow-tabs button {
-    min-height: 44px;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .compose-panel .asset-workflow-tabs button,
-  .compose-panel .asset-workflow-tabs svg {
-    transition: none;
-  }
+.compose-panel > .panel-header + .asset-workflow-tabs {
+  margin-top: 12px;
 }
 .compose-panel .shape-palette {
   padding-bottom: 0;
@@ -17308,5 +17239,127 @@ button.de-subrow-tag:focus-visible {
 .style-panel[data-tab="layout"]
   :is(.compose-item, .compose-tidy):focus-visible {
   outline: 2px solid var(--editor-focus, var(--color-primary));
+  outline-offset: 2px;
+}
+
+/* Sidebar fields and editor-only portals share the Edit design kit treatment. */
+.editor-shell :is(.context-panel, .right-panel) :is(
+  input:not([type="color"], [type="range"], [type="checkbox"], [type="radio"], [type="file"], [type="hidden"], [type="button"], [type="submit"], [type="reset"]),
+  select, textarea, .font-trigger, .bk-select-trigger, .bk-ms, .text-color-trigger,
+  button[role="combobox"]:not(.bk-ms-trigger)
+) {
+  --inspector-layer-surface: var(--color-editor);
+  --inspector-layer-hover: var(--color-editor-hover);
+  --inspector-layer-selected: var(--color-editor-hover);
+  border-radius: 8px;
+  background: var(--color-editor);
+  color: var(--color-editor-foreground);
+  box-shadow: none;
+}
+.editor-shell :is(.context-panel, .right-panel) :is(
+  input:not([type="color"], [type="range"], [type="checkbox"], [type="radio"], [type="file"], [type="hidden"], [type="button"], [type="submit"], [type="reset"]),
+  select, textarea, .font-trigger, .bk-select-trigger, .bk-ms, .text-color-trigger,
+  button[role="combobox"]:not(.bk-ms-trigger)
+):where(:not([aria-invalid="true"], [data-invalid="true"])),
+.editor-shell .right-panel #inspector-style :is(
+  input:not([type="color"], [type="range"], [type="checkbox"], [type="radio"], [type="file"], [type="hidden"]),
+  select, textarea, .font-trigger, .text-color-trigger
+):where(:not([aria-invalid="true"], [data-invalid="true"])) {
+  border: 1px solid var(--color-editor-border);
+}
+.editor-shell :is(.context-panel, .right-panel) :is(input, textarea)::placeholder {
+  color: var(--color-editor-muted);
+}
+.editor-shell :is(.context-panel, .right-panel) :is(
+  .font-trigger, .bk-select-trigger, .text-color-trigger,
+  button[role="combobox"]:not(.bk-ms-trigger)
+):is(:hover, [data-state="open"], [aria-expanded="true"]):where(:not(:disabled)) {
+  background: var(--color-editor-hover);
+  color: var(--color-editor-foreground);
+}
+.editor-shell .right-panel #inspector-style :is(.font-trigger, .text-color-trigger):is(:hover, [data-state="open"], [aria-expanded="true"]):where(:not(:disabled)) {
+  background: var(--color-editor-hover);
+  color: var(--color-editor-foreground);
+}
+.editor-shell :is(.context-panel, .right-panel) :is(
+  input:not([type="color"], [type="range"], [type="checkbox"], [type="radio"], [type="file"], [type="hidden"]),
+  select, textarea, .font-trigger, .bk-select-trigger, .text-color-trigger
+):focus-visible,
+.editor-shell .right-panel #inspector-style :is(
+  input:not([type="color"], [type="range"], [type="checkbox"], [type="radio"], [type="file"], [type="hidden"]),
+  select, textarea, .font-trigger, .text-color-trigger
+):focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+/* These named menus also render outside the editor shell. */
+:is(.bk-ms-popover, .bk-select-content, .font-picker-popover, .editor-menu, .layer-menu, .text-color-popover, .prompt-options-menu) {
+  border: 1px solid var(--color-editor-border);
+  border-radius: 8px;
+  background: var(--color-editor-surface);
+  color: var(--color-editor-foreground);
+  box-shadow: none;
+}
+:is(.bk-ms-popover, .bk-select-content) :is([cmdk-root], [cmdk-list], [cmdk-group]) {
+  background: var(--color-editor-surface);
+  color: var(--color-editor-foreground);
+}
+:is(.bk-ms-popover, .bk-select-content) [cmdk-input-wrapper],
+.font-picker-popover .font-search {
+  border: 1px solid var(--color-editor-border);
+  border-radius: 8px;
+  background: var(--color-editor);
+  color: var(--color-editor-muted);
+}
+:is(.bk-ms-popover, .bk-select-content) [cmdk-input-wrapper] input,
+.font-picker-popover .font-search input,
+.editor-shell :is(.context-panel, .right-panel) .font-search input,
+.editor-shell .right-panel #inspector-style .font-search input {
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: var(--color-editor-foreground);
+  box-shadow: none;
+}
+:is(.bk-ms-popover, .bk-select-content) [cmdk-input-wrapper]:focus-within,
+.font-picker-popover .font-search:focus-within {
+  outline: 2px solid var(--color-editor-foreground);
+  outline-offset: 2px;
+}
+:is(.bk-ms-popover, .bk-select-content) [cmdk-input-wrapper] input:focus-visible,
+.font-picker-popover .font-search input:focus-visible,
+.editor-shell .right-panel #inspector-style .font-search input:focus-visible {
+  outline: none;
+}
+:is(.bk-ms-popover, .bk-select-content) input::placeholder,
+.font-picker-popover .font-search input::placeholder {
+  color: var(--color-editor-muted);
+}
+:is(.bk-ms-popover, .bk-select-content) [cmdk-group-heading],
+.font-picker-popover :is(.font-list-label, .font-empty),
+.prompt-options-menu .prompt-options-title {
+  color: var(--color-editor-muted);
+}
+:is(.bk-ms-popover, .bk-select-content) [cmdk-item],
+.bk-select-content [role="option"] {
+  color: var(--color-editor-foreground);
+}
+:is(.bk-ms-popover, .bk-select-content) [cmdk-item]:is([data-selected="true"], :hover):where(:not([data-disabled="true"])),
+.bk-select-content [role="option"]:is([data-highlighted], [data-state="checked"], :focus):where(:not([data-disabled])),
+.font-picker-popover .font-option:is(:hover, [aria-selected="true"]),
+:is(.editor-menu, .layer-menu) :is([role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]):is(:focus, [data-highlighted]):where(:not([data-disabled])) {
+  background: var(--color-editor-hover);
+}
+.font-picker-popover .font-option:is(:hover, [aria-selected="true"]),
+:is(.editor-menu, .layer-menu) :is([role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]):is(:focus, [data-highlighted]):where(:not(.layer-delete, .text-destructive, [data-variant="destructive"])) {
+  color: var(--color-editor-foreground);
+}
+:is(.editor-menu, .layer-menu) :is(.layer-delete, .text-destructive, [data-variant="destructive"]),
+:is(.editor-menu, .layer-menu) :is(.layer-delete, .text-destructive, [data-variant="destructive"]):is(:focus, [data-highlighted]) {
+  color: var(--color-destructive);
+}
+:is(.bk-ms-popover, .bk-select-content, .font-picker-popover, .editor-menu, .layer-menu, .text-color-popover, .prompt-options-menu) :is(button, input, [role="option"], [role="menuitem"]):focus-visible {
+  outline: 2px solid var(--color-editor-foreground);
   outline-offset: 2px;
 }

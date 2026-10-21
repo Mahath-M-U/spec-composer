@@ -3,10 +3,9 @@
   flex-direction: column;
   gap: 12px;
   padding: 16px 12px;
-  color: var(--foreground);
+  color: var(--color-editor-foreground);
 }
-.contextual-library button,
-.contextual-purpose button {
+:where(.contextual-library, .contextual-purpose) button {
   font: inherit;
   color: inherit;
 }
@@ -20,9 +19,9 @@
   align-items: center;
   gap: 8px;
   padding: 9px 11px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  background: var(--card);
+  border: 1px solid var(--color-editor-border);
+  border-radius: 8px;
+  background: var(--color-editor);
   text-align: left;
   cursor: pointer;
   font-size: 12px !important;
@@ -41,7 +40,7 @@
 }
 .contextual-purpose-trigger > svg {
   flex-shrink: 0;
-  color: var(--muted-foreground);
+  color: var(--color-editor-muted);
 }
 .contextual-purpose-clear {
   position: absolute;
@@ -55,11 +54,11 @@
   padding: 3px;
   border: 0;
   border-radius: 4px;
-  background: var(--card);
+  background: var(--color-editor);
   cursor: pointer;
 }
 .contextual-purpose-clear:hover {
-  background: var(--muted);
+  background: var(--color-editor-hover);
 }
 .contextual-purpose-popover,
 .contextual-search-popover {
@@ -67,11 +66,6 @@
   width: min(300px, calc(100vw - 24px));
   max-width: calc(100vw - 24px);
   padding: 8px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--popover);
-  color: var(--popover-foreground);
-  box-shadow: 0 12px 32px #0007;
 }
 .contextual-purpose-popover {
   width: var(--radix-popover-trigger-width, 280px);
@@ -88,9 +82,9 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--input);
+  border: 1px solid var(--color-editor-border);
+  border-radius: 8px;
+  background: var(--color-editor);
   padding: 6px 8px;
   flex-shrink: 0;
 }
@@ -104,6 +98,11 @@
   background: transparent;
   color: inherit;
   font-size: 12px;
+}
+.contextual-purpose-input input::placeholder,
+.contextual-search-input input::placeholder,
+.contextual-field :is(input, textarea)::placeholder {
+  color: var(--color-editor-muted);
 }
 .contextual-search-input button {
   display: flex;
@@ -125,31 +124,13 @@
 .contextual-purpose-options strong {
   display: block;
   font-size: 10px;
-  color: var(--muted-foreground);
+  color: var(--color-editor-muted);
   padding: 10px 7px 5px;
-}
-.contextual-purpose-options button {
-  display: block;
-  text-align: left;
-  width: 100%;
-  padding: 8px;
-  border: 0;
-  border-radius: 4px;
-  background: transparent;
-  color: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-.contextual-purpose-options button:hover,
-.contextual-purpose-options .is-active,
-.contextual-purpose-options [aria-selected="true"] {
-  background: color-mix(in srgb, var(--primary) 16%, transparent);
-  color: var(--primary);
 }
 .contextual-purpose-options p {
   padding: 12px 7px;
   font-size: 12px;
-  color: var(--muted-foreground);
+  color: var(--color-editor-muted);
 }
 .contextual-library-actions {
   display: flex;
@@ -158,28 +139,8 @@
   gap: 6px;
 }
 .contextual-library-actions > button {
-  display: flex;
   flex: 1 1 0;
   min-width: 0;
-  min-height: 34px;
-  align-items: center;
-  justify-content: center;
-  padding: 8px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--card);
-  color: var(--muted-foreground);
-  cursor: pointer;
-}
-.contextual-library-actions > button:hover {
-  background: var(--muted);
-  color: var(--foreground);
-}
-.contextual-library-actions > [aria-pressed="true"],
-.contextual-library-actions > [data-state="open"] {
-  background: color-mix(in srgb, var(--primary) 16%, var(--card));
-  border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
-  color: var(--primary);
 }
 .contextual-group-heading {
   width: 100%;
@@ -194,7 +155,7 @@
 }
 .contextual-group-heading > span {
   margin-left: auto;
-  color: var(--muted-foreground);
+  color: var(--color-editor-muted);
   font-size: 10px;
 }
 .contextual-group-heading[aria-expanded="false"]::after {
@@ -225,7 +186,7 @@
   cursor: grab;
 }
 .contextual-element-tile > svg:first-child {
-  color: var(--muted-foreground);
+  color: var(--color-editor-muted);
 }
 .contextual-element-tile > span {
   overflow-wrap: anywhere;
@@ -233,7 +194,7 @@
 .contextual-element-tile small {
   grid-column: 2;
   margin-top: 4px;
-  color: var(--muted-foreground);
+  color: var(--color-editor-muted);
   font-size: 9px;
 }
 .contextual-element-tile .contextual-tile-add {
@@ -256,45 +217,30 @@
 }
 .contextual-empty {
   padding: 4px 0;
-  color: var(--muted-foreground);
+  color: var(--color-editor-muted);
   font-size: 10px;
 }
 .contextual-purpose-popover :focus-visible,
 .contextual-search-popover :focus-visible {
-  outline: 2px solid var(--ring);
+  outline: 2px solid currentColor;
   outline-offset: 2px;
+}
+.contextual-purpose-input:focus-within,
+.contextual-search-input:focus-within {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+.contextual-purpose-input input:focus-visible,
+.contextual-search-input input:focus-visible {
+  outline: none;
 }
 .floating-contextual-toolbar {
   position: absolute;
   z-index: 35;
-  display: flex;
   align-items: stretch;
-  gap: 2px;
   max-width: calc(100% - 16px);
   overflow-x: auto;
-  padding: 4px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--popover) 96%, transparent);
-  color: var(--popover-foreground);
-  box-shadow: 0 5px 24px #0005;
   backdrop-filter: blur(12px);
-}
-.floating-contextual-toolbar > button {
-  flex-shrink: 0;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: inherit;
-  padding: 8px;
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-}
-.floating-contextual-toolbar > button:hover,
-.floating-contextual-toolbar > [data-state="open"] {
-  background: color-mix(in srgb, var(--primary) 16%, transparent);
-  color: var(--primary);
 }
 .floating-contextual-toolbar .contextual-quick {
   display: flex;
@@ -306,7 +252,7 @@
   text-align: left;
 }
 .contextual-quick span {
-  color: var(--muted-foreground);
+  color: var(--color-editor-muted);
   font-size: 9px;
 }
 .contextual-quick strong {
@@ -323,21 +269,16 @@
   width: min(340px, calc(100vw - 24px));
   max-height: min(480px, calc(100dvh - 100px));
   overflow-y: auto;
-  background: var(--popover);
-  color: var(--popover-foreground);
-  border: 1px solid var(--border);
-  border-radius: 10px;
   padding: 12px;
-  box-shadow: 0 12px 40px #0007;
 }
 .contextual-popover h3 {
   margin: 7px 0 11px;
-  color: var(--muted-foreground);
+  color: var(--color-editor-muted);
   font-size: 11px;
   font-weight: 600;
 }
 .contextual-popover section + section {
-  border-top: 1px solid color-mix(in srgb, var(--foreground) 4%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--color-editor-foreground) 4%, transparent);
   padding-top: 9px;
   margin-top: 13px;
 }
@@ -349,21 +290,21 @@
   display: block;
   font-size: 11px;
   margin-bottom: 5px;
-  color: var(--muted-foreground);
+  color: var(--color-editor-muted);
 }
 .contextual-field > small {
   color: var(--primary);
 }
-.contextual-field input:not([type="checkbox"]):not([type="color"]),
+.contextual-field input:not([type="checkbox"], [type="color"], [type="range"], [type="radio"], [type="file"], [type="hidden"]),
 .contextual-field select,
 .contextual-field textarea {
   width: 100%;
   min-height: 32px;
   padding: 6px 8px;
-  border-radius: 5px;
-  border: 1px solid var(--border);
-  background: var(--input);
-  color: var(--foreground);
+  border-radius: 8px;
+  border: 1px solid var(--color-editor-border);
+  background: var(--color-editor);
+  color: var(--color-editor-foreground);
   font-size: 12px;
 }
 .contextual-field select[multiple] {
@@ -374,15 +315,16 @@
   resize: vertical;
 }
 .contextual-field input:disabled,
-.contextual-field select:disabled {
+.contextual-field select:disabled,
+.contextual-field textarea:disabled {
   opacity: 0.5;
 }
 .contextual-field button,
 .contextual-secondary button {
   padding: 5px 8px;
   border: 0;
-  border-radius: 5px;
-  background: color-mix(in srgb, var(--foreground) 5%, transparent);
+  border-radius: 8px;
+  background: var(--color-editor);
   color: inherit;
   font-size: 11px;
 }
@@ -424,12 +366,12 @@
   padding: 8px 0;
   margin: 8px 0;
   border: 0;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--color-editor-border);
 }
 .contextual-data legend,
 .contextual-data label {
   font-size: 10px;
-  color: var(--muted-foreground);
+  color: var(--color-editor-muted);
 }
 .contextual-data label {
   display: block;
@@ -441,17 +383,23 @@
   gap: 6px;
   margin-top: 10px;
   padding-top: 9px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--color-editor-border);
 }
 .contextual-secondary select {
   flex: 1 1 100%;
   min-height: 30px;
   padding: 5px;
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  background: var(--input);
-  color: var(--foreground);
+  border: 1px solid var(--color-editor-border);
+  border-radius: 8px;
+  background: var(--color-editor);
+  color: var(--color-editor-foreground);
   font-size: 11px;
+}
+.contextual-purpose-trigger:is(:hover, [data-state="open"]):where(:not(:disabled)),
+.contextual-field button:hover:where(:not(:disabled)),
+.contextual-secondary button:hover:where(:not(:disabled)) {
+  background: var(--color-editor-hover);
+  color: var(--color-editor-foreground);
 }
 .contextual-legacy.selection-context-bar {
   position: static;
@@ -476,7 +424,7 @@
 .contextual-library :focus-visible,
 .floating-contextual-toolbar :focus-visible,
 .contextual-popover :focus-visible {
-  outline: 2px solid var(--ring);
+  outline: 2px solid currentColor;
   outline-offset: 2px;
 }
 @media (max-width: 640px) {
@@ -489,7 +437,7 @@
     max-width: 70px;
     font-size: 10px;
   }
-  .contextual-popover {
+  .contextual-popover:not([data-selection-anchored]) {
     position: fixed !important;
     left: 8px !important;
     right: 8px !important;
@@ -512,17 +460,17 @@
 ) {
   --contextual-scroll-thumb: color-mix(
     in srgb,
-    var(--foreground) 25%,
+    var(--color-editor-foreground) 25%,
     transparent
   );
   --contextual-scroll-thumb-hover: color-mix(
     in srgb,
-    var(--foreground) 42%,
+    var(--color-editor-foreground) 42%,
     transparent
   );
   --contextual-scroll-thumb-active: color-mix(
     in srgb,
-    var(--foreground) 55%,
+    var(--color-editor-foreground) 55%,
     transparent
   );
   --contextual-scroll-current: var(--contextual-scroll-thumb);
@@ -649,22 +597,39 @@
   }
 }
 
-/* Dedicated model controls reuse the local renderer for every pose thumbnail. */
+/* Dedicated model controls share the illustrated live renderer with the canvas. */
 .model-control-popover { width: min(326px, calc(100vw - 24px)); padding: 10px; }
-.model-preview-status { padding: 6px 0 10px; color: var(--muted-foreground); font-size: 10px; line-height: 1.5; }
+.model-preview-status { padding: 6px 0 10px; color: var(--color-editor-muted); font-size: 10px; line-height: 1.5; }
 .model-visual-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 6px; }
-.model-visual-grid button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; min-height: 35px; padding: 6px; border: 0; border-radius: 7px; background: color-mix(in oklab,var(--foreground) 6%,var(--card)); color: var(--foreground); font-size: 11px; text-transform: capitalize; cursor: pointer; }
-.model-visual-grid button svg { width: 72px; height: 92px; }
-.model-visual-grid button:hover, .model-visual-grid button:focus-visible { background: color-mix(in oklab,var(--foreground) 10%,var(--card)); }
-.model-visual-grid button[aria-pressed="true"], .model-pose-segments button[aria-pressed="true"], .model-look-sections button[aria-pressed="true"] { background: color-mix(in oklab,var(--primary) 16%,var(--card)); color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }
+.model-visual-grid button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; min-height: 35px; padding: 6px; border: 0; border-radius: 8px; background: var(--color-editor); color: var(--color-editor-foreground); font-size: 11px; text-transform: capitalize; cursor: pointer; }
+.contextual-popover[data-selection-anchored] { overflow-y: auto; overscroll-behavior: contain; }
+.model-tile-preview { display: block; width: 112px; height: 156px; max-width: 100%; pointer-events: none; }
+.model-visual-grid button,.model-pose-segments button { min-width: 0; line-height: 1.35; text-align: center; overflow-wrap: anywhere; }
+.model-tile-preview svg { display: block; width: 100%; height: 100%; }
+.model-control-popover .model-artwork-portrait { display: block; width: 82px; height: 100px; max-width: 100%; pointer-events: none; }
+.model-live-preview { display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 0 0 12px; padding: 10px; border: 1px solid var(--color-editor-border); border-radius: 8px; }
+.model-live-preview > svg,.model-live-preview > img { width: 100%; height: 178px; max-width: 100%; object-fit: contain; }
+.model-live-preview figcaption { color: var(--color-editor-muted); font-size: 10px; text-align: center; }
+.model-visual-grid button:hover:where(:not(:disabled)), .model-visual-grid button:focus-visible { background: var(--color-editor-hover); }
+.model-visual-grid button[aria-pressed="true"], .model-pose-segments button[aria-pressed="true"], .model-look-sections button[aria-pressed="true"] { background: var(--color-editor-hover); color: var(--color-editor-foreground); box-shadow: none; }
 .model-pose-segments,.model-look-sections { display: flex; flex-wrap: wrap; gap: 4px; padding-bottom: 10px; }
-.model-pose-segments button,.model-pose-segments select,.model-look-sections button { flex: 1; min-width: 48px; min-height: 28px; padding: 5px; border: 0; border-radius: 5px; background: color-mix(in oklab,var(--foreground) 6%,var(--card)); color: var(--foreground); font-size: 10px; text-transform: capitalize; }
+.model-pose-segments button,.model-pose-segments select,.model-look-sections button { flex: 1; min-width: 48px; min-height: 28px; padding: 5px; border: 0; border-radius: 8px; background: var(--color-editor); color: var(--color-editor-foreground); font-size: 10px; text-transform: capitalize; }
+.model-pose-segments { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 6px; }
+.model-pose-segments button,.model-look-sections button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; cursor: pointer; }
+.model-pose-segments select { grid-column: 1 / -1; }
+.model-pose-segments .model-tile-preview { width: 96px; height: 132px; }
+.model-pose-segments button:hover:where(:not(:disabled)),.model-pose-segments button:focus-visible,.model-look-sections button:hover:where(:not(:disabled)),.model-look-sections button:focus-visible { background: var(--color-editor-hover); }
 .model-look-sections button { flex-basis: 40%; }
+.model-clothing-references { margin-bottom: 10px; color: var(--color-editor-muted); font-size: 10px; }
+.model-clothing-references p { margin: 0 0 6px; }
+.model-clothing-references > div { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 6px; }
+.model-clothing-references figure { display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 0; padding: 6px 2px; border: 1px solid var(--color-editor-border); border-radius: 7px; text-transform: capitalize; }
+.model-clothing-references svg { display: block; width: 100%; height: 78px; max-width: 100%; pointer-events: none; }
 .model-control-popover details { margin-top: 10px; }
-.model-control-popover summary { padding: 7px 0; cursor: pointer; color: var(--muted-foreground); font-size: 11px; }
+.model-control-popover summary { padding: 7px 0; cursor: pointer; color: var(--color-editor-muted); font-size: 11px; }
 .model-garment-colors { display: flex; gap: 8px; margin: 10px 0; }
-.model-garment-colors label { display: flex; flex: 1; flex-direction: column; gap: 7px; color: var(--muted-foreground); font-size: 10px; }
+.model-garment-colors label { display: flex; flex: 1; flex-direction: column; gap: 7px; color: var(--color-editor-muted); font-size: 10px; }
 .model-garment-colors input { height: 30px; width: 100%; padding: 0; border: 0; background: transparent; cursor: pointer; }
-.contextual-capability { font-size: 9px !important; color: var(--muted-foreground); }
+.contextual-capability { font-size: 9px !important; color: var(--color-editor-muted); }
 .contextual-capability.is-generation { color: var(--primary); }
 .contextual-quick > span { display: flex; gap: 4px; align-items: center; }

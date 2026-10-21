@@ -24,3 +24,23 @@ it('respects locked indirect pose changes and normalizes child identity',()=>{
  edit('model.identity.ageGroup','adult');edit('model.identity.modelPreset','girl');expect(el().contextualProperties!['model.identity.ageGroup']).toBe('child');
 });
 it('reports exact unsupported custom combinations rather than neutral geometry',()=>{edit('model.pose_action.action','custom');expect(modelGeometry(el()).supported).toBe(false);expect(modelGeometry(el()).reason).toContain('local geometry');});
+it.each(['walking','running'])('keeps %s upper arms on their shoulder sides before explicit overrides',action=>{
+ edit('model.pose_action.action',action);const joints=modelGeometry(el()).joints;
+ const center=(joints.leftShoulder[0]+joints.rightShoulder[0])/2;expect(joints.leftElbow[0]).toBeLessThan(center);expect(joints.rightElbow[0]).toBeGreaterThan(center);
+ const overridden={...el(),contextualProperties:{...el().contextualProperties,'model.pose_action.arms':'crossed'}};const crossed=modelGeometry(overridden).joints;
+ expect(crossed.leftHand[0]).toBeGreaterThan(crossed.rightHand[0]);expect(crossed.leftElbow).not.toEqual(joints.leftElbow);
+});
+it('makes starting, mid-stride and stopping readable distinct walking phases before fine overrides',()=>{
+ edit('model.pose_action.action','walking');const phases=['starting','mid_stride','stopping'].map(value=>{edit('model.pose_action.stride',value);return modelGeometry(el()).joints;});
+ const [start,mid,stop]=phases as [typeof phases[number],typeof phases[number],typeof phases[number]];
+ const separation=(j:typeof start)=>Math.abs(j.rightFoot[0]-j.leftFoot[0]);expect(separation(start)).toBeCloseTo(55);expect(separation(mid)).toBeCloseTo(139);expect(separation(stop)).toBeCloseTo(100);
+ expect(start.rightFoot[1]).toBeLessThan(start.leftFoot[1]);expect(stop.leftFoot[1]).toBeLessThan(stop.rightFoot[1]);expect(stop.head[0]).toBeLessThan(start.head[0]);
+ expect(new Set(phases.map(j=>JSON.stringify([j.leftElbow,j.rightElbow,j.leftHand,j.rightHand]))).size).toBe(3);
+ const crossed={...el(),contextualProperties:{...el().contextualProperties,'model.pose_action.arms':'crossed'}};expect(modelGeometry(crossed).joints.leftHand[0]).toBeGreaterThan(modelGeometry(crossed).joints.rightHand[0]);
+});
+it.each(Object.keys(POSE_PRESETS))('scales the complete %s child pose after composing adult joints',action=>{
+ const properties={'model.pose_action.action':action,'model.identity.modelPreset':'woman','model.identity.ageGroup':'adult'};
+ const adult=modelGeometry({...el(),contextualProperties:properties}),child=modelGeometry({...el(),contextualProperties:{...properties,'model.identity.modelPreset':'girl','model.identity.ageGroup':'child'}});
+ expect(child.supported).toBe(adult.supported);for(const key of Object.keys(adult.joints) as (keyof typeof adult.joints)[]){expect(child.joints[key][0]).toBeCloseTo(120+(adult.joints[key][0]-120)*.74);expect(child.joints[key][1]).toBeCloseTo(390+(adult.joints[key][1]-390)*.74);}
+ expect(child.shoulderWidth).toBeCloseTo(adult.shoulderWidth*.74);expect(child.hipWidth).toBeCloseTo(adult.hipWidth*.74);expect(child.headRadius[1]).toBeGreaterThan(adult.headRadius[1]);
+});

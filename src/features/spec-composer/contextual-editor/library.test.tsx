@@ -207,4 +207,12 @@ describe("purpose-aware element library", () => {
     expect(html).not.toContain('class="contextual-upload"');
     expect(html).toContain('hidden="" aria-label="Choose image to upload"');
   });
+  it("shows the added count as the primary accent, keeping the status muted", () => {
+    const id = libraryEntries("product_showcase", "recommended", "")[0]!
+      .entries[0]!.id;
+    useEditorStore.getState().addContextualElement(id);
+    const html = renderToStaticMarkup(createElement(ElementLibrary));
+    expect(html).toMatch(/<small>[^<]*<span class="ui-count">Added 1<\/span><\/small>/);
+    expect(html).not.toMatch(/class="ui-count">\d+</);
+  });
 });

@@ -1186,7 +1186,8 @@ export function StylePanel() {
     <section className="style-panel" data-tab={tab} aria-label="Style controls">
       <PanelHeader
         icon={Palette}
-        title="Design Inspector"
+        eyebrow="Design Inspector"
+        title="Style"
         meta={
           s.backgroundSelected
             ? "Background"

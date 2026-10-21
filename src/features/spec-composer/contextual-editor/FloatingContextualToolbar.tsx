@@ -1,7 +1,9 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { MoreHorizontal, SlidersHorizontal } from "lucide-react";
 import {
   Popover,
+  PopoverAnchor,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
@@ -12,7 +14,7 @@ import type { SpecElement } from "../types";
 import { ContextualField } from "./ContextualField";
 import { toolbarControls, formatValue } from "./toolbar-controls";
 import { mixedProperty } from "./store";
-import { toolbarPlacement } from "./toolbar-placement";
+import { contextualPopoverPlacement, toolbarPlacement } from "./toolbar-placement";
 import type { Field } from "./schema";
 import "./contextual-editor.css";
 import { UserRound, Accessibility, Move, Shirt, Palette } from "lucide-react";
@@ -23,6 +25,145 @@ import { OutfitPopover } from "./OutfitPopover";
 import { LookPopover } from "./LookPopover";
 import { inferCatalogId } from "./catalog";
 import { fieldOptions } from "./schema";
+
+function SelectionPopoverContent({
+  workspace,
+  screenBox,
+  className,
+  label,
+  children,
+}: {
+  workspace: HTMLElement | null;
+  screenBox: ScreenBox;
+  className: string;
+  label: string;
+  children: ReactNode;
+}) {
+  const [content, setContent] = useState<HTMLDivElement | null>(null);
+  const [anchor, setAnchor] = useState<HTMLSpanElement | null>(null);
+  const [placement, setPlacement] = useState<ReturnType<typeof contextualPopoverPlacement> | null>(null);
+  const focusPending = useRef(false);
+  const { left, top, width, height } = screenBox;
+  useLayoutEffect(() => {
+    if (!content || !workspace || !anchor) return;
+    const place = () => {
+      const bounds = workspace.getBoundingClientRect();
+      const viewportLeft = Math.max(0, bounds.left);
+      const viewportTop = Math.max(0, bounds.top);
+      const box = anchor.getBoundingClientRect();
+      if (!anchor.isConnected || box.width <= 0 || box.height <= 0 || bounds.width <= 0 || bounds.height <= 0) {
+        setPlacement(null);
+        return;
+      }
+      const next = contextualPopoverPlacement(
+        { left: box.left, top: box.top, width: box.width, height: box.height },
+        {
+          // Keep the preferred width stable after a narrow side constrains it.
+          width: className.includes("model-control-popover") ? 326 : 340,
+          height: Math.min(480, content.scrollHeight + content.offsetHeight - content.clientHeight),
+        },
+        {
+          left: viewportLeft,
+          top: viewportTop,
+          width: Math.max(1, Math.min(window.innerWidth, bounds.right) - viewportLeft),
+          height: Math.max(1, Math.min(window.innerHeight, bounds.bottom) - viewportTop),
+        },
+      );
+      setPlacement((previous) =>
+        previous && next && Object.keys(next).every((key) =>
+          previous[key as keyof typeof next] === next[key as keyof typeof next],
+        ) ? previous : next,
+      );
+    };
+    place();
+    const resize = new ResizeObserver(place);
+    resize.observe(workspace);
+    resize.observe(anchor);
+    resize.observe(content);
+    const changes = new MutationObserver(place);
+    changes.observe(content, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["open"] });
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      resize.disconnect();
+      changes.disconnect();
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [workspace, anchor, content, className, left, top, width, height]);
+  useLayoutEffect(() => {
+    if (!content) return;
+    if (!placement) {
+      if (content.contains(document.activeElement)) {
+        const trigger = [...(workspace?.querySelectorAll<HTMLButtonElement>("button[aria-controls]") ?? [])]
+          .find(button => button.getAttribute("aria-controls") === content.id);
+        trigger?.focus({ preventScroll: true });
+      }
+      return;
+    }
+    if (!focusPending.current) return;
+    focusPending.current = false;
+    const target = content.querySelector<HTMLElement>(
+      'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex="0"]',
+    );
+    (target ?? content).focus({ preventScroll: true });
+  }, [placement, content, workspace]);
+  const visible = !!(placement && content?.isConnected && anchor?.isConnected);
+  return (
+    <>
+      {workspace && createPortal(
+        <PopoverAnchor asChild>
+          <span
+            ref={setAnchor}
+            data-selection-anchor
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              display: "block",
+              left,
+              top,
+              width,
+              height,
+              visibility: "hidden",
+              pointerEvents: "none",
+            }}
+          />
+        </PopoverAnchor>,
+        workspace,
+      )}
+      <PopoverContent
+        ref={setContent}
+        className={className}
+        data-selection-anchored="true"
+        inert={!visible}
+        aria-hidden={!visible}
+        side={placement?.side ?? "right"}
+        align="start"
+        sideOffset={placement?.sideOffset ?? 16}
+        alignOffset={placement?.alignOffset ?? 0}
+        avoidCollisions={false}
+        updatePositionStrategy="always"
+        style={{
+          width: placement?.width,
+          maxHeight: placement?.maxHeight,
+          overflowY: "auto",
+          visibility: visible ? undefined : "hidden",
+        }}
+        aria-label={label}
+        onOpenAutoFocus={(event) => {
+          if (!visible) {
+            event.preventDefault();
+            focusPending.current = true;
+          }
+        }}
+        onCloseAutoFocus={() => { focusPending.current = false; }}
+        onKeyDown={(event) => event.stopPropagation()}
+      >
+        {children}
+      </PopoverContent>
+    </>
+  );
+}
 
 export function LayerOrderControl() {
   return (
@@ -68,6 +209,7 @@ export function FloatingContextualToolbar({
   const [open, setOpen] = useState<string | null>(null),
     [dismissed, setDismissed] = useState(false);
   const bar = useRef<HTMLDivElement>(null);
+  const [workspace, setWorkspace] = useState<HTMLElement | null>(null);
   const { left, top, width, height } = screenBox;
   const [position, setPosition] = useState({
     left: screenBox.left,
@@ -87,6 +229,7 @@ export function FloatingContextualToolbar({
     const node = bar.current,
       workspace = node?.closest<HTMLElement>(".workspace");
     if (!node || !workspace) return;
+    setWorkspace(workspace);
     const place = () =>
       setPosition(
         toolbarPlacement(
@@ -124,7 +267,7 @@ export function FloatingContextualToolbar({
     <div
       ref={bar}
       data-canvas-ui
-      className="floating-contextual-toolbar"
+      className="floating-contextual-toolbar ui-toolbar"
       role="toolbar"
       aria-label="Element contextual controls"
       style={{ left: position.left, top: position.top }}
@@ -176,23 +319,21 @@ export function FloatingContextualToolbar({
             <PopoverTrigger asChild>
               <button
                 type="button"
-                className="contextual-quick"
+                className="ui-toolbar-button contextual-quick"
                 aria-label={`${control.label}: ${text}`}
               >
                 <span>{Icon&&<Icon size={12} aria-hidden="true"/>}{control.label}</span>
                 <strong>{text}</strong>
               </button>
             </PopoverTrigger>
-            <PopoverContent
-              className={`contextual-popover${model?" model-control-popover":""}`}
-              side="bottom"
-              collisionPadding={12}
-              collisionBoundary={bar.current?.closest<HTMLElement>(".workspace")??null}
-              aria-label={`${control.label} controls`}
-              onKeyDown={(event) => event.stopPropagation()}
+            <SelectionPopoverContent
+              workspace={workspace}
+              screenBox={screenBox}
+              className={`ui-popover contextual-popover${model?" model-control-popover":""}`}
+              label={`${control.label} controls`}
             >
               {Panel?<Panel elements={elements} fields={control.fields} context={context}/>:fieldsContent(control.fields)}
-            </PopoverContent>
+            </SelectionPopoverContent>
           </Popover>
         );
       })}
@@ -203,18 +344,18 @@ export function FloatingContextualToolbar({
         <PopoverTrigger asChild>
           <button
             type="button"
+            className="ui-toolbar-button"
             aria-label="More controls"
             title="More controls"
           >
             <MoreHorizontal size={18} />
           </button>
         </PopoverTrigger>
-        <PopoverContent
-          className="contextual-popover contextual-more"
-          collisionPadding={12}
-          collisionBoundary={bar.current?.closest<HTMLElement>(".workspace")??null}
-          aria-label="More controls"
-          onKeyDown={(event) => event.stopPropagation()}
+        <SelectionPopoverContent
+          workspace={workspace}
+          screenBox={screenBox}
+          className="ui-popover contextual-popover contextual-more"
+          label="More controls"
         >
           {fieldsContent(overflow)}
           {elements.length === 1 && (
@@ -228,12 +369,14 @@ export function FloatingContextualToolbar({
             <LayerOrderControl />
             <button
               type="button"
+              className="ui-toolbar-button"
               onClick={() => useEditorStore.getState().duplicate()}
             >
               Duplicate
             </button>
             <button
               type="button"
+              className="ui-toolbar-button"
               onClick={() =>
                 useEditorStore.getState().updateLayers(
                   elements.map((el) => el.id),
@@ -245,15 +388,17 @@ export function FloatingContextualToolbar({
             </button>
             <button
               type="button"
+              className="ui-toolbar-button"
               onClick={() => useEditorStore.getState().deleteSelected()}
             >
               Delete
             </button>
           </div>
-        </PopoverContent>
+        </SelectionPopoverContent>
       </Popover>
       <button
         type="button"
+        className="ui-toolbar-button"
         aria-label="Open Design Inspector"
         title="Advanced / Inspector"
         onClick={() => {

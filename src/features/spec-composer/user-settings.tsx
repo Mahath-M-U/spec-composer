@@ -1,5 +1,5 @@
 import { useId, useState } from "react";
-import { Check, Code2, Moon, Settings2, Sun, UserRound } from "lucide-react";
+import { Check, Code2, Moon, Settings, Settings2, Sun } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -21,10 +21,8 @@ export function UserSettings() {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <button type="button" aria-label="User settings">
-          <i className="user-settings-icon" aria-hidden="true">
-            <UserRound aria-hidden="true" />
-          </i>
+        <button type="button" aria-label="User settings" className="user-settings-trigger">
+          <Settings aria-hidden="true" />
           <span>Settings</span>
         </button>
       </DialogTrigger>

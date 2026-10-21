@@ -40,8 +40,14 @@ export function applyPose(model:ModelGeometry, read:(key:string)=>string): { sup
   if(read("model.pose_action.sittingSurface")==="floor"){for(const key of Object.keys(j) as (keyof typeof j)[]) j[key]=[j[key][0],j[key][1]+65];set("leftKnee",[70,330]);set("rightKnee",[194,333]);set("leftFoot",[153,380]);set("rightFoot",[100,380]);}
  }
  if(action==="walking"||action==="running"){
-  const run=action==="running", strength=variation==="sprinting"?1.3:variation==="dynamic"?1.5:variation==="jogging"?.8:variation==="starting"?.65:variation==="stopping"?.45:1;
-  shiftTorso(run?18:0,run?10:0);set("leftKnee",[120-45*strength,292]);set("leftFoot",[120-72*strength,run?348:378]);set("rightKnee",[120+40*strength,run?253:287]);set("rightFoot",[120+67*strength,run?294:378]);set("leftElbow",[173,148]);set("leftHand",[199,run?107:190]);set("rightElbow",[72,172]);set("rightHand",[54,run?142:210]);
+  const run=action==="running", strength=variation==="sprinting"?1.3:variation==="dynamic"?1.5:variation==="jogging"?.8:1;
+  shiftTorso(run?18:0,run?10:0);set("leftKnee",[120-45*strength,292]);set("leftFoot",[120-72*strength,run?348:378]);set("rightKnee",[120+40*strength,run?253:287]);set("rightFoot",[120+67*strength,run?294:378]);set("leftElbow",[72,172]);set("leftHand",[54,run?142:210]);set("rightElbow",[173,148]);set("rightHand",[199,run?107:190]);
+  if(!run&&variation==="starting"){
+   shiftTorso(5,-2);set("leftKnee",[107,297]);set("leftFoot",[98,378]);set("rightKnee",[140,301]);set("rightFoot",[153,371]);set("leftElbow",[79,158]);set("leftHand",[89,218]);set("rightElbow",[168,153]);set("rightHand",[177,208]);
+  }
+  if(!run&&variation==="stopping"){
+   shiftTorso(-12,3);set("leftKnee",[110,307]);set("leftFoot",[88,366]);set("rightKnee",[169,292]);set("rightFoot",[188,378]);set("leftElbow",[70,170]);set("leftHand",[81,230]);set("rightElbow",[157,161]);set("rightHand",[168,219]);
+  }
   const direction=read("model.pose_action.walkingDirection");if(direction==="away_camera")model.view="back";else if(direction==="left"||direction==="right")model.view=`${direction}_profile`;
  }
  if(["kneeling","crouching","squatting"].includes(action)){

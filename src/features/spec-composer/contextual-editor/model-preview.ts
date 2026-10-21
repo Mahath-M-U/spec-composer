@@ -36,23 +36,27 @@ export function modelGeometry(element: SpecElement): ModelGeometry {
   const read = (key: string) => String(modelValue(element, key) ?? "");
   const identity = read("model.identity.modelPreset");
   const child = ["boy", "girl"].includes(identity) || ["child", "teen"].includes(read("model.identity.ageGroup"));
-  const shoulderWidth = child ? identity === "girl" ? 25 : 28 : identity === "woman" ? 34 : 40;
-  const hipWidth = child ? identity === "girl" ? 29 : 25 : identity === "woman" ? 39 : 32;
+  const shoulderWidth = ["woman", "girl"].includes(identity) ? 34 : 40;
+  const hipWidth = ["woman", "girl"].includes(identity) ? 39 : 32;
   const action = read("model.pose_action.action") || "standing";
   const sitting = action === "sitting";
-  const headY = child ? 92 : 46, shoulderY = child ? 136 : 94, hipY = sitting ? 245 : child ? 230 : 216;
+  const headY = 46, shoulderY = 94, hipY = sitting ? 245 : 216;
   const joints: ModelGeometry["joints"] = {
     head: [120, sitting ? headY + 26 : headY], neck: [120, sitting ? shoulderY + 12 : shoulderY - 12],
     leftShoulder: [120 - shoulderWidth, sitting ? shoulderY + 26 : shoulderY], rightShoulder: [120 + shoulderWidth, sitting ? shoulderY + 26 : shoulderY],
-    leftElbow: [120 - shoulderWidth - 7, sitting ? child?206:192 : child?180:157], rightElbow: [120 + shoulderWidth + 7, sitting ? child?206:192 : child?180:157],
+    leftElbow: [120 - shoulderWidth - 7, sitting ? 192 : 157], rightElbow: [120 + shoulderWidth + 7, sitting ? 192 : 157],
     leftHand: [120 - shoulderWidth - 8, sitting ? 238 : 220], rightHand: [120 + shoulderWidth + 8, sitting ? 238 : 220],
     leftHip: [120 - hipWidth / 2, hipY], rightHip: [120 + hipWidth / 2, hipY],
-    leftKnee: sitting ? [162, 269] : [103, child ? 302 : 294], rightKnee: sitting ? [203, 264] : [137, child ? 302 : 294],
+    leftKnee: sitting ? [162, 269] : [103, 294], rightKnee: sitting ? [203, 264] : [137, 294],
     leftFoot: sitting ? [164, 378] : [99, 378], rightFoot: sitting ? [205, 378] : [142, 378],
   };
   const palette = modelValue(element, "model.outfit.palette");
-  const model:ModelGeometry = { joints, shoulderWidth, hipWidth, headRadius: child ? [23, 27] : identity === "woman" ? [21, 27] : [23, 28], view: "front", headDirection: "forward", action, variation: read(poseVariationKey(action)) || (sitting ? "upright" : action==="standing"?"neutral":""), bounds: { x: 0, y: 0, width: 240, height: 410 }, skin: ({ very_light: "#f5d7c0", light: "#e9b998", medium: "#c88d67", tan: "#ae7250", deep: "#815236", very_deep: "#503426" } as Record<string,string>)[read("model.appearance.skinTone")] ?? "#c88d67", hair: read("model.appearance.hairColor") || "#323034", primary: Array.isArray(palette) && typeof palette[0] === "string" ? palette[0] : "#63818e", secondary: Array.isArray(palette) && typeof palette[1] === "string" ? palette[1] : "#354754" };
+  const model:ModelGeometry = { joints, shoulderWidth, hipWidth, headRadius: child ? [27, 32] : identity === "woman" ? [21, 27] : [23, 28], view: "front", headDirection: "forward", action, variation: read(poseVariationKey(action)) || (sitting ? "upright" : action==="standing"?"neutral":""), bounds: { x: 0, y: 0, width: 240, height: 410 }, skin: ({ very_light: "#f5d7c0", light: "#e9b998", medium: "#c88d67", tan: "#ae7250", deep: "#815236", very_deep: "#503426" } as Record<string,string>)[read("model.appearance.skinTone")] ?? "#c88d67", hair: read("model.appearance.hairColor") || "#323034", primary: Array.isArray(palette) && typeof palette[0] === "string" ? palette[0] : "#63818e", secondary: Array.isArray(palette) && typeof palette[1] === "string" ? palette[1] : "#354754" };
   const status=applyPose(model,read);model.supported=status.supported;if(status.reason)model.reason=status.reason;
+  if(child){
+    for(const key of Object.keys(joints) as (keyof typeof joints)[])joints[key]=[120+(joints[key][0]-120)*.74,390+(joints[key][1]-390)*.74];
+    model.shoulderWidth*=.74;model.hipWidth*=.74;
+  }
   if(identity==="custom"){model.supported=false;model.reason="Custom identity needs an authored vector.";}
   const points=Object.values(model.joints); const minX=Math.min(0,...points.map(p=>p[0]-30)), maxX=Math.max(240,...points.map(p=>p[0]+30)), minY=Math.min(0,...points.map(p=>p[1]-40)), maxY=Math.max(410,...points.map(p=>p[1]+20));
   model.bounds={x:minX,y:minY,width:maxX-minX,height:maxY-minY};return model;
@@ -70,6 +74,7 @@ export function normalizedModelEdit(element:SpecElement,key:string,value:import(
  const aliases:Record<string,string>={bodyDirection:"bodyOrientation",headDirection:"headOrientation",bodyOrientation:"bodyDirection",headOrientation:"headDirection"};
  if(key.startsWith(pose)&&aliases[key.slice(pose.length)])delete next[pose+aliases[key.slice(pose.length)]];
  if(key==="model.identity.modelPreset"&&["boy","girl"].includes(String(value))&&!["child","teen"].includes(String(next["model.identity.ageGroup"])))next["model.identity.ageGroup"]="child";
+ if(key==="model.identity.modelPreset"&&["man","woman"].includes(String(value))&&["child","teen"].includes(String(next["model.identity.ageGroup"])))next["model.identity.ageGroup"]="adult";
  const locked=element.contextualProperties?.["model.references.lockFields"];
  if(Array.isArray(locked)&&locked.some(field=>typeof field==="string"&&field!==key&&JSON.stringify(next[field])!==JSON.stringify(element.contextualProperties?.[field])))return undefined;
  return next;

@@ -6,6 +6,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { findPurpose, getCreativePurposes } from "./catalog";
+import { cn } from "@/lib/utils";
 
 export function CreativePurposeSelect({
   value,
@@ -73,7 +74,7 @@ export function CreativePurposeSelect({
         </PopoverTrigger>
         <PopoverContent
           id={`${id}-popup`}
-          className="contextual-purpose-popover"
+          className="ui-popover contextual-purpose-popover"
           align="start"
           collisionPadding={12}
           onOpenAutoFocus={(event) => {
@@ -151,7 +152,10 @@ export function CreativePurposeSelect({
                       type="button"
                       role="option"
                       aria-selected={item.id === value}
-                      className={activeId === item.id ? "is-active" : ""}
+                      className={cn(
+                        "ui-menu-item",
+                        activeId === item.id && "is-active",
+                      )}
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => choose(item.id)}
                     >

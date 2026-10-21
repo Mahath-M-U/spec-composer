@@ -1,0 +1,221 @@
+/* Shared, low-specificity UI primitives built on the editor design-kit tokens.
+   These intentionally carry no box-shadow/glow and rely only on existing
+   --color-editor-* / --editor-action tokens so visuals stay consistent with
+   the rest of the editor chrome. Apply the classes below; this file does not
+   change anything unless a class is used. */
+
+.ui-section-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 8px;
+  margin-bottom: 12px;
+}
+.ui-section-heading-icon {
+  width: 14px;
+  height: 14px;
+  color: var(--editor-action);
+}
+.ui-section-heading-eyebrow {
+  margin-bottom: 0.1rem;
+  color: var(--editor-action);
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.ui-section-heading-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  color: var(--color-editor-foreground);
+}
+.ui-section-heading-meta {
+  color: var(--color-editor-muted);
+  font-size: 10px;
+}
+.ui-count {
+  color: var(--editor-action);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-segmented {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 4px;
+  border-radius: 10px;
+  background: var(--color-editor);
+  padding: 3px;
+}
+.ui-segmented-item {
+  display: flex;
+  height: 28px;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--color-editor-muted);
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.ui-segmented-item svg {
+  width: 12px;
+  height: 12px;
+  flex: none;
+}
+.ui-segmented-item:hover {
+  color: var(--color-editor-foreground);
+}
+.ui-segmented-item[aria-selected="true"],
+.ui-segmented-item.active {
+  background: var(--ui-selected-bg);
+  color: var(--color-editor-foreground);
+}
+.ui-segmented-item[aria-selected="true"] svg,
+.ui-segmented-item.active svg {
+  color: var(--editor-action);
+}
+.ui-segmented-item:disabled {
+  opacity: 0.45;
+}
+.ui-segmented-item > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (pointer: coarse) {
+  .ui-segmented-item {
+    min-height: 44px;
+  }
+}
+
+.ui-popover {
+  border: 1px solid var(--color-editor-border);
+  border-radius: 8px;
+  background: var(--color-editor-surface);
+  color: var(--color-editor-foreground);
+  box-shadow: none;
+}
+
+.ui-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+}
+.ui-menu-item:is(:hover, [aria-selected="true"], [data-highlighted], .is-active) {
+  background: var(--color-editor-hover);
+  color: var(--color-editor-foreground);
+}
+
+.ui-toolbar {
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--color-editor-border);
+  border-radius: 8px;
+  background: var(--color-editor-surface);
+  color: var(--color-editor-foreground);
+  box-shadow: none;
+}
+
+.ui-toolbar-button {
+  display: flex;
+  align-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  padding: 8px;
+  cursor: pointer;
+}
+.ui-toolbar-button:hover {
+  background: var(--color-editor-hover);
+  color: var(--color-editor-foreground);
+}
+.ui-toolbar-button[data-state="open"],
+.ui-toolbar-button[aria-pressed="true"] {
+  background: var(--ui-selected-bg);
+  color: var(--color-editor-foreground);
+}
+.ui-toolbar-button[data-state="open"] svg,
+.ui-toolbar-button[aria-pressed="true"] svg,
+.ui-toolbar-button[data-state="open"] > span,
+.ui-toolbar-button[aria-pressed="true"] > span {
+  color: var(--editor-action);
+}
+
+.ui-icon-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 8px;
+  border: 1px solid var(--color-editor-border);
+  border-radius: 6px;
+  background: var(--color-editor-surface);
+  color: var(--color-editor-muted);
+}
+.ui-icon-button:hover {
+  background: var(--color-editor-hover);
+  color: var(--color-editor-foreground);
+}
+.ui-icon-button[aria-pressed="true"],
+.ui-icon-button[data-state="open"] {
+  background: var(--ui-selected-accent-bg);
+  border-color: var(--ui-selected-accent-border);
+  color: var(--ui-selected-accent-ink);
+}
+
+.ui-segmented-item,
+.ui-menu-item,
+.ui-toolbar-button,
+.ui-icon-button {
+  --ui-selected-bg: color-mix(
+    in oklab,
+    var(--color-editor-foreground) 16%,
+    var(--color-editor-surface)
+  );
+  --ui-selected-border: color-mix(
+    in oklab,
+    var(--color-editor-foreground) 55%,
+    var(--color-editor-border)
+  );
+}
+
+.ui-icon-button {
+  --ui-selected-accent-bg: var(--editor-accent-soft, color-mix(in oklab, var(--editor-action) 16%, transparent));
+  --ui-selected-accent-ink: var(--editor-accent-ink, var(--editor-action));
+  --ui-selected-accent-border: color-mix(in oklab, var(--editor-action) 55%, var(--color-editor-border));
+}
+
+.ui-segmented-item:focus-visible,
+.ui-menu-item:focus-visible,
+.ui-toolbar-button:focus-visible,
+.ui-icon-button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ui-segmented-item,
+  .ui-menu-item,
+  .ui-toolbar-button,
+  .ui-icon-button {
+    transition: none;
+  }
+}

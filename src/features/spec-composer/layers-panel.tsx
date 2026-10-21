@@ -705,6 +705,22 @@ export function LayersPanel({ showHeader = true }: { showHeader?: boolean }) {
           <span role="status">Select layers, then choose an action.</span>
         )}
       </div>
+      <button
+        type="button"
+        className={`layer-row-background ${s.backgroundSelected ? "active" : ""}`}
+        onClick={() => {
+          setMultiSelect(false);
+          s.selectBackground();
+        }}
+        aria-pressed={s.backgroundSelected}
+      >
+        <span
+          className="layer-background-swatch"
+          style={backgroundStyle(doc)}
+          aria-hidden="true"
+        />
+        <span>Background</span>
+      </button>
       <DndContext
         sensors={sensors}
         collisionDetection={(args) =>
@@ -847,24 +863,8 @@ export function LayersPanel({ showHeader = true }: { showHeader?: boolean }) {
           )}
         </DragOverlay>
       </DndContext>
-      <div className="layers-footer">
-        <button
-          type="button"
-          className={`layer-row-background ${s.backgroundSelected ? "active" : ""}`}
-          onClick={() => {
-            setMultiSelect(false);
-            s.selectBackground();
-          }}
-          aria-pressed={s.backgroundSelected}
-        >
-          <span
-            className="layer-background-swatch"
-            style={backgroundStyle(doc)}
-            aria-hidden="true"
-          />
-          <span>Background</span>
-        </button>
-        {(nodes.length > 0 || s.backgroundSelected) && (
+      {(nodes.length > 0 || s.backgroundSelected) && (
+        <div className="layers-footer">
           <div className="layer-toolbar" aria-label="Selection actions">
             <div className="layer-selection-summary" aria-live="polite">
               <span>Selected</span>
@@ -899,8 +899,8 @@ export function LayersPanel({ showHeader = true }: { showHeader?: boolean }) {
               </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

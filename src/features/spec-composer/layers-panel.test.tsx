@@ -372,7 +372,7 @@ describe("Layers panel markup and selection states", () => {
     expect(onSelect).not.toHaveBeenCalled();
     expect(state().selectedIds).toEqual(["Shape"]);
   });
-  it("renders compact accessible hierarchy, controls and a pinned background with no permanent destructive toolbar", () => {
+  it("renders compact accessible hierarchy and controls, with Background above the layer list and no footer without a selection", () => {
     setup();
     const html = renderToStaticMarkup(<LayersPanel />);
     expect(html).toContain('role="tree"');
@@ -384,8 +384,11 @@ describe("Layers panel markup and selection states", () => {
     expect(html).toContain('aria-label="Lock Product details"');
     expect(html).toContain('aria-label="Actions for Shape"');
     expect(html).toContain('aria-label="Drag Product"');
-    expect(html).toContain('class="layers-footer"');
+    expect(html).not.toContain('class="layers-footer"');
     expect(html).toContain("Background");
+    expect(html.indexOf('class="layer-row-background')).toBeLessThan(
+      html.indexOf('role="tree"'),
+    );
     expect(html).not.toContain("Delete selected");
     expect(html).not.toContain("layer-toolbar");
   });
@@ -398,6 +401,10 @@ describe("Layers panel markup and selection states", () => {
     expect(html).toContain("Product details</strong>");
     expect(html).toContain("Ungroup");
     expect(html).toContain("Properties");
+    expect(html).toContain('class="layers-footer"');
+    expect(html.indexOf('class="layers-footer"')).toBeGreaterThan(
+      html.lastIndexOf('role="treeitem"'),
+    );
     state().selectLayers(["Title"]);
     html = renderToStaticMarkup(<LayersPanel />);
     expect((html.match(/aria-selected="true"/g) ?? []).length).toBe(1);

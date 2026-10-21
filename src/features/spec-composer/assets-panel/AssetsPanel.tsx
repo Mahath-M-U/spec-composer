@@ -1,10 +1,19 @@
 import { useId, useRef, useState } from "react";
 import { ElementLibrary } from "../contextual-editor/ElementLibrary";
-import { Box, Shapes, SlidersHorizontal, Sun } from "lucide-react";
+import {
+  Box,
+  Image as ImageIcon,
+  Shapes,
+  SlidersHorizontal,
+  Sun,
+} from "lucide-react";
 import { SceneLightingControls } from "../scene-lighting-controls";
 import { useEditorStore } from "../store";
 import { shapeRoleLabel } from "../shape-workflow";
 import { isTextKind } from "../types";
+import { PanelHeader } from "../panel-header";
+import { SegmentedTab, SegmentedTabs } from "../segmented-tabs";
+import { SectionHeading } from "../section-heading";
 
 const VIEWS = [
   { id: "add", label: "Add", icon: Shapes },
@@ -21,23 +30,18 @@ export function AssetsPanel() {
   const element = selected.length === 1 ? selected[0] : undefined;
   return (
     <div className="assets-panel compose-panel">
-      <div
-        className="asset-workflow-tabs"
-        role="tablist"
-        aria-label="Composition settings"
-      >
+      <PanelHeader icon={ImageIcon} eyebrow="Library" title="Assets" />
+      <SegmentedTabs className="asset-workflow-tabs" label="Composition settings">
         {VIEWS.map(({ id: key, label, icon: Icon }, index) => (
-          <button
+          <SegmentedTab
             key={key}
-            type="button"
-            role="tab"
             id={`${id}-${key}-tab`}
-            ref={(node) => {
+            selected={view === key}
+            controls={`${id}-${key}-panel`}
+            icon={Icon}
+            buttonRef={(node) => {
               tabRefs.current[index] = node;
             }}
-            aria-selected={view === key}
-            aria-controls={`${id}-${key}-panel`}
-            tabIndex={view === key ? 0 : -1}
             onClick={() => setView(key)}
             onKeyDown={(event) => {
               const next =
@@ -58,11 +62,10 @@ export function AssetsPanel() {
               tabRefs.current[next]?.focus();
             }}
           >
-            <Icon aria-hidden="true" />
-            <span>{label}</span>
-          </button>
+            {label}
+          </SegmentedTab>
         ))}
-      </div>
+      </SegmentedTabs>
       <div
         role="tabpanel"
         id={`${id}-add-panel`}
@@ -85,22 +88,24 @@ export function AssetsPanel() {
         )}
       </div>
       <section className="compose-selection" aria-label="Selected element">
-        <div className="asset-section-heading">
-          <h3>Selected element</h3>
-          {element && (
-            <span className="asset-role-badge">
-              {element.semanticRole
-                ? shapeRoleLabel(element.semanticRole)
-                : isTextKind(element.kind)
-                  ? "Text"
-                  : element.kind === "shape"
-                    ? "Shape"
-                    : element.kind === "divider"
-                      ? "Divider"
-                      : "Image"}
-            </span>
-          )}
-        </div>
+        <SectionHeading
+          title="Selected element"
+          meta={
+            element && (
+              <span className="asset-role-badge">
+                {element.semanticRole
+                  ? shapeRoleLabel(element.semanticRole)
+                  : isTextKind(element.kind)
+                    ? "Text"
+                    : element.kind === "shape"
+                      ? "Shape"
+                      : element.kind === "divider"
+                        ? "Divider"
+                        : "Image"}
+              </span>
+            )
+          }
+        />
         {selected.length ? (
           <button
             type="button"
