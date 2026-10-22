@@ -72,7 +72,21 @@ function interact(actions: Array<(view: View) => void>) {
   return { html, ...view! };
 }
 const modeButton = (view: View) =>
-  view.find((node) => node.type === "button" && !!node.props["aria-controls"]);
+  view.find(
+    (node) =>
+      node.type === "button" &&
+      node.props["className"] === "layer-selection-trigger",
+  );
+const namedButton = (view: View, label: string) =>
+  view.find(
+    (node) =>
+      node.type === "button" &&
+      (node.props["aria-label"] === label || node.props["children"] === label),
+  );
+const checkboxChange = (view: View, id: string, modifiers = plain) => {
+  call(layerItem(view, id), "onToggleSelection", id, modifiers);
+};
+
 const layerItem = (view: View, id: string) =>
   view.find(
     (node) => (node.props["row"] as { id?: string } | undefined)?.id === id,
@@ -127,11 +141,12 @@ describe("Layers panel markup and selection states", () => {
     const before = state().doc;
     const result = interact([
       (view) => {
-        expect(modeButton(view).props["children"]).toBe("Select multiple");
+        expect(modeButton(view).props["aria-label"]).toBe("Select");
         call(modeButton(view), "onClick");
       },
       (view) => {
         expect(modeButton(view).props["aria-pressed"]).toBe(true);
+        expect(modeButton(view).props["aria-label"]).toBe("Done");
         expect(layerItem(view, "Title").props["multiSelect"]).toBe(true);
         call(layerItem(view, "Title"), "onSelect", plain, "Title");
       },
@@ -154,7 +169,8 @@ describe("Layers panel markup and selection states", () => {
         call(modeButton(view), "onClick");
       },
     ]);
-    expect(result.html).toContain("Select multiple");
+    expect(result.html).toContain("Select");
+    expect(modeButton(result).props["aria-pressed"]).toBe(false);
     expect(result.html).toContain('aria-label="Drag Product"');
     expect(result.html).not.toContain('type="checkbox"');
     expect(state().selectedIds).toEqual(["Product"]);
@@ -188,8 +204,14 @@ describe("Layers panel markup and selection states", () => {
     call(label, "onClick", { stopPropagation });
     expect(stopPropagation).toHaveBeenCalledOnce();
     expect(onToggleSelection).not.toHaveBeenCalled();
-    call(input, "onChange");
-    expect(onToggleSelection).toHaveBeenCalledExactlyOnceWith("Title");
+    call(input, "onChange", { nativeEvent: plain });
+    expect(onToggleSelection).toHaveBeenCalledExactlyOnceWith("Title", plain);
+    for (const modifier of ["shiftKey", "ctrlKey", "metaKey"]) {
+      const modifiers = { ...plain, [modifier]: true };
+      call(input, "onChange", { nativeEvent: modifiers });
+      expect(onToggleSelection).toHaveBeenLastCalledWith("Title", modifiers);
+    }
+    expect(onToggleSelection).toHaveBeenCalledTimes(4);
     const row = item.find((node) => node.props["role"] === "treeitem");
     call(row, "onDoubleClick", { target: { closest: () => null } });
     expect(startRename).not.toHaveBeenCalled();
@@ -344,8 +366,9 @@ describe("Layers panel markup and selection states", () => {
     callbacks[0]!(0);
     expect(focus).toHaveBeenCalledOnce();
   });
-  it("keeps eye, lock and group expansion independent from selection mode", () => {
+  it("preserves group disclosure while replacing individual actions with noninteractive status in selection mode", () => {
     setup();
+    state().updateLayers(["Title"], { visible: false, locked: true });
     state().selectLayers(["Shape"]);
     const result = interact([(view) => call(modeButton(view), "onClick")]);
     const row = layerItem(result, "g"),
@@ -353,14 +376,11 @@ describe("Layers panel markup and selection states", () => {
       onToggle = vi.fn();
     const renderRow = row.type as (props: ElementProps) => ReactElement;
     const item = capture(() => renderRow({ ...row.props, onSelect, onToggle }));
-    call(
-      item.find((node) => node.props["aria-label"] === "Hide Product details"),
-      "onClick",
-    );
-    call(
-      item.find((node) => node.props["aria-label"] === "Lock Product details"),
-      "onClick",
-    );
+    expect(item.html).toContain('role="img" aria-label="Partly hidden"');
+    expect(item.html).toContain('role="img" aria-label="Partly locked"');
+    expect(item.html).not.toContain('aria-label="Hide Product details');
+    expect(item.html).not.toContain('aria-label="Lock Product details');
+    expect(item.html).not.toContain('aria-label="Actions for');
     call(
       item.find(
         (node) => node.props["aria-label"] === "Collapse Product details",
@@ -372,6 +392,7 @@ describe("Layers panel markup and selection states", () => {
     expect(onSelect).not.toHaveBeenCalled();
     expect(state().selectedIds).toEqual(["Shape"]);
   });
+
   it("renders compact accessible hierarchy and controls, with Background above the layer list and no footer without a selection", () => {
     setup();
     const html = renderToStaticMarkup(<LayersPanel />);
@@ -402,6 +423,124 @@ describe("Layers panel markup and selection states", () => {
     expect((html.match(/canvas-text kind-title/g) ?? []).length).toBe(2);
     expect((html.match(/class="layer-thumb-leaf"/g) ?? []).length).toBe(2);
   });
+  it("orders ordinary rows as drag, actual preview, name, visibility, lock and more with matching tooltips", () => {
+    setup();
+    const panel = capturePanel();
+    const row = layerItem(panel, "Title");
+    const renderRow = row.type as (props: ElementProps) => ReactElement;
+    const item = capture(() => renderRow(row.props));
+    const controls = [
+      "Drag Title",
+      "Hide Title",
+      "Lock Title",
+      "Actions for Title",
+    ];
+    for (const label of controls) {
+      const control = item.find(
+        (node) => node.type === "button" && node.props["aria-label"] === label,
+      );
+      expect(control.props["title"]).toBe(label);
+    }
+    const ordered = [
+      'class="layer-drag ',
+      'class="layer-thumb"',
+      'class="layer-name ',
+      'aria-label="Hide Title"',
+      'aria-label="Lock Title"',
+      'aria-label="Actions for Title"',
+    ];
+    ordered
+      .slice(1)
+      .forEach((part, i) =>
+        expect(item.html.indexOf(ordered[i]!)).toBeLessThan(
+          item.html.indexOf(part),
+        ),
+      );
+    expect(item.html).not.toContain("layer-chevron-space");
+    expect(item.html).not.toContain('class="layer-chevron"');
+    expect(item.html).toContain('title="Title"');
+    expect(
+      item.find((node) => node.props["aria-label"] === "Hide Title").props[
+        "aria-pressed"
+      ],
+    ).toBe(false);
+    expect(
+      item.find((node) => node.props["aria-label"] === "Lock Title").props[
+        "aria-pressed"
+      ],
+    ).toBe(false);
+  });
+  it("keeps hidden and locked controls persistent for leaves and mixed groups, preserving disclosure semantics", () => {
+    setup();
+    state().updateLayers(["Title"], { visible: false, locked: true });
+    const panel = capturePanel();
+    for (const [id, labels] of [
+      ["Title", ["Show Title", "Unlock Title"]],
+      [
+        "g",
+        [
+          "Hide Product details (partly hidden)",
+          "Lock Product details (partly locked)",
+        ],
+      ],
+    ] as const) {
+      const row = layerItem(panel, id);
+      const renderRow = row.type as (props: ElementProps) => ReactElement;
+      const item = capture(() => renderRow(row.props));
+      for (const label of labels) {
+        const control = item.find(
+          (node) => node.type === "button" && node.props["aria-label"] === label,
+        );
+        expect(control.props["className"]).toContain("persistent");
+        expect(control.props["title"]).toBe(label);
+        expect(control.props["aria-pressed"]).toBe(id === "g" ? "mixed" : true);
+      }
+      if (id === "g") {
+        const disclosure = item.find(
+          (node) => node.props["className"] === "layer-chevron",
+        );
+        expect(disclosure.props["title"]).toBe("Collapse Product details");
+        expect(item.html).toContain('aria-expanded="true"');
+        const collapsed = capture(() =>
+          renderRow({ ...row.props, collapsed: true }),
+        );
+        expect(
+          collapsed.find((node) => node.props["className"] === "layer-chevron")
+            .props["title"],
+        ).toBe("Expand Product details");
+        expect(collapsed.html).toContain('aria-expanded="false"');
+      }
+    }
+  });
+  it.each([
+    { width: 400, height: 100, scale: 0.09 },
+    { width: 100, height: 400, scale: 0.05 },
+  ])(
+    "uniformly fits a sourced $width×$height image using its actual content",
+    ({ width, height, scale }) => {
+      setup();
+      const doc = state().doc!;
+      const image = doc.elements.find((element) => element.id === "Product")!;
+      const src =
+        "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect width='4' height='4' fill='red'/%3E%3C/svg%3E";
+      Object.assign(image, { width, height, src });
+      image.style.objectFit = "contain";
+      delete image.groupId;
+      doc.groups = [];
+      doc.elements = [image];
+      state().setDocument(doc);
+      const html = renderToStaticMarkup(<LayersPanel />);
+      expect(html).toContain(
+        `width:${width}px;height:${height}px;transform:translate(-50%, -50%) scale(${scale})`,
+      );
+      expect(html).toContain(`src="${src.replaceAll("'", "&#x27;")}"`);
+      expect(html).toContain('class="canvas-image"');
+      expect(html).toContain("object-fit:contain");
+      expect(html).not.toContain('class="layer-thumb is-guide"');
+      expect((html.match(/<img /g) ?? []).length).toBe(1);
+    },
+  );
+
   it("swaps a thumbnail's backing when its content would blend into the document background", () => {
     setup();
     const doc = state().doc!;
@@ -625,5 +764,259 @@ describe("Layers panel markup and selection states", () => {
     expect(commitRename).toHaveBeenLastCalledWith(true);
     key({ key: "Escape", preventDefault: vi.fn(), stopPropagation: vi.fn() });
     expect(cancelRename).toHaveBeenCalledOnce();
+  });
+});
+
+describe("Layers contextual selection controls", () => {
+  it("returns focus to Select when Escape exits mode from a row without clearing selection", () => {
+    setup();
+    state().selectLayers(["Title"]);
+    const focus = vi.fn();
+    const callbacks: FrameRequestCallback[] = [];
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      callbacks.push(callback);
+      return 1;
+    });
+    const result = interact([
+      (view) => call(modeButton(view), "onClick"),
+      (view) => {
+        (modeButton(view).props["ref"] as { current: unknown }).current = {
+          focus,
+        };
+        const row = layerItem(view, "Title");
+        call(row, "onKeyDown", keyEvent("Escape"), row.props["row"]);
+      },
+    ]);
+    expect(modeButton(result).props["aria-label"]).toBe("Select");
+    expect(state().selectedIds).toEqual(["Title"]);
+    expect(callbacks).toHaveLength(1);
+    callbacks[0]!(0);
+    expect(focus).toHaveBeenCalledOnce();
+    expect(state().past).toHaveLength(0);
+  });
+  it("counts canonical selections, selects collapsed descendants and clears without changing canvas or history", () => {
+    setup();
+    const original = state().doc;
+    const result = interact([
+      (view) => call(layerItem(view, "g"), "onToggle"),
+      (view) => call(modeButton(view), "onClick"),
+      (view) => call(namedButton(view, "Select all"), "onClick"),
+      (view) => {
+        expect(state().selectedGroupIds).toEqual(["g"]);
+        expect(state().selectedIds).toEqual(["Title", "Product", "Shape"]);
+        expect(
+          view.find((node) => node.props["role"] === "status").props[
+            "children"
+          ],
+        ).toEqual([2, " selected"]);
+        call(namedButton(view, "Clear"), "onClick");
+      },
+    ]);
+    expect(result.html).toContain('data-selection-mode="true"');
+    expect(result.html).toContain("0 selected");
+    expect(result.html).not.toContain("layer-bulk-actions");
+    expect(result.html).not.toContain('data-layer-id="Title"');
+    expect(state().selectedIds).toEqual([]);
+    expect(state().selectedGroupIds).toEqual([]);
+    expect(state().doc).toBe(original);
+    expect(state().past).toHaveLength(0);
+  });
+
+  it("uses the existing Shift range and Ctrl/Cmd toggles from native checkbox changes exactly once", () => {
+    setup();
+    const original = state().doc;
+    interact([
+      (view) => call(modeButton(view), "onClick"),
+      (view) => checkboxChange(view, "Title"),
+      (view) => {
+        expect(state().selectedIds).toEqual(["Title"]);
+        checkboxChange(view, "Shape", { ...plain, shiftKey: true });
+      },
+      (view) => {
+        expect(state().selectedIds).toEqual(["Title", "Product", "Shape"]);
+        checkboxChange(view, "Product", { ...plain, ctrlKey: true });
+      },
+      (view) => {
+        expect(state().selectedIds).toEqual(["Title", "Shape"]);
+        checkboxChange(view, "Title", { ...plain, metaKey: true });
+      },
+    ]);
+    expect(state().selectedIds).toEqual(["Shape"]);
+    expect(state().doc).toBe(original);
+    expect(state().past).toHaveLength(0);
+  });
+
+  it.each([
+    {
+      action: "Hide",
+      reverse: "Show",
+      property: "visible" as const,
+      initial: false,
+      target: false,
+    },
+    {
+      action: "Lock",
+      reverse: "Unlock",
+      property: "locked" as const,
+      initial: true,
+      target: true,
+    },
+  ])(
+    "applies bulk $action to mixed group descendants as one reversible command",
+    ({ action, reverse, property, initial, target }) => {
+      setup();
+      state().updateLayers(["Title"], { [property]: initial });
+      state().selectLayers(["g"]);
+      const original = structuredClone(state().doc!.elements);
+      const past = state().past.length;
+      const result = interact([
+        (view) => call(modeButton(view), "onClick"),
+        (view) =>
+          call(namedButton(view, `${action} selected layers`), "onClick"),
+      ]);
+      const changed = structuredClone(state().doc!.elements);
+      expect(
+        changed.slice(0, 2).every((element) => element[property] === target),
+      ).toBe(true);
+      expect(changed[2]).toEqual(original[2]);
+      expect(changed.map(({ id }) => id)).toEqual(original.map(({ id }) => id));
+      expect(state().past).toHaveLength(past + 1);
+      state().undo();
+      expect(state().doc!.elements).toEqual(original);
+      state().redo();
+      expect(state().doc!.elements).toEqual(changed);
+      call(namedButton(result, `${reverse} selected layers`), "onClick");
+      expect(
+        state()
+          .doc!.elements.slice(0, 2)
+          .every((element) => element[property] === !target),
+      ).toBe(true);
+    },
+  );
+
+  it("groups compatible selected leaves with one undo step and preserves element identity", () => {
+    setup();
+    state().selectLayers(["Title", "Product"]);
+    const original = structuredClone(state().doc!);
+    const result = interact([
+      (view) => call(modeButton(view), "onClick"),
+      (view) => {
+        expect(
+          namedButton(view, "Group selected layers").props["disabled"],
+        ).toBe(false);
+        call(namedButton(view, "Group selected layers"), "onClick");
+      },
+    ]);
+    const grouped = structuredClone(state().doc!);
+    expect(grouped.groups).toHaveLength((original.groups?.length ?? 0) + 1);
+    expect(grouped.elements.map(({ id }) => id)).toEqual(
+      original.elements.map(({ id }) => id),
+    );
+    expect(state().past).toHaveLength(1);
+    expect(result.html).not.toContain("Properties");
+    state().undo();
+    expect(state().doc!.elements).toEqual(original.elements);
+    expect(state().doc!.groups).toEqual(original.groups);
+    state().redo();
+    expect(state().doc!.elements).toEqual(grouped.elements);
+    expect(state().doc!.groups).toEqual(grouped.groups);
+  });
+
+  it("deletes only eligible selected leaves as one reversible command", () => {
+    setup();
+    state().selectLayers(["Title"]);
+    const original = structuredClone(state().doc!.elements);
+    interact([
+      (view) => call(modeButton(view), "onClick"),
+      (view) => call(namedButton(view, "Delete selected layers"), "onClick"),
+    ]);
+    const deleted = structuredClone(state().doc!.elements);
+    expect(deleted.map(({ id }) => id)).toEqual(["Product", "Shape"]);
+    expect(state().past).toHaveLength(1);
+    state().undo();
+    expect(state().doc!.elements).toEqual(original);
+    state().redo();
+    expect(state().doc!.elements).toEqual(deleted);
+  });
+
+  it.each(["Delete", "Backspace"])(
+    "guards locked bulk selection from %s and disabled Delete, including locked group descendants",
+    (key) => {
+      setup();
+      state().updateLayers(["Title"], { locked: true });
+      state().selectLayers(["g", "Shape"]);
+      const original = state().doc;
+      const past = state().past.length;
+      const result = interact([(view) => call(modeButton(view), "onClick")]);
+      const deletion = namedButton(result, "Delete selected layers");
+      expect(deletion.props["disabled"]).toBe(true);
+      expect(deletion.props["title"]).toBe(
+        "Unlock selected layers before deleting",
+      );
+      expect(
+        namedButton(result, "Group selected layers").props["disabled"],
+      ).toBe(true);
+      call(deletion, "onClick");
+      const event = { ...keyEvent(key), target: { closest: () => null } };
+      call(
+        result.find((node) => node.props["className"] === "layers-panel"),
+        "onKeyDownCapture",
+        event,
+      );
+      expect(event.preventDefault).toHaveBeenCalledOnce();
+      expect(event.stopPropagation).toHaveBeenCalledOnce();
+      call(
+        layerItem(result, "Shape"),
+        "onKeyDown",
+        keyEvent(key),
+        layerItem(result, "Shape").props["row"],
+      );
+      expect(state().doc).toBe(original);
+      expect(state().past).toHaveLength(past);
+    },
+  );
+
+  it("captures eligible mode deletion once and leaves input editing and normal mode row deletion unchanged", () => {
+    setup();
+    state().selectLayers(["Title"]);
+    const result = interact([(view) => call(modeButton(view), "onClick")]);
+    const panel = result.find(
+      (node) => node.props["className"] === "layers-panel",
+    );
+    const editable = {
+      ...keyEvent("Backspace"),
+      target: { closest: () => ({}) },
+    };
+    call(panel, "onKeyDownCapture", editable);
+    expect(editable.preventDefault).not.toHaveBeenCalled();
+    expect(state().past).toHaveLength(0);
+    const deletion = { ...keyEvent("Delete"), target: { closest: () => null } };
+    call(panel, "onKeyDownCapture", deletion);
+    expect(state().doc!.elements.map(({ id }) => id)).toEqual([
+      "Product",
+      "Shape",
+    ]);
+    expect(state().past).toHaveLength(1);
+    setup();
+    state().selectLayers(["Title"]);
+    const normal = capturePanel();
+    const ordinary = { ...keyEvent("Delete"), target: { closest: () => null } };
+    call(
+      normal.find((node) => node.props["className"] === "layers-panel"),
+      "onKeyDownCapture",
+      ordinary,
+    );
+    expect(ordinary.preventDefault).not.toHaveBeenCalled();
+    call(
+      layerItem(normal, "Title"),
+      "onKeyDown",
+      keyEvent("Delete"),
+      layerItem(normal, "Title").props["row"],
+    );
+    expect(state().doc!.elements.map(({ id }) => id)).toEqual([
+      "Product",
+      "Shape",
+    ]);
+    expect(state().past).toHaveLength(1);
   });
 });

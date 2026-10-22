@@ -244,8 +244,12 @@
   white-space: nowrap;
 }
 .contextual-element-card:hover {
-  background: var(--color-editor-hover);
-  border-color: var(--color-editor-border);
+  border-color: color-mix(in oklab, var(--color-editor-foreground) 45%, transparent);
+  background: color-mix(
+    in oklab,
+    var(--color-editor-foreground) 7%,
+    var(--color-editor-surface)
+  );
 }
 .contextual-element-card:hover .contextual-element-thumb {
   background: color-mix(
@@ -254,13 +258,8 @@
     var(--color-editor-surface)
   );
 }
-.contextual-element-card[data-added="true"] {
-  border-color: color-mix(in oklab, var(--editor-action) 45%, transparent);
-  background: color-mix(
-    in oklab,
-    var(--editor-action) 7%,
-    var(--color-editor-surface)
-  );
+.contextual-element-card[data-added="true"] .ui-count {
+  color: var(--editor-action);
 }
 .contextual-element-card:focus-visible {
   outline: 2px solid var(--editor-action);

@@ -17,6 +17,8 @@ import type { ElementKind } from "./types";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { TextColorControl } from "./text-color-control";
 import { OpaqueColorControl } from "./color-control";
+import { COMPOSE_LAYOUTS } from "./compose-layouts";
+import { SegmentedTab, SegmentedTabs } from "./segmented-tabs";
 
 vi.mock("./store", async (importOriginal) => {
   const original = await importOriginal<typeof import("./store")>();
@@ -94,6 +96,7 @@ function setup(kinds: ElementKind[] = ["productImage"]) {
     styleTab: "style",
     past: [],
     future: [],
+    composeOrigin: undefined,
   });
 }
 const input = (view: View, label: string) =>
@@ -242,6 +245,109 @@ describe("Style inspector contextual rendering", () => {
     ).toBe(true);
     doc().elements[0]!.locked = true;
     expect(capture(StylePanel).html).toMatch(/aria-label="Font" disabled=""/);
+  });
+});
+
+describe("Layout Presets inspector", () => {
+  const cards = (html: string) =>
+    html.match(
+      /<button\b[^>]*class="compose-item\b[^"]*"[^>]*>[\s\S]*?<\/button>/g,
+    ) ?? [];
+  const renderLayout = () => {
+    useEditorStore.setState({ styleTab: "layout" });
+    return capture(StylePanel).html;
+  };
+
+  it("keeps every preset and category in order, with actual zero, one and multiple selection scope", () => {
+    setup(["heroImage", "title", "body"]);
+    for (const selectedIds of [[], ["0"], ["0", "1", "2"]]) {
+      useEditorStore.setState({ selectedIds });
+      const html = renderLayout();
+      expect(html).toContain(
+        selectedIds.length
+          ? `Applies to ${selectedIds.length} selected`
+          : "Applies to all visible layers",
+      );
+      const items = cards(html);
+      expect(items).toHaveLength(COMPOSE_LAYOUTS.length + 1);
+      expect(items[0]).toContain('class="compose-item compose-original"');
+      expect(items[0]).toContain('aria-label="Original"');
+      COMPOSE_LAYOUTS.forEach((layout, i) => {
+        expect(items[i + 1]).toContain(`aria-label="${layout.label}"`);
+        expect(items[i + 1]).toContain(`title="${layout.hint}`);
+      });
+      const categories = ["Split", "Overlay", "Centered", "Editorial"];
+      categories
+        .slice(1)
+        .forEach((category, i) =>
+          expect(html.indexOf(`>${categories[i]}</h4>`)).toBeLessThan(
+            html.indexOf(`>${category}</h4>`),
+          ),
+        );
+      expect(html.indexOf("compose-original")).toBeLessThan(
+        html.indexOf("compose-group"),
+      );
+      expect(html.indexOf("Tidy up spacing")).toBeGreaterThan(
+        html.indexOf(">Editorial</h4>"),
+      );
+    }
+  });
+
+  it("explains unavailable actions while keeping their full hints and illustrative thumbnails", () => {
+    setup(["title", "body"]);
+    let items = cards(renderLayout());
+    expect(items[0]).toContain('disabled=""');
+    expect(items[0]).toContain(
+      "Apply a layout first to save the original positions",
+    );
+    for (const [i, layout] of COMPOSE_LAYOUTS.entries()) {
+      expect(items[i + 1]!.includes('disabled=""')).toBe(!!layout.requires);
+      expect(items[i + 1]).toContain('viewBox="0 0 100 100"');
+    }
+    expect(items[1]).toContain("Add an image to use this layout");
+    expect(items[8]).toContain("Needs 2+ images");
+    setup(["heroImage", "productImage", "title"]);
+    items = cards(renderLayout());
+    expect(items.slice(1).every((item) => !item.includes('disabled=""'))).toBe(
+      true,
+    );
+  });
+
+  it("derives a single active preset from canvas geometry through compose, undo, redo and Original", () => {
+    setup(["heroImage", "title", "body"]);
+    useEditorStore.setState({ selectedIds: [] });
+    const original = structuredClone(doc().elements);
+    state().compose("copy-right");
+    const composed = structuredClone(doc().elements);
+    let html = renderLayout();
+    expect(
+      cards(html).filter((item) => item.includes('aria-pressed="true"')),
+    ).toHaveLength(1);
+    expect(
+      cards(html).find((item) => item.includes('aria-label="Copy right"')),
+    ).toContain('aria-pressed="true"');
+    expect(cards(html)[0]).not.toContain('disabled=""');
+    expect(html).not.toContain("compose-selected");
+    state().undo();
+    expect(doc().elements).toEqual(original);
+    expect(
+      cards(renderLayout()).filter((item) =>
+        item.includes('aria-pressed="true"'),
+      ).length,
+    ).toBeLessThanOrEqual(1);
+    state().redo();
+    expect(doc().elements).toEqual(composed);
+    html = renderLayout();
+    expect(
+      cards(html).find((item) => item.includes('aria-label="Copy right"')),
+    ).toContain('aria-pressed="true"');
+    state().resetCompose();
+    expect(doc().elements).toEqual(original);
+    expect(
+      cards(renderLayout()).filter((item) =>
+        item.includes('aria-pressed="true"'),
+      ).length,
+    ).toBeLessThanOrEqual(1);
   });
 });
 
@@ -784,7 +890,7 @@ describe("inspector field and selection interactions", () => {
       },
     });
     const tabs = (view: View) =>
-      view.find((node) => node.props["role"] === "tablist");
+      view.find((node) => node.type === SegmentedTabs && node.props["label"] === "Design inspector");
     capture(StylePanel, [
       (view) => call(tabs(view), "onKeyDown", event("End")),
     ]);
@@ -800,6 +906,45 @@ describe("inspector field and selection interactions", () => {
     ]);
     expect(state().styleTab).toBe("layout");
   });
+  it("keeps disabled Style tooltip and routes every navigation key to Layout Presets without a selection", () => {
+    useEditorStore.setState({ selectedIds: [] });
+    const focused: string[] = [];
+    const view = capture(StylePanel);
+    const style = view.find(
+      (node) =>
+        node.type === SegmentedTab && node.props["id"] === "inspector-tab-style",
+    );
+    expect(style.props["disabled"]).toBe(true);
+    expect(style.props["selected"]).toBe(false);
+    expect(
+      view.find(
+        (node) => node.props["label"] === "Select an element to edit its style",
+      ),
+    ).toBeDefined();
+    expect(view.html).toContain(
+      'id="inspector-tab-style" aria-selected="false" aria-controls="inspector-style" tabindex="-1"',
+    );
+    for (const key of ["ArrowLeft", "ArrowRight", "Home", "End"]) {
+      const event = {
+        ...keyEvent(key),
+        currentTarget: {
+          querySelector: (selector: string) => ({
+            focus: () => focused.push(selector),
+          }),
+        },
+      };
+      const tabs = capture(StylePanel).find(
+        (node) =>
+          node.type === SegmentedTabs &&
+          node.props["label"] === "Design inspector",
+      );
+      call(tabs, "onKeyDown", event);
+      expect(event.preventDefault).toHaveBeenCalledOnce();
+      expect(state().styleTab).toBe("layout");
+    }
+    expect(focused).toEqual(Array(4).fill("#inspector-tab-layout"));
+  });
+
   it("does not remove an editable member's material when a mixed chip differs only on locked members", () => {
     setup(["productImage", "productImage"]);
     doc().elements[0]!.material = "Clear glass";

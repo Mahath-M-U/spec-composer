@@ -3,6 +3,7 @@ import { resolveEditorText } from "./output-sync";
 import {
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -65,7 +66,6 @@ import {
   AlertTriangle,
   Plug,
   MessagesSquare,
-  RotateCw,
   Scaling,
   Compass,
   PanelRightClose,
@@ -93,6 +93,9 @@ import { fitPreview } from "./preview-fit";
 import { openStyleEditor } from "./inspector-navigation";
 import { OpaqueColorControl } from "./color-control";
 import { TextColorControl } from "./text-color-control";
+import { InspectorGlyph } from "./inspector-glyphs";
+import { LayoutPresetThumbnail } from "./layout-preset-thumbnail";
+import { SegmentedTab, SegmentedTabs } from "./segmented-tabs";
 import {
   applyTextColorIntent,
   textColorPresets,
@@ -1197,10 +1200,9 @@ export function StylePanel() {
         }
       />
       <div className="style-dock">
-        <div
+        <SegmentedTabs
           className="style-dock-tabs"
-          role="tablist"
-          aria-label="Design inspector"
+          label="Design inspector"
           onKeyDown={(event) => {
             if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key))
               return;
@@ -1227,36 +1229,28 @@ export function StylePanel() {
             label={canStyle ? undefined : "Select an element to edit its style"}
           >
             <span className="style-dock-tab-slot">
-              <button
-                type="button"
-                role="tab"
+              <SegmentedTab
                 id="inspector-tab-style"
-                aria-controls="inspector-style"
-                tabIndex={tab === "style" ? 0 : -1}
-                aria-selected={tab === "style"}
-                className={tab === "style" ? "active" : ""}
+                controls="inspector-style"
+                selected={tab === "style"}
+                icon={Palette}
                 disabled={!canStyle}
                 onClick={() => setTab("style")}
               >
-                <Palette aria-hidden="true" />
                 Style
-              </button>
+              </SegmentedTab>
             </span>
           </Hint>
-          <button
-            type="button"
-            role="tab"
+          <SegmentedTab
             id="inspector-tab-layout"
-            aria-controls="inspector-layout"
-            tabIndex={tab === "layout" ? 0 : -1}
-            aria-selected={tab === "layout"}
-            className={tab === "layout" ? "active" : ""}
+            controls="inspector-layout"
+            selected={tab === "layout"}
+            icon={LayoutGrid}
             onClick={() => setTab("layout")}
           >
-            <LayoutGrid aria-hidden="true" />
             Layout Presets
-          </button>
-        </div>
+          </SegmentedTab>
+        </SegmentedTabs>
 
         <div
           id="inspector-layout"
@@ -1279,16 +1273,31 @@ export function StylePanel() {
             <>
               {firstElement && (
                 <div className="inspector-selection">
-                  <strong>{selectionName.value ?? "Mixed"}</strong>
-                  {showSelectionRole && (
-                    <span>{selectionRole.value ?? "Mixed"}</span>
-                  )}
-                  {editableCount !== selectedElements.length && (
-                    <small>
-                      {editableCount} of {selectedElements.length} editable ·
-                      locked layers preserved
-                    </small>
-                  )}
+                  <div className="inspector-selection-thumb" aria-hidden="true">
+                    <InspectorGlyph
+                      name={
+                        category === "text"
+                          ? "kind-text"
+                          : category === "image"
+                            ? "kind-image"
+                            : category === "shape"
+                              ? "kind-shape"
+                              : "kind-mixed"
+                      }
+                    />
+                  </div>
+                  <div className="inspector-selection-text">
+                    <strong>{selectionName.value ?? "Mixed"}</strong>
+                    {showSelectionRole && (
+                      <span>{selectionRole.value ?? "Mixed"}</span>
+                    )}
+                    {editableCount !== selectedElements.length && (
+                      <small>
+                        {editableCount} of {selectedElements.length} editable ·
+                        locked layers preserved
+                      </small>
+                    )}
+                  </div>
                 </div>
               )}
               {selectedElements.length === 1 &&
@@ -1296,7 +1305,10 @@ export function StylePanel() {
                 !s.backgroundSelected &&
                 isTextKind(firstElement.kind) && (
                   <div className="style-dock-section element-details-fields">
-                    <h3 className="style-dock-section-title">Content</h3>
+                    <h3 className="style-dock-section-title">
+                      <InspectorGlyph name="content" />
+                      Content
+                    </h3>
                     <textarea
                       aria-label="Content"
                       rows={3}
@@ -1312,6 +1324,7 @@ export function StylePanel() {
               {firstElement && !s.backgroundSelected && (
                 <div className="style-dock-section">
                   <h3 className="style-dock-section-title">
+                    <InspectorGlyph name="transform" />
                     Transform <span>Canvas</span>
                   </h3>
                   {selectedElements.length > 1 && (
@@ -1360,7 +1373,7 @@ export function StylePanel() {
                   <div className="style-dock-grid">
                     <DockNumberField
                       key={`${selectionKey}-rotation`}
-                      prefix={<RotateCw aria-hidden="true" />}
+                      prefix={<InspectorGlyph name="rotation" />}
                       label="Rotation"
                       suffix="°"
                       disabled={geometryLocked}
@@ -1413,7 +1426,7 @@ export function StylePanel() {
                     />
                     <DockNumberField
                       key={`${selectionKey}-opacity`}
-                      prefix="O"
+                      prefix={<InspectorGlyph name="opacity" />}
                       label="Opacity"
                       suffix="%"
                       min={0}
@@ -1510,6 +1523,7 @@ export function StylePanel() {
               {firstTextElement && (
                 <div className="style-dock-section">
                   <h3 className="style-dock-section-title">
+                    <InspectorGlyph name="appearance" />
                     Appearance <span>Canvas</span>
                   </h3>
                   <label className="style-dock-control style-dock-font">
@@ -1615,7 +1629,7 @@ export function StylePanel() {
                   </label>
                   <div className="style-dock-grid">
                     <DockNumberField
-                      prefix="LH"
+                      prefix={<InspectorGlyph name="line-height" />}
                       label="Line height"
                       disabled={!editableCount}
                       min={0.1}
@@ -1625,7 +1639,7 @@ export function StylePanel() {
                       }
                     />
                     <DockNumberField
-                      prefix="LS"
+                      prefix={<InspectorGlyph name="letter-spacing" />}
                       label="Letter spacing"
                       disabled={!editableCount}
                       suffix="px"
@@ -1668,6 +1682,7 @@ export function StylePanel() {
               {(showImageFit || (showColorControls && category !== "text")) && (
                 <div className="style-dock-section">
                   <h3 className="style-dock-section-title">
+                    <InspectorGlyph name="appearance" />
                     Appearance <span>Canvas</span>
                   </h3>
                   {category === "shape" && (
@@ -1703,7 +1718,7 @@ export function StylePanel() {
                         disabled={!editableCount}
                       />
                       <DockNumberField
-                        prefix="B"
+                        prefix={<InspectorGlyph name="border-width" />}
                         label="Border width"
                         min={0}
                         suffix="px"
@@ -1718,7 +1733,7 @@ export function StylePanel() {
                           (el) => el.style.shapeType === "rounded rectangle",
                         ) && (
                           <DockNumberField
-                            prefix="R"
+                            prefix={<InspectorGlyph name="corner-radius" />}
                             label="Corner radius"
                             disabled={!editableCount}
                             min={0}
@@ -1813,6 +1828,7 @@ export function StylePanel() {
                     className="style-dock-section-title"
                     id="style-panel-material-title"
                   >
+                    <InspectorGlyph name="material" />
                     Material & Texture <span>Prompt only</span>
                   </h3>
                   <textarea
@@ -2141,7 +2157,10 @@ export function StylePanel() {
 
               {s.backgroundSelected && (
                 <div className="style-dock-section">
-                  <h3 className="style-dock-section-title">Background</h3>
+                  <h3 className="style-dock-section-title">
+                    <InspectorGlyph name="background" />
+                    Background
+                  </h3>
                   <label className="style-dock-row">
                     <span>Fill</span>
                     <select
@@ -2185,7 +2204,7 @@ export function StylePanel() {
                   )}
                   {d.background.type === "gradient" && (
                     <DockNumberField
-                      prefix={<RotateCw aria-hidden="true" />}
+                      prefix={<InspectorGlyph name="angle" />}
                       label="Gradient angle"
                       suffix="°"
                       min={0}
@@ -2486,107 +2505,6 @@ function FloatingControls() {
   );
 }
 
-type ThumbRect = [x: number, y: number, w: number, h: number];
-type ThumbSpec = { visual?: ThumbRect | ThumbRect[]; blocks: ThumbRect[] };
-
-/** ThumbRect is itself a 4-tuple array, so Array.isArray can't tell it apart
- * from ThumbRect[] by narrowing alone — check the first entry's type instead. */
-function toVisualRects(visual: ThumbSpec["visual"]): ThumbRect[] {
-  if (!visual) return [];
-  return typeof visual[0] === "number" ? [visual as ThumbRect] : (visual as ThumbRect[]);
-}
-
-/** Builds a thumbnail sketch from a planned box map: the pool's visuals
- * become the visual rect(s) (an array for multi-image layouts like
- * collage), logos and copy become blocks. Elements the layout didn't touch
- * (e.g. an unselected element, or a layout that found no visual) are
- * omitted. */
-function thumbSpecFromBoxes(
-  pool: ComposePool,
-  boxes: Record<string, Box>,
-): ThumbSpec {
-  const spec: ThumbSpec = { blocks: [] };
-  const visualRects = pool.visuals
-    .map((e) => boxes[e.id])
-    .filter((b): b is Box => !!b)
-    .map((b): ThumbRect => [b.x, b.y, b.width, b.height]);
-  if (visualRects.length === 1) spec.visual = visualRects[0]!;
-  else if (visualRects.length > 1) spec.visual = visualRects;
-  for (const e of [...pool.logos, ...pool.copy]) {
-    const b = boxes[e.id];
-    if (b) spec.blocks.push([b.x, b.y, b.width, b.height]);
-  }
-  return spec;
-}
-
-/** Scales a spec's actual-px rects to fit a 40x50 viewBox without distorting
- * the canvas's real aspect ratio (scale = min(40/w, 50/h)), so e.g. a wide
- * landscape format renders as a short wide sketch instead of a square one. */
-function ComposeThumb({
-  format,
-  spec,
-}: {
-  format: { width: number; height: number };
-  spec: ThumbSpec;
-}) {
-  const scale = Math.min(40 / format.width, 50 / format.height);
-  const vw = format.width * scale;
-  const vh = format.height * scale;
-  const visuals = toVisualRects(spec.visual);
-  return (
-    <svg
-      className="compose-thumb"
-      viewBox={`0 0 ${vw} ${vh}`}
-      aria-hidden="true"
-      focusable="false"
-    >
-      <rect className="compose-thumb-page" width={vw} height={vh} />
-      {visuals.map(([x, y, w, h], i) => (
-        <rect
-          key={`visual-${i}`}
-          className="compose-thumb-visual"
-          x={x * scale}
-          y={y * scale}
-          width={w * scale}
-          height={h * scale}
-        />
-      ))}
-      {spec.blocks.map(([x, y, w, h], i) => (
-        <rect
-          key={i}
-          className="compose-thumb-block"
-          x={x * scale}
-          y={y * scale}
-          width={w * scale}
-          height={h * scale}
-          rx="1"
-        />
-      ))}
-    </svg>
-  );
-}
-
-// Sketches the saved pre-compose boxes, or the current ones before any compose.
-function originThumb(
-  doc: SpecDocument | undefined,
-  origin: Record<string, Box> | undefined,
-): ThumbSpec {
-  if (!doc) return { blocks: [] };
-  const spec: ThumbSpec = { blocks: [] };
-  const visuals: ThumbRect[] = [];
-  doc.elements
-    .filter((e) => e.visible && e.kind !== "shape" && e.kind !== "divider")
-    .forEach((e) => {
-      const b = origin?.[e.id] ?? e;
-      const rect: ThumbRect = [b.x, b.y, b.width, b.height];
-      if (e.kind.toLowerCase().includes("image")) visuals.push(rect);
-      else spec.blocks.push(rect);
-    });
-  if (visuals.length === 1) spec.visual = visuals[0]!;
-  else if (visuals.length > 1) spec.visual = visuals;
-  return spec;
-}
-
 const COMPOSE_GROUPS: ComposeGroup[] = [
   "split",
   "overlay",
@@ -2604,7 +2522,7 @@ function ComposeList() {
   const s = useEditorStore();
   const doc = s.doc;
   const selectedIds = s.selectedIds;
-  const { pool, plans, activeId } = useMemo(() => {
+  const { pool, activeId } = useMemo(() => {
     const emptyPool: ComposePool = {
       visuals: [],
       logos: [],
@@ -2614,7 +2532,6 @@ function ComposeList() {
     if (!doc)
       return {
         pool: emptyPool,
-        plans: {} as Record<ComposeLayout, Record<string, Box>>,
         activeId: undefined as ComposeLayout | undefined,
       };
     const nextPool = composePool(doc, selectedIds);
@@ -2639,7 +2556,7 @@ function ComposeList() {
         );
       });
     })?.id;
-    return { pool: nextPool, plans: nextPlans, activeId: active };
+    return { pool: nextPool, activeId: active };
   }, [doc, selectedIds]);
 
   if (!doc) return null;
@@ -2654,13 +2571,25 @@ function ComposeList() {
         <p className="compose-scope">{scopeNote}</p>
         <button
           type="button"
-          className="compose-item"
+          className="compose-item compose-original"
+          aria-label="Original"
+          aria-description={
+            s.composeOrigin
+              ? "Restore positions from before any layout"
+              : "Apply a layout first to save the original positions"
+          }
+          title={
+            s.composeOrigin
+              ? "Restore positions from before any layout"
+              : "Apply a layout first to save the original positions"
+          }
           disabled={!s.composeOrigin}
           onClick={s.resetCompose}
         >
-          <ComposeThumb
-            format={doc.format}
-            spec={originThumb(doc, s.composeOrigin)}
+          <LayoutPresetThumbnail
+            presetId="original"
+            document={doc}
+            origin={s.composeOrigin}
           />
           <span className="compose-item-copy">
             <b>Original</b>
@@ -2683,18 +2612,18 @@ function ComposeList() {
                   key={l.id}
                   type="button"
                   className="compose-item"
+                  aria-label={l.label}
+                  aria-description={available ? l.hint : `${l.hint}. ${reason}`}
+                  title={available ? l.hint : `${l.hint}. ${reason}`}
                   aria-pressed={l.id === activeId}
                   data-active={l.id === activeId || undefined}
                   disabled={!available}
                   onClick={() => s.compose(l.id)}
                 >
-                  <ComposeThumb
-                    format={doc.format}
-                    spec={thumbSpecFromBoxes(pool, plans[l.id] ?? {})}
-                  />
+                  <LayoutPresetThumbnail presetId={l.id} />
                   <span className="compose-item-copy">
                     <b>{l.label}</b>
-                    <small>{available ? l.hint : reason}</small>
+                    <small>{l.hint}</small>
                   </span>
                 </button>
               );
@@ -2816,6 +2745,11 @@ const clearHandEdit = (x: SpecDocument, mode: PromptMode) => {
   }
 };
 
+const PROMPT_MODES = [
+  ["design_skill", "design.md", Palette],
+  ["visual_prompt", "prompt.md", FileText],
+] as const;
+
 function PromptPanel({
   sidebars,
   exportOpen,
@@ -2829,6 +2763,8 @@ function PromptPanel({
 }) {
   const s = useEditorStore();
   const d = s.doc;
+  const promptTabsId = useId();
+  const promptTabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [copied, setCopied] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editingPart, setEditingPart] = useState<string | null>(null);
@@ -3035,6 +2971,13 @@ function PromptPanel({
     if (editing && edit === generated)
       s.mutate((x) => clearHandEdit(x, x.promptMode), false);
     setEditing(false);
+  };
+  const switchPromptMode = (mode: PromptMode) => {
+    if (editing) finishEditing();
+    setEditingPart(null);
+    s.mutate((x) => {
+      x.promptMode = mode;
+    }, false);
   };
   // One section's row: tag, edit/delete actions and its body (visual
   // controls, raw textarea or rendered text). Shared by the Prompt Editor's
@@ -3294,39 +3237,44 @@ function PromptPanel({
         )}
         <div className="segmented">
           {/* Chat is a dialog trigger, not a tab, so it sits outside the tablist. */}
-          <div
-            className="segmented-tabs"
-            role="tablist"
-            aria-label="Prompt mode"
-          >
-            {(
-              [
-                ["design_skill", "design.md", Palette],
-                ["visual_prompt", "prompt.md", FileText],
-              ] as const
-            ).map(([id, label, Icon]) => (
-              <button
+          <SegmentedTabs className="segmented-tabs" label="Prompt mode">
+            {PROMPT_MODES.map(([id, label, Icon], index) => (
+              <SegmentedTab
                 key={id}
-                type="button"
-                role="tab"
-                aria-selected={d.promptMode === id}
-                className={d.promptMode === id ? "active" : ""}
-                data-tour={
+                id={`${promptTabsId}-${id}-tab`}
+                controls={`${promptTabsId}-panel`}
+                selected={d.promptMode === id}
+                icon={Icon}
+                dataTour={
                   id === "design_skill" ? "design-editor" : "prompt-editor"
                 }
-                onClick={() => {
-                  if (editing) finishEditing();
-                  setEditingPart(null);
-                  s.mutate((x) => {
-                    x.promptMode = id;
-                  }, false);
+                buttonRef={(node) => {
+                  promptTabRefs.current[index] = node;
+                }}
+                onClick={() => switchPromptMode(id)}
+                onKeyDown={(event) => {
+                  const nextIndex =
+                    event.key === "ArrowRight"
+                      ? (index + 1) % PROMPT_MODES.length
+                      : event.key === "ArrowLeft"
+                        ? (index + PROMPT_MODES.length - 1) % PROMPT_MODES.length
+                        : event.key === "Home"
+                          ? 0
+                          : event.key === "End"
+                            ? PROMPT_MODES.length - 1
+                            : null;
+                  if (nextIndex === null) return;
+                  event.preventDefault();
+                  const next = PROMPT_MODES[nextIndex];
+                  if (!next) return;
+                  switchPromptMode(next[0]);
+                  promptTabRefs.current[nextIndex]?.focus();
                 }}
               >
-                <Icon aria-hidden="true" />
-                <span className="segmented-label">{label}</span>
-              </button>
+                {label}
+              </SegmentedTab>
             ))}
-          </div>
+          </SegmentedTabs>
           <Hint label="Chat (coming soon)">
             <button
               type="button"
@@ -3352,7 +3300,12 @@ function PromptPanel({
           </button>
         </Hint>
       </div>
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div
+        className="flex min-h-0 flex-1 flex-col"
+        role="tabpanel"
+        id={`${promptTabsId}-panel`}
+        aria-labelledby={`${promptTabsId}-${d.promptMode}-tab`}
+      >
         <div className="p-3 empty:hidden">
           {chatOpen && (
             <ChatComingSoonSplash close={() => setChatOpen(false)} />

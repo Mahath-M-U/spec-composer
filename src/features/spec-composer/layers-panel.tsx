@@ -30,9 +30,11 @@ import {
   GripVertical,
   Group,
   Layers3,
+  ListChecks,
   Lock,
   MoreHorizontal,
   SlidersHorizontal,
+  Trash2,
   Ungroup,
   Unlock,
 } from "lucide-react";
@@ -246,7 +248,10 @@ function LayerItem({
   restoreFocus: (id: string) => void;
   dragBlocked: boolean;
   multiSelect: boolean;
-  onToggleSelection: (id: string) => void;
+  onToggleSelection: (
+    id: string,
+    modifiers?: Pick<MouseEvent, "shiftKey" | "ctrlKey" | "metaKey">,
+  ) => void;
 }) {
   const s = useEditorStore();
   const doc = s.doc!;
@@ -256,6 +261,8 @@ function LayerItem({
     row.leaves.length > 0 && row.leaves.every((el) => el.locked);
   const hidden = row.leaves.length > 0 && row.leaves.every((el) => !el.visible);
   const mixedVisible = !hidden && row.leaves.some((el) => !el.visible);
+  const visibilityLabel = `${hidden ? "Show" : "Hide"} ${row.name}${mixedVisible ? " (partly hidden)" : ""}`;
+  const lockLabel = `${allLocked ? "Unlock" : "Lock"} ${row.name}${locked && !allLocked ? " (partly locked)" : ""}`;
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, isDragging } =
     useDraggable({
       id: row.id,
@@ -336,7 +343,14 @@ function LayerItem({
             type="checkbox"
             aria-label={`Select ${row.name}`}
             checked={selected}
-            onChange={() => onToggleSelection(row.id)}
+            onChange={(event) => {
+              const native = event.nativeEvent;
+              onToggleSelection(row.id, {
+                shiftKey: "shiftKey" in native && native.shiftKey === true,
+                ctrlKey: "ctrlKey" in native && native.ctrlKey === true,
+                metaKey: "metaKey" in native && native.metaKey === true,
+              });
+            }}
           />
         </label>
       ) : (
@@ -345,6 +359,7 @@ function LayerItem({
           type="button"
           className="layer-drag layer-control"
           aria-label={`Drag ${row.name}`}
+          title={`Drag ${row.name}`}
           disabled={locked || dragBlocked}
           {...attributes}
           {...listeners}
@@ -353,13 +368,12 @@ function LayerItem({
           <GripVertical />
         </button>
       )}
-      {row.element ? (
-        <span className="layer-chevron-space" />
-      ) : (
+      {!row.element && (
         <button
           type="button"
           className="layer-chevron"
           aria-label={`${collapsed ? "Expand" : "Collapse"} ${row.name}`}
+          title={`${collapsed ? "Expand" : "Collapse"} ${row.name}`}
           onClick={(event) => {
             event.stopPropagation();
             onToggle();
@@ -411,87 +425,120 @@ function LayerItem({
         onClick={(event) => event.stopPropagation()}
         onDoubleClick={(event) => event.stopPropagation()}
       >
-        <button
-          type="button"
-          className={`layer-control ${hidden || mixedVisible ? "persistent" : ""}`}
-          aria-label={`${hidden ? "Show" : "Hide"} ${row.name}`}
-          aria-pressed={mixedVisible ? "mixed" : hidden}
-          onClick={() => s.updateLayers([row.id], { visible: hidden })}
-        >
-          {hidden ? <EyeOff /> : <Eye />}
-          {mixedVisible && <i />}
-        </button>
-        <button
-          type="button"
-          className={`layer-control ${locked ? "persistent" : ""}`}
-          aria-label={`${allLocked ? "Unlock" : "Lock"} ${row.name}`}
-          aria-pressed={locked && !allLocked ? "mixed" : allLocked}
-          onClick={() => s.updateLayers([row.id], { locked: !allLocked })}
-        >
-          {locked ? <Lock /> : <Unlock />}
-          {locked && !allLocked && <i />}
-        </button>
-        <DropdownMenu
-          onOpenChange={(open) => {
-            setMenuOpen(open);
-            if (open && !selected) s.selectLayers([row.id]);
-          }}
-        >
-          <DropdownMenuTrigger asChild>
+        {multiSelect ? (
+          <>
+            {(hidden || mixedVisible) && (
+              <span
+                className="layer-state"
+                role="img"
+                aria-label={hidden ? "Hidden" : "Partly hidden"}
+                title={hidden ? "Hidden" : "Partly hidden"}
+              >
+                {hidden ? <EyeOff /> : <Eye />} {mixedVisible && <i />}
+              </span>
+            )}
+            {locked && (
+              <span
+                className="layer-state"
+                role="img"
+                aria-label={allLocked ? "Locked" : "Partly locked"}
+                title={allLocked ? "Locked" : "Partly locked"}
+              >
+                <Lock />
+                {!allLocked && <i />}
+              </span>
+            )}
+          </>
+        ) : (
+          <>
             <button
               type="button"
-              className="layer-control layer-overflow"
-              aria-label={`Actions for ${row.name}`}
+              className={`layer-control ${hidden || mixedVisible ? "persistent" : ""}`}
+              aria-label={visibilityLabel}
+              title={visibilityLabel}
+              aria-pressed={mixedVisible ? "mixed" : hidden}
+              onClick={() => s.updateLayers([row.id], { visible: hidden })}
             >
-              <MoreHorizontal />
+              {hidden ? <EyeOff /> : <Eye />}
+              {mixedVisible && <i />}
             </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            className="layer-menu"
-            data-layer-interaction
-            align="end"
-            onCloseAutoFocus={(event) => {
-              event.preventDefault();
-              restoreFocus(row.id);
-            }}
-          >
-            {effectiveIds.length === 1 && (
-              <DropdownMenuItem onSelect={() => startRename(effectiveIds[0]!)}>
-                Rename <span>F2</span>
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuItem onSelect={s.duplicate}>
-              Duplicate <span>Ctrl/Cmd D</span>
-            </DropdownMenuItem>
-            {up && (
-              <DropdownMenuItem onSelect={s.bringForward}>
-                Move up <span>Alt+Up</span>
-              </DropdownMenuItem>
-            )}
-            {down && (
-              <DropdownMenuItem onSelect={s.sendBackward}>
-                Move down <span>Alt+Down</span>
-              </DropdownMenuItem>
-            )}
-            {menuOpen && canGroupLayers(doc, effectiveIds) && (
-              <DropdownMenuItem onSelect={s.group}>
-                Group <span>Ctrl/Cmd G</span>
-              </DropdownMenuItem>
-            )}
-            {canUngroup && (
-              <DropdownMenuItem onSelect={s.ungroup}>
-                Ungroup <span>Ctrl/Cmd Shift G</span>
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="layer-delete"
-              onSelect={s.deleteSelected}
+            <button
+              type="button"
+              className={`layer-control ${locked ? "persistent" : ""}`}
+              aria-label={lockLabel}
+              title={lockLabel}
+              aria-pressed={locked && !allLocked ? "mixed" : allLocked}
+              onClick={() => s.updateLayers([row.id], { locked: !allLocked })}
             >
-              Delete <span>Del</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              {locked ? <Lock /> : <Unlock />}
+              {locked && !allLocked && <i />}
+            </button>
+            <DropdownMenu
+              onOpenChange={(open) => {
+                setMenuOpen(open);
+                if (open && !selected) s.selectLayers([row.id]);
+              }}
+            >
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="layer-control layer-overflow"
+                  aria-label={`Actions for ${row.name}`}
+                  title={`Actions for ${row.name}`}
+                >
+                  <MoreHorizontal />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                className="layer-menu"
+                data-layer-interaction
+                align="end"
+                onCloseAutoFocus={(event) => {
+                  event.preventDefault();
+                  restoreFocus(row.id);
+                }}
+              >
+                {effectiveIds.length === 1 && (
+                  <DropdownMenuItem
+                    onSelect={() => startRename(effectiveIds[0]!)}
+                  >
+                    Rename <span>F2</span>
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onSelect={s.duplicate}>
+                  Duplicate <span>Ctrl/Cmd D</span>
+                </DropdownMenuItem>
+                {up && (
+                  <DropdownMenuItem onSelect={s.bringForward}>
+                    Move up <span>Alt+Up</span>
+                  </DropdownMenuItem>
+                )}
+                {down && (
+                  <DropdownMenuItem onSelect={s.sendBackward}>
+                    Move down <span>Alt+Down</span>
+                  </DropdownMenuItem>
+                )}
+                {menuOpen && canGroupLayers(doc, effectiveIds) && (
+                  <DropdownMenuItem onSelect={s.group}>
+                    Group <span>Ctrl/Cmd G</span>
+                  </DropdownMenuItem>
+                )}
+                {canUngroup && (
+                  <DropdownMenuItem onSelect={s.ungroup}>
+                    Ungroup <span>Ctrl/Cmd Shift G</span>
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="layer-delete"
+                  onSelect={s.deleteSelected}
+                >
+                  Delete <span>Del</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
+        )}
       </div>
     </div>
   );
@@ -582,6 +629,24 @@ export function LayersPanel({ showHeader = true }: { showHeader?: boolean }) {
   const validDrop = !!drop && !!movedLayers(doc, dragIds, drop);
   const groupable = canGroupLayers(doc, selected);
   const nodes = canonicalLayers(doc, selected);
+  const selectedLeaves = [
+    ...new Map(
+      nodes
+        .flatMap((node) => node.leaves)
+        .map((element) => [element.id, element]),
+    ).values(),
+  ];
+  const allHidden =
+    selectedLeaves.length > 0 &&
+    selectedLeaves.every((element) => !element.visible);
+  const allLocked =
+    selectedLeaves.length > 0 &&
+    selectedLeaves.every((element) => element.locked);
+  const hasLocked = selectedLeaves.some((element) => element.locked);
+  const canDelete = nodes.length > 0 && !hasLocked;
+  const deleteSelection = () => {
+    if (canDelete) s.deleteSelected();
+  };
   const ungroupable =
     nodes.length === 1 &&
     !nodes[0]!.element &&
@@ -693,8 +758,8 @@ export function LayersPanel({ showHeader = true }: { showHeader?: boolean }) {
       selectRow(row.id, event);
     else if (event.key === "F2") startRename(row.id);
     else if (event.key === "Delete" || event.key === "Backspace") {
-      if (!selected.includes(row.id)) s.selectLayers([row.id]);
-      s.deleteSelected();
+      if (!multiSelect && !selected.includes(row.id)) s.selectLayers([row.id]);
+      if (!multiSelect || canDelete) s.deleteSelected();
     } else if (mod && event.key.toLowerCase() === "d") s.duplicate();
     else if (mod && event.key.toLowerCase() === "g") {
       if (event.shiftKey) s.ungroup();
@@ -703,8 +768,10 @@ export function LayersPanel({ showHeader = true }: { showHeader?: boolean }) {
       if (event.shiftKey) s.redo();
       else s.undo();
     } else if (event.key === "Escape") {
-      if (multiSelect) setMultiSelect(false);
-      else s.selectLayers([]);
+      if (multiSelect) {
+        setMultiSelect(false);
+        requestAnimationFrame(() => multiSelectButton.current?.focus());
+      } else s.selectLayers([]);
     } else handled = false;
     if (handled) {
       event.preventDefault();
@@ -716,6 +783,20 @@ export function LayersPanel({ showHeader = true }: { showHeader?: boolean }) {
       ref={panelRef}
       className="layers-panel"
       data-layer-interaction
+      data-selection-mode={multiSelect || undefined}
+      onKeyDownCapture={(event) => {
+        if (
+          !multiSelect ||
+          !["Delete", "Backspace"].includes(event.key) ||
+          (event.target as HTMLElement).closest(
+            "input, textarea, [contenteditable]:not([contenteditable='false'])",
+          )
+        )
+          return;
+        event.preventDefault();
+        event.stopPropagation();
+        deleteSelection();
+      }}
       onKeyDown={(event) => {
         if (
           multiSelect &&
@@ -755,18 +836,38 @@ export function LayersPanel({ showHeader = true }: { showHeader?: boolean }) {
         </div>
       )}
       <div className="layer-selection-mode">
+        {multiSelect && (
+          <div className="layer-selection-options">
+            <span role="status" aria-live="polite">
+              {nodes.length} selected
+            </span>
+            <button
+              type="button"
+              onClick={() => s.selectLayers(allRows.map((row) => row.id))}
+            >
+              Select all
+            </button>
+            <button type="button" onClick={() => s.selectLayers([])}>
+              Clear
+            </button>
+            <span className="sr-only">
+              Select layers, then choose an action.
+            </span>
+          </div>
+        )}
         <button
           type="button"
           ref={multiSelectButton}
           aria-pressed={multiSelect}
           aria-controls={treeId}
+          className="layer-selection-trigger"
+          aria-label={multiSelect ? "Done" : "Select"}
+          title={multiSelect ? "Done" : "Select layers"}
           onClick={() => setMultiSelect((current) => !current)}
         >
-          {multiSelect ? "Done" : "Select multiple"}
+          <ListChecks aria-hidden="true" />
+          <span>{multiSelect ? "Done" : "Select"}</span>
         </button>
-        {multiSelect && (
-          <span role="status">Select layers, then choose an action.</span>
-        )}
       </div>
       <button
         type="button"
@@ -848,13 +949,14 @@ export function LayersPanel({ showHeader = true }: { showHeader?: boolean }) {
                 row={row}
                 selected={selected.includes(row.id)}
                 multiSelect={multiSelect}
-                onToggleSelection={(id) => {
-                  s.selectLayers(
-                    toggleLayerSelection(doc, selected, id, "explicit"),
-                  );
-                  setAnchor(id);
-                  setFocusedId(id);
-                }}
+                onToggleSelection={(
+                  id,
+                  modifiers = {
+                    shiftKey: false,
+                    ctrlKey: false,
+                    metaKey: false,
+                  },
+                ) => selectRow(id, modifiers)}
                 collapsed={collapsed.has(row.id)}
                 tabIndex={focusId === row.id ? 0 : -1}
                 activeDrag={dragIds.length > 0}
@@ -877,9 +979,8 @@ export function LayersPanel({ showHeader = true }: { showHeader?: boolean }) {
                   requestAnimationFrame(() => {
                     const panel = panelRef.current;
                     const layer = Array.from(
-                      panel?.querySelectorAll<HTMLElement>(
-                        "[data-layer-id]",
-                      ) ?? [],
+                      panel?.querySelectorAll<HTMLElement>("[data-layer-id]") ??
+                        [],
                     ).find((el) => el.dataset["layerId"] === id);
                     const target =
                       panel?.querySelector<HTMLElement>(".layer-rename") ??
@@ -932,7 +1033,70 @@ export function LayersPanel({ showHeader = true }: { showHeader?: boolean }) {
           )}
         </DragOverlay>
       </DndContext>
-      {(nodes.length > 0 || s.backgroundSelected) && (
+      {multiSelect && nodes.length > 0 && (
+        <div
+          className="layers-footer layer-bulk-actions"
+          role="group"
+          aria-label="Bulk selection actions"
+        >
+          <button
+            type="button"
+            aria-label={`${allHidden ? "Show" : "Hide"} selected layers`}
+            title={`${allHidden ? "Show" : "Hide"} selected layers`}
+            onClick={() => s.updateLayers(selected, { visible: allHidden })}
+          >
+            {allHidden ? (
+              <Eye aria-hidden="true" />
+            ) : (
+              <EyeOff aria-hidden="true" />
+            )}{" "}
+            {allHidden ? "Show" : "Hide"}
+          </button>
+          <button
+            type="button"
+            aria-label={`${allLocked ? "Unlock" : "Lock"} selected layers`}
+            title={`${allLocked ? "Unlock" : "Lock"} selected layers`}
+            onClick={() => s.updateLayers(selected, { locked: !allLocked })}
+          >
+            {allLocked ? (
+              <Unlock aria-hidden="true" />
+            ) : (
+              <Lock aria-hidden="true" />
+            )}{" "}
+            {allLocked ? "Unlock" : "Lock"}
+          </button>
+          <button
+            type="button"
+            aria-label="Group selected layers"
+            disabled={!groupable}
+            title={
+              groupable
+                ? "Group selected layers"
+                : hasLocked
+                  ? "Unlock selected layers before grouping"
+                  : "Select two or more compatible layers with the same parent"
+            }
+            onClick={s.group}
+          >
+            <Group aria-hidden="true" /> Group
+          </button>
+          <button
+            type="button"
+            className="layer-bulk-delete"
+            aria-label="Delete selected layers"
+            disabled={!canDelete}
+            title={
+              hasLocked
+                ? "Unlock selected layers before deleting"
+                : "Delete selected layers"
+            }
+            onClick={deleteSelection}
+          >
+            <Trash2 aria-hidden="true" /> Delete
+          </button>
+        </div>
+      )}
+      {!multiSelect && (nodes.length > 0 || s.backgroundSelected) && (
         <div className="layers-footer">
           <div className="layer-toolbar" aria-label="Selection actions">
             <div className="layer-selection-summary" aria-live="polite">

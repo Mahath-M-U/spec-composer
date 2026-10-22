@@ -46,46 +46,67 @@
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: minmax(0, 1fr);
-  gap: 4px;
-  border-radius: 10px;
-  background: var(--color-editor);
-  padding: 3px;
+  gap: var(--segmented-gap, 4px);
+  border-radius: var(--segmented-track-radius, 9px);
+  background: var(
+    --segmented-track-background,
+    color-mix(
+      in oklab,
+      var(--color-editor-foreground) 4%,
+      var(--color-editor-surface)
+    )
+  );
+  padding: var(--segmented-track-padding, 3px);
 }
 .ui-segmented-item {
   display: flex;
-  height: 28px;
+  height: var(--segmented-item-height, 30px);
   min-width: 0;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: var(--segmented-gap, 4px);
   overflow: hidden;
-  border: 0;
-  border-radius: 7px;
+  padding: var(--segmented-item-padding, 0);
+  border: 1px solid transparent;
+  border-radius: var(--segmented-item-radius, 7px);
   background: transparent;
-  color: var(--color-editor-muted);
-  font-size: 10px;
-  font-weight: 700;
+  color: var(--segmented-muted-foreground, var(--color-editor-muted));
+  font-size: var(--segmented-font-size, 11px);
+  font-weight: 600;
   white-space: nowrap;
+  box-shadow: none;
 }
 .ui-segmented-item svg {
-  width: 12px;
-  height: 12px;
+  width: var(--segmented-icon-size, 12px);
+  height: var(--segmented-icon-size, 12px);
   flex: none;
 }
-.ui-segmented-item:hover {
-  color: var(--color-editor-foreground);
+.ui-segmented-item:hover:not(:disabled) {
+  color: var(--segmented-selected-foreground, var(--color-editor-foreground));
 }
-.ui-segmented-item[aria-selected="true"],
-.ui-segmented-item.active {
-  background: var(--color-editor-surface);
-  color: var(--color-editor-foreground);
+.ui-segmented-item:not([aria-selected="true"]):hover:not(:disabled) {
+  background: var(--color-editor-hover);
 }
-.ui-segmented-item[aria-selected="true"] svg,
-.ui-segmented-item.active svg {
-  color: var(--editor-action);
+.ui-segmented-item[aria-selected="true"] {
+  border-color: var(
+    --segmented-selected-border,
+    color-mix(in oklab, var(--editor-action) 45%, transparent)
+  );
+  background: var(
+    --segmented-selected-background,
+    color-mix(in oklab, var(--editor-action) 12%, var(--color-editor-surface))
+  );
+  color: var(--segmented-selected-foreground, var(--color-editor-foreground));
+}
+.ui-segmented-item[aria-selected="true"] svg {
+  color: var(--segmented-selected-icon, var(--editor-action));
 }
 .ui-segmented-item:disabled {
+  border-color: transparent;
+  background: transparent;
+  color: var(--segmented-muted-foreground, var(--color-editor-muted));
   opacity: 0.45;
+  cursor: not-allowed;
 }
 .ui-segmented-item > span {
   min-width: 0;
@@ -93,9 +114,14 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.ui-segmented-item:focus-visible,
+.editor-shell .ui-segmented .ui-segmented-item:focus-visible {
+  outline: 2px solid var(--segmented-focus-color, var(--editor-focus));
+  outline-offset: 2px;
+}
 @media (pointer: coarse) {
   .ui-segmented-item {
-    min-height: 44px;
+    min-height: var(--segmented-touch-height, 44px);
   }
 }
 
@@ -182,7 +208,6 @@
   color: var(--ui-selected-accent-ink);
 }
 
-.ui-segmented-item,
 .ui-menu-item,
 .ui-toolbar-button,
 .ui-icon-button {
@@ -204,7 +229,6 @@
   --ui-selected-accent-border: color-mix(in oklab, var(--editor-action) 55%, var(--color-editor-border));
 }
 
-.ui-segmented-item:focus-visible,
 .ui-menu-item:focus-visible,
 .ui-toolbar-button:focus-visible,
 .ui-icon-button:focus-visible {
