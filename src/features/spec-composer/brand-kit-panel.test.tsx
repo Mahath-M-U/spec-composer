@@ -164,7 +164,19 @@ describe("BrandKitPanel", () => {
     );
     expect(html).not.toContain("bk-compact-card");
     expect(html).not.toContain("brand-kit-summary");
-    expect(html).not.toContain(">Applied<");
+    expect(html).toContain(">Applied<");
+    expect(html).not.toContain("Set as default");
+    expect(html).not.toContain(">Default<");
+  });
+
+  it("shows Apply (not Set as default) for an inactive kit on Home", () => {
+    useEditorStore.setState({
+      brandKits: [auroraKit],
+      defaultBrandKitId: undefined,
+    });
+    const html = renderPanel({ standalone: true });
+    expect(html).toContain(">Apply<");
+    expect(html).toContain('aria-label="Apply Aurora as default"');
   });
   it("uses honest, non-AI wording for creating and generating kits", () => {
     useEditorStore.setState({

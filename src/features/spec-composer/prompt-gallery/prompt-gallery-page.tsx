@@ -125,7 +125,7 @@ export function PromptGalleryPage() {
             <PromptCard key={prompt.id} prompt={prompt} />
           ))}
           <article
-            className="prompt-gallery-card prompt-gallery-card--coming-soon"
+            className="preview-card prompt-gallery-card prompt-gallery-card--coming-soon"
             aria-labelledby="prompt-gallery-coming-soon-title"
           >
             <div className="prompt-gallery-card-media">
@@ -167,13 +167,17 @@ export function PromptGalleryPage() {
                 <span className="prompt-gallery-coming-badge">Coming soon</span>
               </div>
             </div>
-            <div className="prompt-gallery-card-body">
-              <span className="prompt-gallery-category prompt-gallery-chip">
-                <Sparkles aria-hidden="true" />
-                <span>Up next</span>
-              </span>
-              <h2 id="prompt-gallery-coming-soon-title">More prompts soon</h2>
-              <p>More before-and-after styles are on the way.</p>
+            <div className="preview-card-meta prompt-gallery-card-body">
+              <p className="preview-card-subtitle">Up next</p>
+              <h2
+                id="prompt-gallery-coming-soon-title"
+                className="preview-card-title"
+              >
+                More prompts soon
+              </h2>
+              <p className="preview-card-subtitle">
+                More before-and-after styles are on the way.
+              </p>
               <p className="prompt-gallery-coming-note">
                 <Sparkles size={14} aria-hidden="true" />
                 New examples will join the gallery here.

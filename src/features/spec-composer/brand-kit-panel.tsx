@@ -579,7 +579,9 @@ function BrandKitCard({
   onEdit: () => void;
   onRename: (name: string) => void;
   onDelete: () => void;
-  /** The toggle applies the kit to the open poster rather than setting the default. */
+  /** Selects the accessible wording (aria-label and Hint) for applying the
+   * kit to the open poster rather than setting the default; the visible
+   * button text is the same in both modes. */
   applyMode?: boolean;
   /** The open document's resolved image style label; only shown when this
    * card is the applied one. */
@@ -648,19 +650,13 @@ function BrandKitCard({
                   aria-label={
                     applyMode
                       ? `${active ? "Remove" : "Apply"} ${kit.name}`
-                      : `${active ? "Remove" : "Set"} ${kit.name} as default`
+                      : `${active ? "Remove" : "Apply"} ${kit.name} as default`
                   }
                   data-tour="kit-default-toggle"
                   onClick={active ? onDeactivate : onActivate}
                 >
                   {active && <Check size={13} aria-hidden="true" />}
-                  {applyMode
-                    ? active
-                      ? "Applied"
-                      : "Apply"
-                    : active
-                      ? "Default"
-                      : "Set as default"}
+                  {active ? "Applied" : "Apply"}
                 </button>
               </Hint>
 

@@ -86,7 +86,7 @@ const STEPS: Record<GuidePage, GuideStep[]> = {
     },
     {
       target: "kit-default-toggle",
-      title: "Set as default",
+      title: "Apply as default",
       body: "Make this kit the default for new designs; click again to remove it.",
     },
     {

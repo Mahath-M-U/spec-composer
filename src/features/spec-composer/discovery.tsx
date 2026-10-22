@@ -114,11 +114,9 @@ function Mark() {
 export function DiscoveryShell({
   children,
   tourPage = "home",
-  variant,
 }: {
   children: React.ReactNode;
   tourPage?: "home" | "brand-kit";
-  variant?: "home";
 }) {
   const [createOpen, setCreateOpen] = useState(false);
   const [comingSoon, setComingSoon] = useState<"mcp" | "remix" | null>(null);
@@ -127,12 +125,7 @@ export function DiscoveryShell({
 
   return (
     <>
-      <div
-        className={cn(
-          "min-h-screen text-foreground md:grid md:grid-cols-[268px_minmax(0,1fr)]",
-          variant === "home" && "discovery-shell--home",
-        )}
-      >
+      <div className="min-h-screen text-foreground md:grid md:grid-cols-[268px_minmax(0,1fr)]">
         <aside className="discovery-sidebar">
           <div className="flex items-center justify-between gap-2">
             <Link to="/" className="flex min-w-0 items-center gap-3 font-bold">
@@ -183,11 +176,6 @@ export function DiscoveryShell({
             </span>
             <BrandKitSidebarLink />
           </nav>
-          {variant === "home" ? (
-            <span className="sidebar-nav-label sidebar-nav-label--utilities">
-              Resources
-            </span>
-          ) : null}
           <Link
             to="/release-notes"
             className="sidebar-release-link"
@@ -259,10 +247,7 @@ export function DiscoveryShell({
                 </SheetTrigger>
                 <SheetContent
                   side="right"
-                  className={cn(
-                    "mobile-discovery-menu",
-                    variant === "home" && "mobile-discovery-menu--home",
-                  )}
+                  className="mobile-discovery-menu"
                   aria-describedby={undefined}
                 >
                   <SheetTitle>Workspace</SheetTitle>
@@ -569,31 +554,6 @@ function useFeaturedTemplates() {
   };
 }
 
-function HomeSectionHeading({
-  eyebrow,
-  title,
-  id,
-  description,
-  action,
-}: {
-  eyebrow: string;
-  title: React.ReactNode;
-  id: string;
-  description: string;
-  action?: React.ReactNode;
-}) {
-  return (
-    <div className="section-heading showcase-heading home-section-heading">
-      <div className="section-heading-copy">
-        <span className="section-kicker">{eyebrow}</span>
-        <h2 id={id}>{title}</h2>
-        <p>{description}</p>
-      </div>
-      {action}
-    </div>
-  );
-}
-
 export function HomePage() {
   const navigate = useNavigate();
   const [platform, setPlatform] = useState<PlatformFilter>("Popular");
@@ -629,14 +589,10 @@ export function HomePage() {
       : matchingFormats;
   }, [platform, query]);
 
-  const heading = query.trim()
-    ? "Search results"
-    : platform === "Popular"
-      ? "Popular formats"
-      : platform;
+  const heading = query.trim() ? "Search results" : platform;
 
   return (
-    <DiscoveryShell variant="home">
+    <DiscoveryShell>
       <div className="discovery-content home-page-content">
         <HomeHero onCreate={() => setCustomOpen(true)} />
 
@@ -645,7 +601,7 @@ export function HomePage() {
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Find a format to start your next design…"
+            placeholder="Search formats, platforms, stories, ads…"
             aria-label="Search design formats"
           />
           {query ? (
@@ -672,21 +628,12 @@ export function HomePage() {
           data-tour="formats"
           aria-labelledby="format-section-title"
         >
-          <HomeSectionHeading
-            eyebrow="Start with a size"
-            title={heading}
-            id="format-section-title"
-            description={`${shown.length} ${shown.length === 1 ? "format" : "formats"} · Choose the right canvas for your next idea.`}
-            action={
-              <button
-                type="button"
-                className="section-link"
-                onClick={() => setCustomOpen(true)}
-              >
-                Custom size <Plus size={14} aria-hidden="true" />
-              </button>
-            }
-          />
+          <div className="section-heading">
+            <h2 id="format-section-title">{heading}</h2>
+            <span>
+              {shown.length} {shown.length === 1 ? "format" : "formats"}
+            </span>
+          </div>
           {shown.length ? (
             <FormatGrid
               formats={shown}
@@ -718,17 +665,16 @@ export function HomePage() {
           data-tour="recent"
           aria-labelledby="recent-section-title"
         >
-          <HomeSectionHeading
-            eyebrow="Your workspace"
-            title="Recent designs"
-            id="recent-section-title"
-            description="Pick up where you left off."
-            action={
-              <Link to="/projects" className="section-link">
-                View all <ArrowRight size={14} />
-              </Link>
-            }
-          />
+          <div className="section-heading showcase-heading">
+            <div className="section-heading-copy">
+              <span className="section-kicker">Your workspace</span>
+              <h2 id="recent-section-title">Recent designs</h2>
+              <p>Pick up where you left off.</p>
+            </div>
+            <Link to="/projects" className="section-link">
+              View all <ArrowRight size={14} />
+            </Link>
+          </div>
           {projectsPending ? (
             <div
               className="template-strip template-strip--recent"
@@ -759,21 +705,19 @@ export function HomePage() {
           data-tour="templates"
           aria-labelledby="template-section-title"
         >
-          <HomeSectionHeading
-            eyebrow="Curated starters"
-            title={
-              <>
-                Start from a template<span className="beta-chip">Beta</span>
-              </>
-            }
-            id="template-section-title"
-            description="Choose a direction, then make every detail your own."
-            action={
-              <Link to="/templates" className="section-link">
-                View all <ArrowRight size={14} />
-              </Link>
-            }
-          />
+          <div className="section-heading showcase-heading">
+            <div className="section-heading-copy">
+              <span className="section-kicker">Curated starters</span>
+              <h2 id="template-section-title">
+                Start from a template
+                <span className="beta-chip">Beta</span>
+              </h2>
+              <p>Choose a direction, then make every detail your own.</p>
+            </div>
+            <Link to="/templates" className="section-link">
+              View all <ArrowRight size={14} />
+            </Link>
+          </div>
           <div
             className="template-strip template-strip--starters"
             data-ready={featured.ready ? "" : undefined}
@@ -794,17 +738,15 @@ export function HomePage() {
           data-tour="design-kit"
           aria-labelledby="design-kit-section-title"
         >
-          <HomeSectionHeading
-            eyebrow="Reusable identity"
-            title="Design kits"
-            id="design-kit-section-title"
-            description="Keep your colors, typography, and creative direction close."
-            action={
-              <Link to="/design-kit" className="section-link">
-                View all <ArrowRight size={14} />
-              </Link>
-            }
-          />
+          <div className="section-heading showcase-heading">
+            <div className="section-heading-copy">
+              <span className="section-kicker">Reusable identity</span>
+              <h2 id="design-kit-section-title">Design kit</h2>
+              <p>
+                Save colors, typography, style, and emotion for every design.
+              </p>
+            </div>
+          </div>
           <BrandKitPanel standalone />
         </section>
       </div>
@@ -924,17 +866,23 @@ function HomeHero({ onCreate }: { onCreate: () => void }) {
         <div className="home-hero-fern home-hero-fern--right" />
       </div>
       <div className="home-hero-copy">
-        <p className="home-hero-eyebrow">YOUR CREATIVE WORKSPACE</p>
-        <h1 id="home-hero-title">Create your next design.</h1>
+        <p className="home-hero-eyebrow">
+          FROM CANVAS TO CREATIVE INTELLIGENCE
+        </p>
+        <h1 id="home-hero-title">
+          Design visually.
+          <span>From idea to AI image.</span>
+        </h1>
         <p className="home-hero-description">
-          Choose a format, start from a template, or continue your latest work.
+          Draw or drop a visual idea, get a structured specification, and
+          generate production-ready images with AI &mdash; all in one place.
         </p>
         <div className="home-hero-actions">
           <button type="button" onClick={onCreate}>
             <Plus size={17} aria-hidden="true" /> Create a design
           </button>
-          <a href="#template-section-title">
-            Browse templates <ArrowRight size={16} aria-hidden="true" />
+          <a href="#format-section-title">
+            Explore templates <ArrowRight size={16} aria-hidden="true" />
           </a>
         </div>
       </div>

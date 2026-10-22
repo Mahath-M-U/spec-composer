@@ -284,6 +284,8 @@ button:disabled {
   border-right: 1px solid var(--color-border);
   background: var(--color-sidebar);
   padding: 1.25rem 1.1rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .sidebar-create {
   display: flex;
@@ -742,17 +744,6 @@ button:disabled {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  overflow: hidden;
-  border: 1px solid transparent;
-  border-radius: 17px;
-  background: #1d1d1f;
-  padding: 16px;
-  color: #f5f3f3;
-  transition: border-color 0.2s ease;
-}
-.prompt-gallery-card:hover,
-.prompt-gallery-card:focus-within {
-  border-color: #956568;
 }
 .prompt-gallery-card-media {
   min-width: 0;
@@ -761,10 +752,8 @@ button:disabled {
   display: flex;
   flex: 1;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
+  align-items: stretch;
   min-width: 0;
-  padding: 12px 2px 0;
 }
 .prompt-gallery-chip {
   display: inline-flex;
@@ -794,26 +783,6 @@ button:disabled {
   letter-spacing: 0.13em;
   text-transform: uppercase;
 }
-.prompt-gallery-card-body h2 {
-  display: -webkit-box;
-  margin-top: 2px;
-  overflow: hidden;
-  font-size: clamp(17px, 1.5vw, 20px);
-  font-weight: 800;
-  letter-spacing: -0.035em;
-  line-height: 1.1;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-.prompt-gallery-card-body p {
-  display: -webkit-box;
-  overflow: hidden;
-  color: #bdb9b9;
-  font-size: 11px;
-  line-height: 1.35;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-}
 .prompt-gallery-comparison {
   position: relative;
   width: 100%;
@@ -821,9 +790,9 @@ button:disabled {
   flex: none;
   overflow: hidden;
   isolation: isolate;
-  border: 1px solid #333537;
-  border-radius: 11px;
-  background: #27242c;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  background: var(--color-muted);
 }
 .prompt-gallery-image {
   position: absolute;
@@ -932,7 +901,7 @@ button:disabled {
 }
 .prompt-gallery-actions {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 40px;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: stretch;
   gap: 8px;
   width: 100%;
@@ -983,14 +952,14 @@ button:disabled {
 }
 .prompt-gallery-details-toggle {
   display: inline-flex;
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   align-items: center;
   justify-content: center;
-  border: 1px solid #4a4548;
-  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
   background: transparent;
-  color: #f3f1f1;
+  color: var(--color-foreground);
   transition:
     background-color 0.18s ease,
     border-color 0.18s ease;
@@ -1000,8 +969,13 @@ button:disabled {
   height: 15px;
 }
 .prompt-gallery-details-toggle:hover {
-  border-color: #956568;
-  background: rgb(255 255 255 / 6%);
+  background: var(--color-secondary);
+}
+@media (pointer: coarse) {
+  .prompt-gallery-details-toggle {
+    width: 44px;
+    height: 44px;
+  }
 }
 .prompt-gallery-dialog {
   display: flex;
@@ -1100,18 +1074,6 @@ button:disabled {
 .prompt-gallery-card--coming-soon {
   display: flex;
   flex-direction: column;
-  background:
-    radial-gradient(
-      ellipse 78% 46% at 104% 0%,
-      rgb(197 84 84 / 26%),
-      transparent 74%
-    ),
-    radial-gradient(
-      ellipse 80% 48% at 108% 105%,
-      rgb(197 84 84 / 23%),
-      transparent 76%
-    ),
-    #1d1d1f;
 }
 .prompt-gallery-coming-visual {
   position: relative;
@@ -1120,7 +1082,8 @@ button:disabled {
   flex: none;
   isolation: isolate;
   overflow: hidden;
-  border-radius: 11px;
+  border-radius: 9px;
+  border: 1px solid var(--color-border);
 }
 .prompt-gallery-coming-visual::before {
   position: absolute;
@@ -1335,11 +1298,6 @@ button:disabled {
   padding: 0.32rem 0.6rem;
   font-size: 10px;
 }
-:root:not(.dark) .prompt-gallery-card {
-  border-color: transparent;
-  background: #f8f3ec;
-  color: #24201f;
-}
 :root:not(.dark) .prompt-gallery-filters input,
 :root:not(.dark) .prompt-gallery-filters select {
   border-color: #cbaea5;
@@ -1354,21 +1312,12 @@ button:disabled {
 :root:not(.dark) .prompt-gallery-empty {
   border-color: #d7c6bd;
 }
-:root:not(.dark) .prompt-gallery-card:hover,
-:root:not(.dark) .prompt-gallery-card:focus-within {
-  border-color: #aa7770;
-}
-:root:not(.dark) .prompt-gallery-comparison {
-  border-color: #ddcec3;
-  background: #efe6dc;
-}
 :root:not(.dark) .prompt-gallery-handle {
   border-color: #b77770;
   background: #fffaf5;
   color: #352c29;
 }
-:root:not(.dark) .prompt-gallery-category,
-:root:not(.dark) .prompt-gallery-card-body p {
+:root:not(.dark) .prompt-gallery-category {
   color: #6d615d;
 }
 :root:not(.dark) .prompt-gallery-chip {
@@ -1380,15 +1329,6 @@ button:disabled {
 }
 :root:not(.dark) .prompt-gallery-dialog-scroll h3 {
   color: #786d67;
-}
-:root:not(.dark) .prompt-gallery-details-toggle {
-  border-color: #d8c7bc;
-  color: #352c29;
-}
-:root:not(.dark) .prompt-gallery-details-toggle:hover {
-  border-color: #aa7770;
-  background: #f1e7dd;
-  color: #141413;
 }
 :root:not(.dark) .prompt-gallery-copy {
   border-color: #b77770;
@@ -1432,20 +1372,6 @@ button:disabled {
 }
 :root:not(.dark) .prompt-gallery-dialog-close:hover {
   color: #141413;
-}
-:root:not(.dark) .prompt-gallery-card--coming-soon {
-  background:
-    radial-gradient(
-      ellipse 78% 46% at 104% 0%,
-      rgb(197 84 84 / 15%),
-      transparent 74%
-    ),
-    radial-gradient(
-      ellipse 80% 48% at 108% 105%,
-      rgb(197 84 84 / 13%),
-      transparent 76%
-    ),
-    #f8f3ec;
 }
 :root:not(.dark) .prompt-gallery-banner {
   border-color: #d7bcb1;
@@ -1568,9 +1494,6 @@ button:disabled {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .prompt-gallery-card {
-    transition: none;
-  }
   .prompt-gallery-handle {
     transition: none;
   }
@@ -4061,6 +3984,7 @@ button:disabled {
 }
 .context-panel {
   border-right: 1px solid var(--color-editor-border);
+  overflow-x: hidden;
 }
 .context-panel:has(> .brandkit-panel) {
   overflow: hidden;
@@ -5620,10 +5544,6 @@ button:disabled {
   ):focus-visible {
   outline: 2px solid var(--color-editor-foreground);
   outline-offset: 2px;
-}
-.brandkit-home-panel .brandkit-card {
-  border-color: var(--color-editor-border);
-  background: var(--color-editor-surface);
 }
 .brandkit-card.bk-showcase-card.active {
   border-color: color-mix(in oklab, var(--color-primary) 45%, transparent);
@@ -16841,6 +16761,65 @@ button.de-subrow-tag:focus-visible {
 }
 .preview-card-skeleton {
   min-width: 0;
+}
+
+/* Discovery card standard (For You, Templates, My designs, Prompt gallery) */
+.discovery-content .preview-card {
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface-subtle);
+  padding: 8px;
+  outline: none;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease;
+}
+.discovery-content .preview-card:is(:hover, [data-menu-open]) {
+  border-color: color-mix(in oklab, var(--color-primary) 60%, var(--color-border));
+  background: var(--color-secondary);
+  box-shadow: none;
+}
+.discovery-content .preview-card:focus-within:has(:focus-visible) {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 3px;
+}
+.discovery-content .preview-card-media {
+  border-radius: 9px;
+  border: 1px solid var(--color-border);
+}
+.discovery-content .preview-card-meta {
+  gap: 4px;
+  padding: 10px 3px 4px;
+}
+.discovery-content .preview-card-title {
+  font-size: 14px;
+  font-weight: 650;
+}
+.discovery-content .preview-card-subtitle {
+  font-size: 12px;
+  line-height: 1.5;
+}
+.discovery-content .preview-card-badge .recent-design-edited-chip {
+  position: static;
+  display: inline-flex;
+  max-width: 100%;
+  padding: 4px 7px;
+  font-size: 10px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .discovery-content .preview-card-badge {
+    opacity: 0;
+    transition: opacity 160ms ease;
+  }
+  .discovery-content .preview-card:is(:hover, :focus-within, [data-menu-open]) .preview-card-badge {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .discovery-content :is(.preview-card, .preview-card-badge) {
+    transition: none;
+  }
 }
 
 .user-settings-dialog {

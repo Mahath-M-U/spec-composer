@@ -154,4 +154,24 @@ describe("home template card", () => {
     expect(cardProps.subtitle).toBe(props.doc.format.label);
     expect(cardProps.subtitleTitle).toBe(props.doc.format.label);
   });
+
+  it("supports a minimal sidebar usage without copy affordances or template photos", () => {
+    const onOpen = vi.fn();
+    const { cardProps } = renderCard({
+      copied: undefined,
+      copying: undefined,
+      onCopy: undefined,
+      onWarmEditor: undefined,
+      onOpen,
+      className: "template-panel-card",
+      templatePhoto: false,
+    });
+    expect(cardProps.secondaryActions).toBeUndefined();
+    expect(cardProps.menuItems).toBeUndefined();
+    expect(cardProps.className).toBe("template-panel-card");
+    expect(
+      (cardProps.media as ReactElement<{ image?: unknown }>).props.image,
+    ).toBeUndefined();
+    expect(cardProps.primaryAction.onSelect).toBe(onOpen);
+  });
 });

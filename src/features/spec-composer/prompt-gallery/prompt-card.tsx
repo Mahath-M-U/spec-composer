@@ -11,7 +11,6 @@ import {
 import { Hint } from "@/components/ui/tooltip";
 import { BeforeAfter } from "./before-after";
 import type { GalleryPrompt } from "./catalog";
-import { categoryIcon } from "./category-icons";
 
 export function PromptCard({ prompt }: { prompt: GalleryPrompt }) {
   const [copied, setCopied] = useState(false);
@@ -24,7 +23,6 @@ export function PromptCard({ prompt }: { prompt: GalleryPrompt }) {
       ? `Copying prompt: ${prompt.title}`
       : `Copy prompt: ${prompt.title}`;
   const copyText = copied ? "Copied" : copying ? "Copying…" : "Copy prompt";
-  const CategoryIcon = categoryIcon(prompt.category);
 
   useEffect(
     () => () => {
@@ -55,23 +53,28 @@ export function PromptCard({ prompt }: { prompt: GalleryPrompt }) {
   return (
     <>
       <article
-        className="prompt-gallery-card"
+        className="preview-card prompt-gallery-card"
         aria-labelledby={`${prompt.id}-title`}
       >
         <div className="prompt-gallery-card-media">
           <BeforeAfter prompt={prompt} />
         </div>
-        <div className="prompt-gallery-card-body">
-          <span className="prompt-gallery-category prompt-gallery-chip">
-            <CategoryIcon aria-hidden="true" />
-            <span>{prompt.category}</span>
-          </span>
-          <h2 id={`${prompt.id}-title`}>{prompt.title}</h2>
-          <p>{prompt.summary}</p>
+        <div className="preview-card-meta prompt-gallery-card-body">
+          <h2
+            id={`${prompt.id}-title`}
+            className="preview-card-title"
+            title={prompt.title}
+          >
+            {prompt.title}
+          </h2>
+          <p className="preview-card-subtitle">{prompt.category}</p>
+          <p className="preview-card-subtitle" title={prompt.summary}>
+            {prompt.summary}
+          </p>
           <div className="prompt-gallery-actions">
             <button
               type="button"
-              className="prompt-gallery-copy"
+              className="preview-card-primary"
               onClick={copyPrompt}
               disabled={copying}
               aria-label={copyLabel}

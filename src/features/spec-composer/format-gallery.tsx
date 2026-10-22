@@ -8,14 +8,7 @@ import PinterestIcon from "@mui/icons-material/Pinterest";
 import WhatsAppIcon from "@mui/icons-material/WhatsApp";
 import XIcon from "@mui/icons-material/X";
 import YouTubeIcon from "@mui/icons-material/YouTube";
-import { ChevronDown, History, Music2 } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { History, Music2 } from "lucide-react";
 import type { PlatformFilter } from "./formats";
 import type { Format } from "./types";
 import { formatArtworkId } from "./format-artwork";
@@ -45,12 +38,9 @@ export function PlatformFilterBar({
   value: PlatformFilter;
   onChange: (platform: PlatformFilter) => void;
 }) {
-  const primary = platforms.slice(0, 6);
-  const more = platforms.slice(6);
-  const selectedMore = more.includes(value);
   return (
     <div className="platform-scroll" aria-label="Filter formats by platform">
-      {primary.map((platform) => {
+      {platforms.map((platform) => {
         const Icon = platformIcons[platform];
         const active = value === platform;
         return (
@@ -67,47 +57,6 @@ export function PlatformFilterBar({
           </button>
         );
       })}
-      {more.length ? (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              className="platform-chip platform-chip--more"
-              aria-label={
-                selectedMore ? `More platforms: ${value}` : "More platforms"
-              }
-              data-selected={selectedMore || undefined}
-            >
-              <span>{selectedMore ? value : "More"}</span>
-              <ChevronDown aria-hidden="true" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            className="home-platform-menu"
-            align="end"
-            sideOffset={6}
-            collisionPadding={12}
-          >
-            <DropdownMenuRadioGroup
-              value={value}
-              onValueChange={(next) => {
-                const platform = more.find((item) => item === next);
-                if (platform) onChange(platform);
-              }}
-            >
-              {more.map((platform) => {
-                const Icon = platformIcons[platform];
-                return (
-                  <DropdownMenuRadioItem key={platform} value={platform}>
-                    <Icon aria-hidden="true" />
-                    {platform}
-                  </DropdownMenuRadioItem>
-                );
-              })}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ) : null}
     </div>
   );
 }

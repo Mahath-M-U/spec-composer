@@ -22,9 +22,9 @@ import { ResizePanel } from "./resize-panel";
 import { ToolRail } from "./tool-rail";
 import { PanelHeader, PanelCollapseProvider } from "./panel-header";
 import { BrandKitPanel } from "./brand-kit-panel";
+import { HomeTemplateCard } from "./home-template-card";
 import {
   ArrowLeft,
-  ArrowRight,
   Eye,
   Copy,
   Trash2,
@@ -82,7 +82,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { PreviewCard } from "@/components/preview-card";
 import { readRaw, writeRaw } from "@/lib/storage/local";
 import { AppIcon } from "@/components/app-icon";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -192,11 +191,7 @@ import {
 import { ChatComingSoonSplash } from "./coming-soon-lazy";
 import { EditorSkeleton } from "./editor-skeleton";
 import { hasPlaceholderArt, PLACEHOLDER_ART_OPTIONS } from "./illustrations";
-import {
-  backgroundStyle,
-  DocumentPreview,
-  StaticDocument,
-} from "./static-render";
+import { backgroundStyle, StaticDocument } from "./static-render";
 import {
   isImageKind,
   isTextKind,
@@ -793,24 +788,13 @@ function TemplatesPanel() {
         </div>
         <div className="template-panel-grid">
           {shown.map((t) => (
-            <PreviewCard
+            <HomeTemplateCard
               key={t.name}
               className="template-panel-card"
-              title={t.name}
-              subtitle={t.category}
-              media={<DocumentPreview doc={t.document} />}
-              pills={[
-                {
-                  id: "format",
-                  label: `${t.document.format.width} × ${t.document.format.height}`,
-                },
-              ]}
-              primaryAction={{
-                label: "Use template",
-                ariaLabel: `Use ${t.name} template`,
-                icon: <ArrowRight size={14} aria-hidden="true" />,
-                onSelect: () => apply(t),
-              }}
+              doc={t.document}
+              category={t.category}
+              templatePhoto={false}
+              onOpen={() => apply(t)}
             />
           ))}
           {!shown.length && (
