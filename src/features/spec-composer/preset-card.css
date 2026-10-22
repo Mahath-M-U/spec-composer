@@ -1,26 +1,49 @@
 button.preset-card {
-  --preset-surface: var(--color-surface-subtle);
-  --preset-border: var(--color-border);
+  --preset-preview-height: 144px;
+  --preset-footer-height: 44px;
+  --preset-surface: color-mix(
+    in oklab,
+    var(--color-editor-surface, var(--color-surface-subtle)),
+    white 7%
+  );
+  --preset-accent: var(--color-primary);
   --preset-muted: var(--color-muted-foreground);
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
   min-width: 0;
-  border: 1px solid var(--preset-border);
+  min-height: calc(
+    var(--preset-preview-height) + var(--preset-footer-height) + 2px
+  );
+  border: 1px solid transparent;
   border-radius: 12px;
   background: var(--preset-surface);
-  padding: 8px;
+  padding: 0;
   text-align: left;
   outline: none;
   transition:
     background-color 160ms ease,
     border-color 160ms ease;
 }
-button.preset-card:is(:hover, [aria-pressed="true"]) {
-  background: var(--color-secondary);
-  border-color: var(--color-primary);
+button.preset-card:hover:where(:not(:disabled)) {
+  border-color: var(--card-border-hover);
+  background: color-mix(in oklab, var(--preset-surface), white 5%);
+}
+button.preset-card[aria-pressed="true"] {
+  border-color: var(--card-border-selected-accent);
+  outline: 1px solid var(--card-border-selected-accent);
+  background: color-mix(
+    in oklab,
+    var(--preset-surface),
+    var(--preset-accent) 8%
+  );
+}
+button.preset-card[aria-pressed="true"]:hover:where(:not(:disabled)) {
+  border-color: var(--card-border-selected);
 }
 button.preset-card:focus-visible {
-  outline: 2px solid var(--color-ring);
+  outline: 2px solid var(--editor-focus, var(--color-ring));
   outline-offset: 2px;
 }
 button.preset-card:disabled {
@@ -30,63 +53,135 @@ button.preset-card:disabled {
 .preset-card .preset-card-art {
   position: relative;
   display: grid;
+  box-sizing: border-box;
   width: 100%;
-  aspect-ratio: 4 / 3;
+  height: var(--preset-preview-height);
+  flex: none;
   place-items: center;
-  overflow: hidden;
-  border: 1px solid var(--preset-border);
-  border-radius: 9px;
-  background: var(--color-surface-raised);
+  padding: 8px;
 }
-.preset-card--home .preset-card-art > .preset-artwork {
+.preset-card .preset-card-art > :is(svg, img) {
+  display: block;
   width: 100%;
   height: 100%;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  max-height: 100%;
   object-fit: contain;
 }
-.preset-card-details {
-  display: flex;
+.preset-card .preset-card-details {
+  display: grid;
+  box-sizing: border-box;
   width: 100%;
+  height: auto;
+  min-height: var(--preset-footer-height);
   min-width: 0;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 3px 6px;
-  padding: 10px 3px 4px;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: center;
+  gap: 2px 6px;
+  padding: 2px 8px 8px;
 }
-.preset-card-title {
+.preset-card .preset-card-title {
   display: block;
-  flex-basis: 100%;
+  min-width: 0;
   overflow: hidden;
-  color: var(--color-primary);
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.4;
+  color: white;
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 14px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.preset-card-meta {
-  color: var(--preset-muted);
-  font-size: 11px;
-  line-height: 1.4;
+.preset-card .preset-card-metadata {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
 }
-.preset-card-badge {
+.preset-card .preset-card-ratio,
+.preset-card .preset-card-meta {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--preset-surface) 88%, transparent);
+  padding: 2px 5px;
+  color: var(--color-foreground);
+  font-size: 10px;
+  line-height: 14px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.preset-card .preset-card-metadata svg {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  color: var(--preset-accent);
+}
+.preset-card .preset-card-status {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  left: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.preset-card .preset-card-current,
+.preset-card .preset-card-badge,
+.preset-card .preset-card-check {
+  display: grid;
+  flex: none;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--preset-accent);
+  color: var(--color-primary-foreground);
+  font-size: 9px;
+  line-height: 14px;
+}
+.preset-card .preset-card-current {
+  padding: 2px 6px;
+}
+.preset-card .preset-card-badge {
+  background: var(--preset-surface);
+  padding: 2px 6px;
   color: var(--preset-muted);
-  font-size: 8px;
+}
+.preset-card .preset-card-check {
+  margin-left: auto;
+  width: 22px;
+  height: 22px;
 }
 button.preset-card--create {
-  border-color: color-mix(
-    in oklab,
-    var(--color-primary) 60%,
-    var(--preset-border)
-  );
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  border: 1px dotted var(--preset-accent);
+  padding: 12px;
+  text-align: center;
 }
-.preset-card .preset-create-art {
-  border: 1px dashed var(--color-primary);
-  background: color-mix(
-    in oklab,
-    var(--color-primary) 7%,
-    var(--preset-surface)
-  );
-  color: var(--color-primary);
+button.preset-card--create:hover:where(:not(:disabled)) {
+  border-color: var(--preset-accent);
+}
+.preset-card--create > svg {
+  flex: none;
+  color: var(--preset-accent);
+}
+.preset-card--create .preset-card-title,
+.preset-card .preset-card-description {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.preset-card .preset-card-description {
+  color: var(--preset-muted);
+  font-size: 10px;
+  line-height: 14px;
 }
 @media (prefers-reduced-motion: reduce) {
   button.preset-card {

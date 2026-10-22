@@ -2,7 +2,9 @@
 name: planner
 description: Senior architect that turns a feature request or bug into a concrete, file-level implementation plan. Use proactively before any non-trivial change, before handing work to the implementer agent. Read-only; never edits code.
 tools: Read, Grep, Glob, Bash, WebFetch, WebSearch
-model: claude-opus-5-5
+<!-- model: claude-opus-5-5 -->
+model: claude-sonnet-5-5
+
 effort: high
 permissionMode: plan
 color: purple

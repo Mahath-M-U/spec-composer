@@ -3,103 +3,22 @@
 }
 
 .resize-panel .resize-card-grid {
-  display: block;
-  columns: 2;
-  column-gap: 10px;
-  padding-inline: 8px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: 1fr;
+  gap: 10px;
+  padding: 0 8px 18px;
 }
 
 @container resize-gallery (min-width: 660px) {
   .resize-panel .resize-card-grid {
-    columns: 3;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
-.resize-panel button.preset-card--resize {
-  --preset-surface: color-mix(in oklab, var(--color-editor-surface), white 7%);
-  --preset-border: var(--color-editor-border);
-  --preset-muted: var(--color-editor-muted);
-  width: 100%;
-  margin: 0 0 10px;
-  break-inside: avoid;
-  padding: 4px;
-}
-.resize-panel button.preset-card--resize:hover {
-  background: var(--color-secondary);
-}
-.resize-panel .preset-card--resize .preset-card-art {
-  aspect-ratio: auto;
-  border: 0;
-  border-radius: 7px;
-}
-.resize-panel .preset-card--resize .preset-create-art {
-  aspect-ratio: 1;
-  border: 1px dashed var(--color-primary);
-}
-.resize-panel .preset-card--resize[aria-pressed="true"] {
-  outline: 2px solid var(--editor-action);
-}
-.resize-panel .preset-card--resize:focus-visible {
-  outline: 2px solid var(--editor-focus);
-  outline-offset: 2px;
-}
-
-.resize-panel .resize-card-details {
-  display: grid;
-  width: 100%;
-  min-width: 0;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: 2px;
-  margin-top: 6px;
-  white-space: nowrap;
-}
-
-.resize-panel .resize-card-details--custom {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
-}
-
-.resize-panel .resize-card-title,
-.resize-panel .resize-card-ratio,
-.resize-panel .resize-card-meta {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 1px;
-  margin: 0;
-  font-size: 9px;
-  line-height: 1.4;
-}
-
-.resize-panel .resize-card-title > span,
-.resize-panel .resize-card-details--custom .resize-card-meta > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.resize-panel .resize-card-ratio,
-.resize-panel .resize-card-meta {
-  color: var(--color-editor-muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.resize-panel .resize-card-title,
-.resize-panel .resize-card-details svg {
-  color: var(--color-primary);
-}
-
-.resize-panel .resize-card-details svg {
-  width: 8px;
-  height: 8px;
-  flex: none;
-}
-
-@container resize-gallery (max-width: 260px) {
+@container resize-gallery (max-width: 259px) {
   .resize-panel .resize-card-grid {
-    padding-inline: 0;
-  }
-
-  .resize-panel .resize-format-card {
+    grid-template-columns: minmax(0, 1fr);
     padding-inline: 0;
   }
 }

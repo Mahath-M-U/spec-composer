@@ -1,0 +1,337 @@
+.prompt-gallery-page .prompt-gallery-grid {
+  display: block;
+  column-width: 240px;
+  column-gap: 16px;
+}
+
+.prompt-gallery-page .prompt-gallery-empty {
+  column-span: all;
+}
+
+.prompt-gallery-page.discovery-content .prompt-gallery-card {
+  width: 100%;
+  margin-bottom: 16px;
+  break-inside: avoid;
+  border-color: transparent;
+  border-radius: 16px;
+  padding: 8px;
+  background: var(--color-surface-subtle);
+  box-shadow: none;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease;
+}
+
+.prompt-gallery-page.discovery-content .prompt-gallery-card:hover {
+  border-color: var(--color-border);
+  background: var(--color-secondary);
+}
+
+.prompt-gallery-page .prompt-gallery-card-media {
+  position: relative;
+  border-radius: 12px;
+}
+
+.prompt-gallery-page .prompt-gallery-card .prompt-gallery-card-body {
+  display: flex;
+  flex: none;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 48px;
+  margin-top: 8px;
+  padding: 0 2px;
+}
+
+.prompt-gallery-page .prompt-gallery-card-metadata {
+  min-width: 0;
+}
+
+.prompt-gallery-page .prompt-gallery-card .preview-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.prompt-gallery-page .prompt-gallery-card .preview-card-subtitle {
+  margin-top: 2px;
+  color: var(--color-muted-foreground);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.prompt-gallery-page .prompt-gallery-card-copy {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    opacity 160ms ease;
+}
+
+.prompt-gallery-page .prompt-gallery-card-copy:hover {
+  background: color-mix(
+    in oklab,
+    var(--color-primary) 90%,
+    var(--color-foreground)
+  );
+  color: var(--color-primary-foreground);
+}
+
+.prompt-gallery-page .prompt-gallery-card-copy:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.prompt-gallery-page .prompt-gallery-card-copy svg {
+  width: 16px;
+  height: 16px;
+}
+
+.prompt-gallery-page .prompt-gallery-card .prompt-gallery-details-toggle {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 4;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgb(255 255 255 / 18%);
+  border-radius: 9px;
+  background: rgb(18 20 27 / 76%);
+  color: white;
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity 160ms ease,
+    background-color 160ms ease;
+}
+
+.prompt-gallery-page
+  .prompt-gallery-card:is(:hover, :focus-within)
+  .prompt-gallery-details-toggle {
+  opacity: 1;
+}
+
+.prompt-gallery-page .prompt-gallery-card .prompt-gallery-details-toggle:hover {
+  background: rgb(18 20 27 / 92%);
+}
+
+.prompt-gallery-page .prompt-gallery-card-copy:focus-visible,
+.prompt-gallery-page
+  .prompt-gallery-card
+  .prompt-gallery-details-toggle:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 3px;
+}
+
+:is(
+    .prompt-gallery-page.discovery-content,
+    .prompt-gallery-dialog[role="dialog"]
+  )
+  .prompt-gallery-comparison {
+  aspect-ratio: auto;
+  max-height: none;
+  border: 0;
+  border-radius: 12px;
+  background: var(--color-muted);
+}
+
+:is(
+    .prompt-gallery-page.discovery-content,
+    .prompt-gallery-dialog[role="dialog"]
+  )
+  .prompt-gallery-comparison--unavailable {
+  aspect-ratio: 2 / 3;
+}
+
+:is(
+    .prompt-gallery-page.discovery-content,
+    .prompt-gallery-dialog[role="dialog"]
+  )
+  .prompt-gallery-comparison
+  .prompt-gallery-image {
+  inset: auto;
+  top: 50%;
+  left: 50%;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 12px;
+  object-fit: contain;
+  object-position: center;
+  transform: translate(-50%, -50%);
+}
+
+:is(
+    .prompt-gallery-page.discovery-content,
+    .prompt-gallery-dialog[role="dialog"]
+  )
+  .prompt-gallery-comparison
+  .prompt-gallery-image--after {
+  position: relative;
+  display: block;
+  inset: auto;
+  width: 100%;
+  height: auto;
+  max-width: none;
+  max-height: none;
+  aspect-ratio: auto 2 / 3;
+  transform: none;
+}
+
+:is(
+    .prompt-gallery-page.discovery-content,
+    .prompt-gallery-dialog[role="dialog"]
+  )
+  .prompt-gallery-comparison
+  .prompt-gallery-before-layer {
+  position: absolute;
+  inset: 0;
+  clip-path: inset(0 calc(100% - var(--split)) 0 0);
+}
+
+:is(
+    .prompt-gallery-page.discovery-content,
+    .prompt-gallery-dialog[role="dialog"]
+  )
+  .prompt-gallery-comparison
+  .prompt-gallery-image-label {
+  top: 8px;
+  padding: 4px 7px;
+  background: rgb(18 20 27 / 64%);
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-shadow: none;
+}
+
+:is(
+    .prompt-gallery-page.discovery-content,
+    .prompt-gallery-dialog[role="dialog"]
+  )
+  .prompt-gallery-comparison
+  .prompt-gallery-image-label--after {
+  background: color-mix(
+    in oklab,
+    var(--color-primary) 16%,
+    rgb(18 20 27 / 78%)
+  );
+  color: var(--color-primary);
+  text-transform: uppercase;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  border-radius: 999px;
+}
+
+:is(
+    .prompt-gallery-page.discovery-content,
+    .prompt-gallery-dialog[role="dialog"]
+  )
+  .prompt-gallery-comparison
+  .prompt-gallery-divider {
+  width: 1.5px;
+  background: rgb(255 255 255 / 92%);
+  box-shadow: none;
+}
+
+:is(
+    .prompt-gallery-page.discovery-content,
+    .prompt-gallery-dialog[role="dialog"]
+  )
+  .prompt-gallery-comparison
+  .prompt-gallery-divider
+  .prompt-gallery-handle {
+  width: 32px;
+  height: 32px;
+  border: 1px solid color-mix(in oklab, var(--color-primary) 60%, transparent);
+  background: #282528;
+  color: #f5f1f1;
+  box-shadow: none;
+  transform: translate(-50%, -50%);
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+:is(
+    .prompt-gallery-page.discovery-content,
+    .prompt-gallery-dialog[role="dialog"]
+  )
+  .prompt-gallery-comparison
+  .prompt-gallery-handle
+  svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2;
+}
+
+:is(
+    .prompt-gallery-page.discovery-content,
+    .prompt-gallery-dialog[role="dialog"]
+  )
+  .prompt-gallery-comparison:has(.prompt-gallery-range:focus-visible)
+  .prompt-gallery-handle {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 3px;
+}
+
+.prompt-gallery-page .prompt-gallery-card .prompt-gallery-coming-visual {
+  aspect-ratio: 3 / 4;
+  max-height: none;
+  border: 0;
+  border-radius: 12px;
+}
+
+.prompt-gallery-dialog[role="dialog"] {
+  max-height: calc(100dvh - 32px);
+}
+
+.prompt-gallery-dialog[role="dialog"] .prompt-gallery-dialog-heading,
+.prompt-gallery-dialog[role="dialog"] .prompt-gallery-dialog-actions {
+  flex: none;
+}
+
+.prompt-gallery-dialog[role="dialog"] .prompt-gallery-dialog-scroll {
+  flex: 1 1 auto;
+}
+
+.prompt-gallery-dialog[role="dialog"] .prompt-gallery-dialog-preview {
+  width: min(100%, 360px, 48dvh);
+  margin: 0 auto 24px;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .prompt-gallery-page .prompt-gallery-card .prompt-gallery-details-toggle {
+    width: 44px;
+    height: 44px;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prompt-gallery-page.discovery-content .prompt-gallery-card,
+  .prompt-gallery-page .prompt-gallery-card-copy,
+  .prompt-gallery-page .prompt-gallery-card .prompt-gallery-details-toggle,
+  :is(
+      .prompt-gallery-page.discovery-content,
+      .prompt-gallery-dialog[role="dialog"]
+    )
+    .prompt-gallery-comparison
+    .prompt-gallery-divider
+    .prompt-gallery-handle {
+    transition: none;
+  }
+}

@@ -1,190 +1,18 @@
 import { centeredCircle, isCircleShape } from "./shape-workflow";
 import type { Format, SpecDocument, SpecElement } from "./types";
 
+import {
+  dimensionRatio,
+  RESIZE_PRESET_GROUPS,
+  type ResizePreset,
+} from "./preset-catalog";
+export {
+  RESIZE_PRESET_GROUPS,
+  type ResizePreset,
+  type ResizePresetGroup,
+} from "./preset-catalog";
+
 export type ResizeUnit = "px" | "in" | "cm";
-
-export interface ResizePreset {
-  id: string;
-  label: string;
-  width: number;
-  height: number;
-  platform: NonNullable<Format["platform"]>;
-  type: NonNullable<Format["type"]>;
-}
-
-export interface ResizePresetGroup {
-  label: string;
-  presets: readonly ResizePreset[];
-}
-
-export const RESIZE_PRESET_GROUPS: readonly ResizePresetGroup[] = [
-  {
-    label: "Instagram",
-    presets: [
-      {
-        id: "instagram-post",
-        label: "Post",
-        width: 1080,
-        height: 1080,
-        platform: "instagram",
-        type: "post",
-      },
-      {
-        id: "instagram-story",
-        label: "Story",
-        width: 1080,
-        height: 1920,
-        platform: "instagram",
-        type: "story",
-      },
-      {
-        id: "instagram-ad",
-        label: "Ad",
-        width: 1080,
-        height: 1080,
-        platform: "instagram",
-        type: "ad",
-      },
-    ],
-  },
-  {
-    label: "Facebook",
-    presets: [
-      {
-        id: "facebook-landscape",
-        label: "Post (Landscape)",
-        width: 1200,
-        height: 630,
-        platform: "facebook",
-        type: "post",
-      },
-      {
-        id: "facebook-square",
-        label: "Post (Square)",
-        width: 1080,
-        height: 1080,
-        platform: "facebook",
-        type: "post",
-      },
-      {
-        id: "facebook-cover",
-        label: "Cover",
-        width: 851,
-        height: 315,
-        platform: "facebook",
-        type: "cover",
-      },
-    ],
-  },
-  {
-    label: "YouTube",
-    presets: [
-      {
-        id: "youtube-thumbnail",
-        label: "Thumbnail",
-        width: 1280,
-        height: 720,
-        platform: "youtube",
-        type: "thumbnail",
-      },
-      {
-        id: "youtube-channel",
-        label: "Channel",
-        width: 2560,
-        height: 1440,
-        platform: "youtube",
-        type: "cover",
-      },
-      {
-        id: "youtube-short",
-        label: "Short",
-        width: 1080,
-        height: 1920,
-        platform: "youtube",
-        type: "video",
-      },
-    ],
-  },
-  {
-    label: "LinkedIn",
-    presets: [
-      {
-        id: "linkedin-post",
-        label: "Post",
-        width: 1200,
-        height: 627,
-        platform: "linkedin",
-        type: "post",
-      },
-      {
-        id: "linkedin-banner",
-        label: "Banner",
-        width: 1584,
-        height: 396,
-        platform: "linkedin",
-        type: "cover",
-      },
-      {
-        id: "linkedin-square",
-        label: "Square",
-        width: 1080,
-        height: 1080,
-        platform: "linkedin",
-        type: "post",
-      },
-    ],
-  },
-  {
-    label: "Twitter/X",
-    presets: [
-      {
-        id: "x-post",
-        label: "Post",
-        width: 1600,
-        height: 900,
-        platform: "x",
-        type: "post",
-      },
-      {
-        id: "x-header",
-        label: "Header",
-        width: 1500,
-        height: 500,
-        platform: "x",
-        type: "cover",
-      },
-      {
-        id: "x-square",
-        label: "Square",
-        width: 1080,
-        height: 1080,
-        platform: "x",
-        type: "post",
-      },
-    ],
-  },
-  {
-    label: "Video",
-    presets: [
-      {
-        id: "video-full-hd",
-        label: "Full HD",
-        width: 1920,
-        height: 1080,
-        platform: "generic",
-        type: "video",
-      },
-      {
-        id: "video-4k-uhd",
-        label: "4K UHD",
-        width: 3840,
-        height: 2160,
-        platform: "generic",
-        type: "video",
-      },
-    ],
-  },
-];
 
 const PX_PER_UNIT: Record<ResizeUnit, number> = {
   px: 1,
@@ -215,10 +43,6 @@ export function validateResizeSize(
   return null;
 }
 
-function gcd(a: number, b: number): number {
-  return b === 0 ? a : gcd(b, a % b);
-}
-
 export function makeResizeFormat(
   width: number,
   height: number,
@@ -226,8 +50,7 @@ export function makeResizeFormat(
 ): Format {
   const error = validateResizeSize(width, height);
   if (error) throw new RangeError(error);
-  const divisor = gcd(width, height);
-  const subtitle = `${width / divisor}:${height / divisor}`;
+  const subtitle = dimensionRatio(width, height);
   const groupName = preset
     ? (RESIZE_PRESET_GROUPS.find((group) =>
         group.presets.some((item) => item.id === preset.id),

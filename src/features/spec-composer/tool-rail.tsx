@@ -18,7 +18,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useEditorStore } from "./store";
-import { BrandKitSummary } from "./brand-kit-summary";
+import { DesignKitSummary } from "./design-kit-card";
 import { UserSettings } from "./user-settings";
 import { McpComingSoonSplash } from "./coming-soon-lazy";
 import { QuickGuide } from "./quick-guide-lazy";
@@ -226,11 +226,7 @@ export function ToolRail({
             aria-label={`Open applied Design Kit: ${kit.name}`}
             onClick={() => onSelectPanel("brandKit")}
           >
-            <BrandKitSummary
-              kit={kit}
-              variant="sidebar"
-              subtitle="Applied Design Kit"
-            />
+            <DesignKitSummary kit={kit} subtitle="Applied Design Kit" />
           </button>
         )}
         <div className="tool-rail-footer">

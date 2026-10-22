@@ -26,6 +26,7 @@ function renderPanel(
   props: Partial<{
     standalone: boolean;
     pageView: boolean;
+    cardVariant: "portrait" | "row";
   }> = {},
 ) {
   function Capture() {
@@ -143,12 +144,34 @@ beforeEach(() => {
 });
 
 describe("BrandKitPanel", () => {
-  it("uses the full editor card presentation on Home with standalone default-kit actions", () => {
+  it("renders compact DesignKitCard rows on Home with standalone default-kit actions", () => {
     useEditorStore.setState({
       brandKits: [auroraKit],
       defaultBrandKitId: auroraKit.id,
     });
-    const html = renderPanel({ standalone: true });
+    const html = renderPanel({ standalone: true, cardVariant: "row" });
+    expect(html).toContain("design-kit-card--row");
+    expect(html).not.toContain("bk-showcase-card");
+    expect(html).not.toContain("bk-preview-illustration");
+    expect(html).not.toContain("bk-palette-slot");
+    expect(html).toContain("Aurora");
+    expect(html).toContain("Fraunces · Minimal");
+    expect(html).toContain('aria-label="Remove Aurora as default"');
+    expect(html).toContain('aria-label="Edit Aurora"');
+    expect(html).toContain('aria-label="More actions for Aurora"');
+    expect(html).toContain('aria-pressed="true"');
+    expect(html).toContain(">Applied<");
+    expect(html).not.toContain("Set as default");
+    expect(html).not.toContain(">Default<");
+  });
+
+  it("keeps the full portrait showcase card on the Design kits page", () => {
+    useEditorStore.setState({
+      brandKits: [auroraKit],
+      defaultBrandKitId: auroraKit.id,
+    });
+    const html = renderPanel({ standalone: true, pageView: true });
+    expect(html).not.toContain("design-kit-card--row");
     expect(html).toContain("bk-showcase-card");
     expect(html).toContain("bk-preview-illustration");
     expect(html).toContain("bk-preview-type-specimen");
@@ -174,7 +197,7 @@ describe("BrandKitPanel", () => {
       brandKits: [auroraKit],
       defaultBrandKitId: undefined,
     });
-    const html = renderPanel({ standalone: true });
+    const html = renderPanel({ standalone: true, cardVariant: "row" });
     expect(html).toContain(">Apply<");
     expect(html).toContain('aria-label="Apply Aurora as default"');
   });

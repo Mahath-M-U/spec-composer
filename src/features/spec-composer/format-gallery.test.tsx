@@ -13,6 +13,7 @@ import {
   PlatformFilterBar,
 } from "./format-gallery";
 import { formats, platforms } from "./formats";
+import { PresetCard } from "./preset-card";
 
 type ElementProps = { children?: ReactNode; [key: string]: unknown };
 function elements(node: ReactNode): ReactElement<ElementProps>[] {
@@ -68,19 +69,45 @@ describe("home format gallery", () => {
     expect(onChange).toHaveBeenCalledExactlyOnceWith("WhatsApp");
   });
 
-  it("creates the original preset with unchanged dimensions and minimal metadata", () => {
-    const format = formats.find((item) => item.id === "instagram-story")!;
-    const onSelect = vi.fn();
-    const tree = FormatCard({ format, index: 0, onSelect });
-    (tree.props.onClick as () => void)();
-    expect(onSelect).toHaveBeenCalledExactlyOnceWith(format);
-    expect(onSelect.mock.calls[0]![0]).toBe(format);
-    const html = renderToStaticMarkup(tree);
-    expect(html).toContain(`${format.width} × ${format.height} px`);
-    expect(html).not.toContain("Use template");
-    expect(html).not.toContain(format.subtitle);
-    expect(html).toContain(`viewBox="0 0 ${format.width} ${format.height}"`);
-  });
+  it.each([
+    ["instagram-post", "4:5"],
+    ["instagram-square", "1:1"],
+    ["instagram-story", "9:16"],
+    ["instagram-reel", "9:16"],
+    ["linkedin-post", "1:1"],
+    ["linkedin-banner", "4:1"],
+    ["facebook-post", "40:21"],
+    ["facebook-cover", "205:78"],
+  ])(
+    "creates the original %s with correct shared-card metadata",
+    (id, ratio) => {
+      const format = formats.find((item) => item.id === id)!;
+      const onSelect = vi.fn();
+      const tree = FormatCard({ format, index: 0, onSelect });
+      expect(tree.type).toBe(PresetCard);
+      (tree.props.onClick as () => void)();
+      expect(onSelect).toHaveBeenCalledExactlyOnceWith(format);
+      expect(onSelect.mock.calls[0]![0]).toBe(format);
+      const html = renderToStaticMarkup(tree);
+      expect(html).toContain(`${format.width} × ${format.height} px`);
+      expect(html).not.toContain("Use template");
+      expect(html).toContain(`title="Aspect ratio ${ratio}"`);
+      expect(html).toContain('class="preset-card-art"');
+      expect(html).toContain('class="preset-card-details"');
+      const footerStart = html.indexOf('<span class="preset-card-details">');
+      const preview = html.slice(0, footerStart);
+      const footer = html.slice(footerStart);
+      expect(footer).toContain(`title="Aspect ratio ${ratio}"`);
+      expect(footer).toContain(`${format.width} × ${format.height} px`);
+      expect(footer).toContain('class="preset-card-metadata"');
+      expect(footer).toContain(`title="${format.label}"`);
+      expect(preview).not.toContain("preset-card-metadata");
+      expect(footer.indexOf('class="preset-card-title"')).toBeLessThan(
+        footer.indexOf('class="preset-card-metadata"'),
+      );
+      expect(html).toContain(`viewBox="0 0 ${format.width} ${format.height}"`);
+    },
+  );
 
   it("preserves the custom-size callback alongside the preset grid", () => {
     const onCreateCustom = vi.fn();
@@ -94,6 +121,8 @@ describe("home format gallery", () => {
     const add = all.find((item) => item.type === AddFormatCard)!;
     expect(add.props["onClick"]).toBe(onCreateCustom);
     const button = AddFormatCard({ onClick: onCreateCustom });
+    expect(button.type).toBe(PresetCard);
+    expect(button.props.mode).toBe("create");
     button.props.onClick();
     expect(onCreateCustom).toHaveBeenCalledOnce();
     const presets = all.filter((item) => item.type === FormatCard);
@@ -102,5 +131,9 @@ describe("home format gallery", () => {
     expect(renderToStaticMarkup(createElement("div", null, tree))).toContain(
       "Create a design",
     );
+    const createMarkup = renderToStaticMarkup(button);
+    expect(createMarkup).toContain("Preset or custom size");
+    expect(createMarkup).not.toContain("preset-card-art");
+    expect(createMarkup).not.toContain("preset-card-details");
   });
 });

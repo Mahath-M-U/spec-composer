@@ -11,9 +11,8 @@ import YouTubeIcon from "@mui/icons-material/YouTube";
 import { History, Music2 } from "lucide-react";
 import type { PlatformFilter } from "./formats";
 import type { Format } from "./types";
-import { formatArtworkId } from "./format-artwork";
-import { PresetArtwork } from "./resize-preset-preview";
-import { PresetCard, PresetCreateCard } from "./preset-card";
+import { homePreset } from "./preset-catalog";
+import { PresetCard } from "./preset-card";
 
 const platformIcons: Record<PlatformFilter, ElementType> = {
   Popular: AutoAwesomeOutlinedIcon,
@@ -61,20 +60,8 @@ export function PlatformFilterBar({
   );
 }
 
-export function FormatPreview({ format }: { format: Format; index?: number }) {
-  return (
-    <PresetArtwork
-      id={format.id}
-      artworkId={formatArtworkId(format.id) ?? "dimensions"}
-      width={format.width}
-      height={format.height}
-    />
-  );
-}
-
 export function FormatCard({
   format,
-  index,
   onSelect,
 }: {
   format: Format;
@@ -83,11 +70,7 @@ export function FormatCard({
 }) {
   return (
     <PresetCard
-      title={format.label}
-      width={format.width}
-      height={format.height}
-      artwork={<FormatPreview format={format} index={index} />}
-      badge={format.animated ? "Animated" : undefined}
+      preset={homePreset(format)}
       onClick={() => onSelect(format)}
       ariaLabel={`Create ${format.label}, ${format.width} by ${format.height} pixels`}
     />
@@ -95,7 +78,7 @@ export function FormatCard({
 }
 
 export function AddFormatCard({ onClick }: { onClick: () => void }) {
-  return <PresetCreateCard onClick={onClick} />;
+  return <PresetCard mode="create" onClick={onClick} />;
 }
 
 export function FormatGrid({

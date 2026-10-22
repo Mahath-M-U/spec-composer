@@ -222,7 +222,8 @@
     display: flex;
     height: auto;
     min-height: 84px;
-    border: 1px solid var(--editor-glass-border);
+    /* The summary has no surface of its own, so this is the only border. */
+    border: 1px solid var(--design-kit-card-applied-border);
   }
   .editor-shell
     #editor-tool-rail.tool-rail.tool-rail--redesigned

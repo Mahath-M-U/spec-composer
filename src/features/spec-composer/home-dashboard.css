@@ -1,31 +1,7 @@
-/* Home uses the editor's complete kit card, on a landscape-width grid. */
-
-.home-page-content .brandkit-home-panel .brandkit-list-panel {
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
-  gap: 16px;
-  padding: 0;
+.home-page-content .section-heading h2 {
+  font-size: 16px;
 }
-.home-page-content .brandkit-home-panel .bk-face {
-  gap: 0.5rem;
-  padding: 0.5rem;
-}
-.home-page-content .brandkit-home-panel .bk-preview {
-  min-height: 160px;
-  gap: 10px;
-  padding: 12px 12px 10px;
-}
-
-.home-page-content .brandkit-home-panel .bk-preview-headline {
-  font-size: 20px;
-}
-.home-page-content .brandkit-showcase .showcase-heading {
-  padding-right: 0;
-}
-
-.home-page-content .brandkit-showcase .brandkit-create-toolbar {
-  position: static;
-  flex-wrap: wrap;
-  width: fit-content;
-  margin-bottom: 12px;
-  padding: 0;
+.home-page-content .empty-gallery span,
+.home-page-content .empty-band span {
+  font-size: 14px;
 }

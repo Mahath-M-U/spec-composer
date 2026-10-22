@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { DiscoveryShell } from "../discovery";
-import { Sparkles } from "lucide-react";
 import { galleryPrompts, type GalleryPrompt } from "./catalog";
 import { PromptCard } from "./prompt-card";
 import { shuffled } from "./shuffle";
+import "./prompt-gallery.css";
 
 export function PromptGalleryPage() {
   const [query, setQuery] = useState("");
@@ -168,20 +168,15 @@ export function PromptGalleryPage() {
               </div>
             </div>
             <div className="preview-card-meta prompt-gallery-card-body">
-              <p className="preview-card-subtitle">Up next</p>
-              <h2
-                id="prompt-gallery-coming-soon-title"
-                className="preview-card-title"
-              >
-                More prompts soon
-              </h2>
-              <p className="preview-card-subtitle">
-                More before-and-after styles are on the way.
-              </p>
-              <p className="prompt-gallery-coming-note">
-                <Sparkles size={14} aria-hidden="true" />
-                New examples will join the gallery here.
-              </p>
+              <div className="prompt-gallery-card-metadata">
+                <h2
+                  id="prompt-gallery-coming-soon-title"
+                  className="preview-card-title"
+                >
+                  More prompts soon
+                </h2>
+                <p className="preview-card-subtitle">Up next</p>
+              </div>
             </div>
           </article>
         </div>

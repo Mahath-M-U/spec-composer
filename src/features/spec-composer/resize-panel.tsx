@@ -12,8 +12,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { PanelHeader } from "./panel-header";
-import { ResizePresetPreview } from "./resize-preset-preview";
-import { PresetCard, PresetCreateCard } from "./preset-card";
+import { PresetCard } from "./preset-card";
+import { resizePreset } from "./preset-catalog";
 import {
   RESIZE_PRESET_GROUPS,
   fromPixels,
@@ -255,8 +255,8 @@ export function ResizePanel() {
 
         <div className="resize-card-grid" aria-label="Available sizes">
           {showCustomCard && (
-            <PresetCreateCard
-              variant="resize"
+            <PresetCard
+              mode="create"
               title="Custom size"
               description="Enter width and height"
               ariaLabel="Enter a custom size"
@@ -267,22 +267,17 @@ export function ResizePanel() {
               }}
             />
           )}
-          {visibleCards.map(({ group, preset, format }) => {
+          {visibleCards.map(({ group, preset }) => {
             const selected = preset.id === selectedId;
             const current = isCurrent(preset);
             return (
               <PresetCard
                 key={preset.id}
-                variant="resize"
-                title={`${group} ${preset.label}`}
-                width={preset.width}
-                height={preset.height}
-                ratio={format.subtitle}
+                preset={resizePreset(preset, group)}
                 selected={selected}
                 current={current}
                 ariaLabel={`${selected ? "Deselect" : "Select"} ${group} ${preset.label}, ${preset.width} by ${preset.height} pixels${current ? ", current size" : ""}`}
                 onClick={() => togglePreset(preset.id)}
-                artwork={<ResizePresetPreview preset={preset} />}
               />
             );
           })}
@@ -292,12 +287,14 @@ export function ResizePanel() {
         </div>
       </div>
 
-      <div className="resize-action-bar">
-        {actionText && <p>{actionText}</p>}
-        <button type="button" disabled={disabled} onClick={requestResize}>
-          {pending ? "Resizing…" : "Resize design"}
-        </button>
-      </div>
+      {target && (
+        <div className="resize-action-bar">
+          {actionText && <p>{actionText}</p>}
+          <button type="button" disabled={disabled} onClick={requestResize}>
+            {pending ? "Resizing…" : "Resize design"}
+          </button>
+        </div>
+      )}
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>

@@ -54,7 +54,7 @@ import { projectsQueryOptions } from "./queries";
 import { reportStorageError } from "./storage/errors";
 import type { Format, SpecDocument } from "./types";
 import { BrandKitPanel } from "./brand-kit-panel";
-import { BrandKitSummary, brandKitColorPaint } from "./brand-kit-summary";
+import { DesignKitCard, DesignKitSummary } from "./design-kit-card";
 import { DocumentPreview } from "./static-render";
 import { TemplateCardMedia } from "./template-card-media";
 import { RecentDesignCard } from "./recent-design-card";
@@ -355,19 +355,24 @@ export function DiscoveryShell({
   );
 }
 
-function colorPaint(color: {
-  type: "solid" | "gradient";
-  hex: string;
-  secondaryHex?: string;
-  angle: number;
-}) {
-  return brandKitColorPaint(color);
-}
-
 function BrandKitSidebarLink() {
   const brandKits = useEditorStore((state) => state.brandKits);
   const defaultBrandKitId = useEditorStore((state) => state.defaultBrandKitId);
   const globalKit = brandKits.find((kit) => kit.id === defaultBrandKitId);
+
+  if (globalKit) {
+    return (
+      <Link
+        to="/design-kit"
+        activeProps={{ className: "active" }}
+        className="sidebar-kit-link"
+        data-tour="design-kit"
+        aria-label={`Design kits: ${globalKit.name}`}
+      >
+        <DesignKitCard kit={globalKit} active />
+      </Link>
+    );
+  }
 
   return (
     <Link
@@ -376,12 +381,7 @@ function BrandKitSidebarLink() {
       className="sidebar-brandkit-card"
       data-tour="design-kit"
     >
-      <BrandKitSummary
-        kit={globalKit}
-        variant="sidebar"
-        title="Design kits"
-        subtitle={globalKit?.name ?? "Build your identity"}
-      />
+      <DesignKitSummary title="Design kits" subtitle="Build your identity" showSwatches={false} />
     </Link>
   );
 }
@@ -436,49 +436,28 @@ export function BrandKitsPage() {
           </div>
 
           <div
-            className="brandkit-hero-preview"
+            className="brandkit-hero-kit"
             data-tour="kit-default"
             aria-label="Default design kit for designs"
           >
-            <div className="brandkit-preview-topline">
-              <span>Default for designs</span>
-              <i className={globalKit ? "is-live" : undefined} />
-            </div>
-            <strong>{globalKit?.name ?? "No default kit yet"}</strong>
-            <span className="brandkit-preview-font">
-              {globalKit?.typography ?? "Choose your signature type"}
-            </span>
-            <div className="brandkit-preview-palette" aria-hidden="true">
-              {(globalKit?.colors.length
-                ? globalKit.colors.slice(0, 5)
-                : [
-                    {
-                      id: "a",
-                      type: "solid" as const,
-                      hex: "#C55454",
-                      angle: 0,
-                    },
-                    {
-                      id: "b",
-                      type: "solid" as const,
-                      hex: "#141413",
-                      angle: 0,
-                    },
-                    {
-                      id: "c",
-                      type: "solid" as const,
-                      hex: "#EFE9DE",
-                      angle: 0,
-                    },
-                  ]
-              ).map((color) => (
-                <i key={color.id} style={{ background: colorPaint(color) }} />
-              ))}
-            </div>
-            <div className="brandkit-preview-meta">
-              <span>{globalKit?.style ?? "Creative style"}</span>
-              <span>{globalKit?.emotions[0] ?? "Brand mood"}</span>
-            </div>
+            <p className="brandkit-hero-eyebrow">
+              Default for designs{" "}
+              <i
+                className={
+                  globalKit ? "brandkit-hero-live is-live" : "brandkit-hero-live"
+                }
+                aria-hidden="true"
+              />
+            </p>
+            {globalKit ? (
+              <DesignKitCard kit={globalKit} active />
+            ) : (
+              <div className="asset-empty">
+                <Gem aria-hidden="true" />
+                <b>No default kit yet</b>
+                <span>Apply a kit below to make it the default.</span>
+              </div>
+            )}
           </div>
         </header>
 
@@ -522,11 +501,10 @@ function matchesQuery(format: Format, query: string) {
     .every((term) => haystack.includes(term));
 }
 
-const FEATURED_COUNT = 8;
 /** Cards above the fold on /templates load eagerly with high fetch priority. */
 const TEMPLATE_PRIORITY_COUNT = 5;
 
-/** A random handful of starters, one per category where possible. */
+/** Randomize starter order while keeping categories distributed. */
 function pickFeaturedTemplates() {
   const pool = [...starterTemplates];
   for (let i = pool.length - 1; i > 0; i--) {
@@ -538,7 +516,7 @@ function pickFeaturedTemplates() {
     (template) => !seen.has(template.category) && seen.add(template.category),
   );
   const rest = pool.filter((template) => !varied.includes(template));
-  return [...varied, ...rest].slice(0, FEATURED_COUNT);
+  return [...varied, ...rest];
 }
 
 /**
@@ -550,8 +528,40 @@ function useFeaturedTemplates() {
   useEffect(() => setPicked(pickFeaturedTemplates()), []);
   return {
     ready: picked !== null,
-    templates: picked ?? starterTemplates.slice(0, FEATURED_COUNT),
+    templates: picked ?? starterTemplates,
   };
+}
+
+function useVisibleHomeCardCount(refreshKey?: boolean) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [visibleCount, setVisibleCount] = useState(1);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const updateVisibleCount = () => {
+      const styles = getComputedStyle(container);
+      const minCardWidth =
+        Number.parseFloat(styles.getPropertyValue("--home-card-min-width")) ||
+        210;
+      const columnGap = Number.parseFloat(styles.columnGap) || 0;
+      const count = Math.max(
+        1,
+        Math.floor(
+          (container.clientWidth + columnGap) / (minCardWidth + columnGap),
+        ),
+      );
+      setVisibleCount((current) => (current === count ? current : count));
+    };
+
+    updateVisibleCount();
+    const observer = new ResizeObserver(updateVisibleCount);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [refreshKey]);
+
+  return { containerRef, visibleCount };
 }
 
 export function HomePage() {
@@ -562,8 +572,10 @@ export function HomePage() {
   const { data: projects = [], isPending: projectsPending } = useQuery(
     projectsQueryOptions(),
   );
-  const recent = projects.slice(0, 5);
+  const recent = projects;
   const featured = useFeaturedTemplates();
+  const recentCards = useVisibleHomeCardCount(projectsPending);
+  const starterCards = useVisibleHomeCardCount();
   const openNewProject = useOpenNewProject();
   const nextProjectName = useNextProjectName();
 
@@ -585,7 +597,7 @@ export function HomePage() {
     });
 
     return platform === "Popular" && !query.trim()
-      ? matchingFormats.slice(0, 6)
+      ? matchingFormats.slice(0, 7)
       : matchingFormats;
   }, [platform, query]);
 
@@ -680,15 +692,19 @@ export function HomePage() {
               className="template-strip template-strip--recent"
               role="status"
               aria-busy="true"
+              ref={recentCards.containerRef}
             >
               <span className="sr-only">Loading recent designs</span>
-              {[0, 1, 2].map((index) => (
+              {Array.from({ length: recentCards.visibleCount }, (_, index) => (
                 <PreviewCardSkeleton key={index} />
               ))}
             </div>
           ) : recent.length ? (
-            <div className="template-strip template-strip--recent">
-              {recent.map((document) => (
+            <div
+              className="template-strip template-strip--recent"
+              ref={recentCards.containerRef}
+            >
+              {recent.slice(0, recentCards.visibleCount).map((document) => (
                 <RecentDesignCard key={document.id} doc={document} />
               ))}
             </div>
@@ -721,14 +737,17 @@ export function HomePage() {
           <div
             className="template-strip template-strip--starters"
             data-ready={featured.ready ? "" : undefined}
+            ref={starterCards.containerRef}
           >
-            {featured.templates.map((template) => (
-              <TemplateCard
-                key={template.name}
-                doc={template.document}
-                category={template.category}
-              />
-            ))}
+            {featured.templates
+              .slice(0, starterCards.visibleCount)
+              .map((template) => (
+                <TemplateCard
+                  key={template.name}
+                  doc={template.document}
+                  category={template.category}
+                />
+              ))}
           </div>
         </section>
 
@@ -746,8 +765,10 @@ export function HomePage() {
                 Save colors, typography, style, and emotion for every design.
               </p>
             </div>
+            <Link to="/design-kit" className="section-link">
+              View all <ArrowRight size={14} />
+            </Link>
           </div>
-          <BrandKitPanel standalone />
         </section>
       </div>
       {customOpen ? (
@@ -1387,9 +1408,9 @@ export function TemplatesPage() {
 
   return (
     <DiscoveryShell>
-      <div className="discovery-content">
+      <div className="discovery-content templates-page">
         <p className="eyebrow">STRUCTURED STARTING POINTS</p>
-        <h1 className="text-3xl font-extrabold md:text-4xl">Templates</h1>
+        <h1 className="font-extrabold">Templates</h1>
         <p className="mt-2 text-muted-foreground">
           Previews are AI-rendered examples. Every template opens as editable
           semantic JSON.
@@ -1425,7 +1446,7 @@ export function TemplatesPage() {
         </div>
 
         {shown.length ? (
-          <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="templates-grid mt-4 grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-5">
             {shown.map((template, index) => (
               <TemplateCard
                 key={template.name}

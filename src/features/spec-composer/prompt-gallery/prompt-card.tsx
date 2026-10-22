@@ -1,5 +1,5 @@
 import { Check, Copy, Maximize2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type MouseEvent } from "react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -7,12 +7,14 @@ import {
   DialogContent,
   DialogDescription,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Hint } from "@/components/ui/tooltip";
 import { BeforeAfter } from "./before-after";
 import type { GalleryPrompt } from "./catalog";
 
 export function PromptCard({ prompt }: { prompt: GalleryPrompt }) {
+  const id = useId();
   const [copied, setCopied] = useState(false);
   const [copying, setCopying] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -31,7 +33,8 @@ export function PromptCard({ prompt }: { prompt: GalleryPrompt }) {
     [],
   );
 
-  const copyPrompt = async () => {
+  const copyPrompt = async (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
     if (copying) return;
     setCopying(true);
     try {
@@ -51,84 +54,41 @@ export function PromptCard({ prompt }: { prompt: GalleryPrompt }) {
   };
 
   return (
-    <>
+    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
       <article
         className="preview-card prompt-gallery-card"
-        aria-labelledby={`${prompt.id}-title`}
+        aria-labelledby={`${id}-title`}
       >
         <div className="prompt-gallery-card-media">
           <BeforeAfter prompt={prompt} />
-        </div>
-        <div className="preview-card-meta prompt-gallery-card-body">
-          <h2
-            id={`${prompt.id}-title`}
-            className="preview-card-title"
-            title={prompt.title}
-          >
-            {prompt.title}
-          </h2>
-          <p className="preview-card-subtitle">{prompt.category}</p>
-          <p className="preview-card-subtitle" title={prompt.summary}>
-            {prompt.summary}
-          </p>
-          <div className="prompt-gallery-actions">
-            <button
-              type="button"
-              className="preview-card-primary"
-              onClick={copyPrompt}
-              disabled={copying}
-              aria-label={copyLabel}
-              aria-live="polite"
-            >
-              {copied ? (
-                <Check aria-hidden="true" />
-              ) : (
-                <Copy aria-hidden="true" />
-              )}
-              <span>{copyText}</span>
-            </button>
-            <Hint label="View full prompt" side="top">
+          <Hint label="View full prompt" side="top">
+            <DialogTrigger asChild>
               <button
                 type="button"
                 className="prompt-gallery-details-toggle"
-                aria-haspopup="dialog"
                 aria-label={`View full prompt: ${prompt.title}`}
-                onClick={() => setDialogOpen(true)}
+                onClick={(event) => event.stopPropagation()}
               >
                 <Maximize2 aria-hidden="true" />
               </button>
-            </Hint>
-          </div>
+            </DialogTrigger>
+          </Hint>
         </div>
-      </article>
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="prompt-gallery-dialog">
-          <div className="prompt-gallery-dialog-heading">
-            <span className="prompt-gallery-category">{prompt.category}</span>
-            <DialogTitle>{prompt.title}</DialogTitle>
-            <DialogDescription>{prompt.summary}</DialogDescription>
+        <div className="preview-card-meta prompt-gallery-card-body">
+          <div className="prompt-gallery-card-metadata">
+            <h2
+              id={`${id}-title`}
+              className="preview-card-title"
+              title={prompt.title}
+            >
+              {prompt.title}
+            </h2>
+            <p className="preview-card-subtitle">{prompt.category}</p>
           </div>
-          <div className="prompt-gallery-dialog-scroll">
-            <section aria-labelledby={`${prompt.id}-prompt-label`}>
-              <h3 id={`${prompt.id}-prompt-label`}>Prompt</h3>
-              <p className="prompt-gallery-dialog-prompt">
-                {prompt.refinedPrompt}
-              </p>
-            </section>
-            <p className="prompt-gallery-dialog-note">
-              Example tool: {prompt.exampleTool}. Results vary by image and
-              tool.
-            </p>
-          </div>
-          <div className="prompt-gallery-dialog-actions">
-            <DialogClose asChild>
-              <button type="button" className="prompt-gallery-dialog-close">
-                Close
-              </button>
-            </DialogClose>
+          <Hint label="Copy prompt" side="top">
             <button
               type="button"
-              className="prompt-gallery-copy"
+              className="prompt-gallery-card-copy"
               onClick={copyPrompt}
               disabled={copying}
               aria-label={copyLabel}
@@ -139,11 +99,54 @@ export function PromptCard({ prompt }: { prompt: GalleryPrompt }) {
               ) : (
                 <Copy aria-hidden="true" />
               )}
-              <span>{copyText}</span>
+              <span className="sr-only">{copyText}</span>
             </button>
+          </Hint>
+        </div>
+      </article>
+      <DialogContent className="prompt-gallery-dialog">
+        <div className="prompt-gallery-dialog-heading">
+          <span className="prompt-gallery-category">{prompt.category}</span>
+          <DialogTitle>{prompt.title}</DialogTitle>
+          <DialogDescription>{prompt.summary}</DialogDescription>
+        </div>
+        <div className="prompt-gallery-dialog-scroll">
+          <div className="prompt-gallery-dialog-preview">
+            <BeforeAfter prompt={prompt} />
           </div>
-        </DialogContent>
-      </Dialog>
-    </>
+          <section aria-labelledby={`${id}-prompt-label`}>
+            <h3 id={`${id}-prompt-label`}>Prompt</h3>
+            <p className="prompt-gallery-dialog-prompt">
+              {prompt.refinedPrompt}
+            </p>
+          </section>
+          <p className="prompt-gallery-dialog-note">
+            Example tool: {prompt.exampleTool}. Results vary by image and tool.
+          </p>
+        </div>
+        <div className="prompt-gallery-dialog-actions">
+          <DialogClose asChild>
+            <button type="button" className="prompt-gallery-dialog-close">
+              Close
+            </button>
+          </DialogClose>
+          <button
+            type="button"
+            className="prompt-gallery-copy"
+            onClick={copyPrompt}
+            disabled={copying}
+            aria-label={copyLabel}
+            aria-live="polite"
+          >
+            {copied ? (
+              <Check aria-hidden="true" />
+            ) : (
+              <Copy aria-hidden="true" />
+            )}
+            <span>{copyText}</span>
+          </button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
