@@ -73,9 +73,11 @@ type Gesture = {
 export function CanvasWorkspace({
   children,
   onCanvasSelect,
+  navigationLayoutKey,
 }: {
   children: ReactNode;
   onCanvasSelect?: () => void;
+  navigationLayoutKey?: string;
 }) {
   const s = useEditorStore();
   const doc = s.doc;
@@ -103,7 +105,7 @@ export function CanvasWorkspace({
     if (pointer !== undefined && surface.current?.hasPointerCapture(pointer))
       surface.current.releasePointerCapture(pointer);
   }, []);
-  const viewport = useCanvasViewport(surface, busy, cancel);
+  const viewport = useCanvasViewport(surface, busy, cancel, navigationLayoutKey);
   useEffect(() => {
     if (gesture.current && gesture.current.document !== doc) cancel();
   }, [doc, cancel]);

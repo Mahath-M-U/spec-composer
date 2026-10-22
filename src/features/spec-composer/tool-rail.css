@@ -1,0 +1,306 @@
+/* Scoped overrides keep the editor's legacy rail rules out of this component. */
+.editor-shell[data-navigation] {
+  transition: grid-template-columns 200ms ease-out;
+}
+.editor-shell #editor-tool-rail.tool-rail.tool-rail--redesigned {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 12px;
+  width: calc(100% - 8px);
+  min-width: 0;
+  min-height: 0;
+  padding: 6px 4px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border: 0;
+  background: var(--color-editor-surface);
+  box-shadow: none;
+  scrollbar-width: thin;
+}
+.tool-rail--redesigned
+  :is(.tool-rail-header, .tool-rail-primary, .tool-rail-footer) {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  flex-shrink: 0;
+  gap: 4px;
+}
+.tool-rail--redesigned .tool-rail-primary {
+  padding-block: 8px;
+  border-block: 1px solid var(--editor-glass-border);
+}
+.tool-rail--redesigned .tool-rail-footer {
+  margin-top: auto;
+}
+.editor-shell #editor-tool-rail.tool-rail.tool-rail--redesigned :is(button, a) {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+  height: 56px;
+  min-height: 0;
+  margin: 0;
+  padding: 4px 2px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--color-editor-muted);
+  text-decoration: none;
+  box-shadow: none;
+  transform: none;
+  transition:
+    background-color 150ms ease-out,
+    color 150ms ease-out;
+}
+.editor-shell #editor-tool-rail.tool-rail.tool-rail--redesigned span {
+  position: static;
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  min-width: 0;
+  overflow: hidden;
+  clip-path: none;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 13px;
+  color: inherit;
+}
+.editor-shell
+  #editor-tool-rail.tool-rail.tool-rail--redesigned
+  :is(button, a)
+  > svg {
+  flex-shrink: 0;
+  width: 19px;
+  height: 19px;
+  color: inherit;
+  transform: none;
+}
+.editor-shell
+  #editor-tool-rail.tool-rail.tool-rail--redesigned
+  :is(button, a):hover {
+  background: var(--color-editor-hover);
+  color: var(--color-editor-foreground);
+  box-shadow: none;
+  transform: none;
+}
+.editor-shell #editor-tool-rail.tool-rail.tool-rail--redesigned button.active,
+.editor-shell
+  #editor-tool-rail.tool-rail.tool-rail--redesigned
+  button.active:hover {
+  background: var(--editor-accent-soft);
+  color: var(--color-editor-foreground);
+  box-shadow: inset 0 0 0 1px
+    color-mix(in oklab, var(--editor-accent-ink) 22%, transparent);
+}
+.editor-shell
+  #editor-tool-rail.tool-rail.tool-rail--redesigned
+  button.active
+  > svg {
+  color: var(--editor-accent-ink);
+}
+.editor-shell #editor-tool-rail.tool-rail.tool-rail--redesigned button::after {
+  content: none;
+}
+.editor-shell #editor-tool-rail.tool-rail.tool-rail--redesigned button::before {
+  content: none;
+}
+.editor-shell
+  #editor-tool-rail.tool-rail.tool-rail--redesigned
+  button.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 16px;
+  bottom: 16px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--editor-accent-ink);
+}
+.editor-shell
+  #editor-tool-rail.tool-rail.tool-rail--redesigned
+  :is(button, a):focus-visible {
+  outline: 2px solid var(--editor-accent-ink);
+  outline-offset: -2px;
+}
+.editor-shell
+  #editor-tool-rail.tool-rail.tool-rail--redesigned
+  :is(.tool-rail-copy small, .tool-rail-status, .tool-rail-kit) {
+  display: none;
+}
+.tool-rail-tooltip {
+  z-index: 100;
+  max-width: min(240px, calc(100vw - 24px));
+  padding: 10px 12px;
+  border: 1px solid var(--color-editor-border);
+  border-radius: 11px;
+  background: var(--color-editor-surface);
+  color: var(--color-editor-foreground);
+  box-shadow: 0 4px 16px #0002;
+  animation: none;
+}
+.tool-rail-tooltip strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+}
+.tool-rail-tooltip > span {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--color-editor-muted);
+}
+@media (min-width: 768px) {
+  .editor-shell
+    #editor-tool-rail.tool-rail.tool-rail--redesigned[data-expanded="true"] {
+    padding: 8px;
+    width: calc(100% - 8px);
+  }
+  .editor-shell
+    #editor-tool-rail.tool-rail.tool-rail--redesigned[data-expanded="true"]
+    :is(button, a) {
+    flex-direction: row;
+    justify-content: flex-start;
+    width: 100%;
+    height: 44px;
+    gap: 10px;
+    padding: 6px 10px;
+    text-align: left;
+  }
+  .editor-shell
+    #editor-tool-rail.tool-rail.tool-rail--redesigned[data-expanded="true"]
+    span {
+    font-size: 12px;
+    line-height: 16px;
+  }
+  .editor-shell
+    #editor-tool-rail.tool-rail.tool-rail--redesigned[data-expanded="true"]
+    .tool-rail-copy {
+    flex: 1;
+  }
+  .editor-shell
+    #editor-tool-rail.tool-rail.tool-rail--redesigned[data-expanded="true"]
+    .tool-rail-copy
+    small {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 10px;
+    line-height: 14px;
+    font-weight: 400;
+    color: var(--color-editor-muted);
+  }
+  .editor-shell
+    #editor-tool-rail.tool-rail.tool-rail--redesigned[data-expanded="true"]
+    .tool-rail-status {
+    display: block;
+    flex-shrink: 0;
+    font-size: 9px;
+    font-style: normal;
+    color: var(--color-editor-muted);
+  }
+  .editor-shell
+    #editor-tool-rail.tool-rail.tool-rail--redesigned[data-expanded="true"]
+    button.active::before {
+    top: 12px;
+    bottom: 12px;
+  }
+  .editor-shell
+    #editor-tool-rail.tool-rail.tool-rail--redesigned[data-expanded="true"]
+    .tool-rail-kit {
+    display: flex;
+    height: auto;
+    min-height: 84px;
+    border: 1px solid var(--editor-glass-border);
+  }
+  .editor-shell
+    #editor-tool-rail.tool-rail.tool-rail--redesigned
+    .tool-rail-kit-copy {
+    flex: 1;
+  }
+  .tool-rail-kit-copy strong {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 12px;
+    color: var(--color-editor-foreground);
+  }
+  .tool-rail-kit-copy small {
+    font-size: 10px;
+  }
+  .editor-shell
+    #editor-tool-rail.tool-rail.tool-rail--redesigned
+    .tool-rail-palette {
+    display: flex;
+    gap: 4px;
+    padding-top: 6px;
+  }
+  .tool-rail-palette i {
+    width: 15px;
+    height: 15px;
+    border: 1px solid var(--editor-glass-border);
+    border-radius: 50%;
+  }
+}
+@media (max-width: 767px) {
+  .editor-shell #editor-tool-rail.tool-rail.tool-rail--redesigned {
+    flex-direction: row;
+    gap: 4px;
+    width: 100%;
+    height: var(--mobile-rail-height);
+    padding: 8px max(8px, env(safe-area-inset-right))
+      calc(8px + env(safe-area-inset-bottom))
+      max(8px, env(safe-area-inset-left));
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-radius: 0;
+    scrollbar-width: none;
+  }
+  .editor-shell
+    #editor-tool-rail.tool-rail.tool-rail--redesigned::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+  .tool-rail--redesigned
+    :is(.tool-rail-header, .tool-rail-primary, .tool-rail-footer) {
+    flex-direction: row;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+  .editor-shell
+    #editor-tool-rail.tool-rail.tool-rail--redesigned
+    :is(button, a) {
+    min-width: 64px;
+    width: 64px;
+    height: 56px;
+  }
+  .editor-shell
+    #editor-tool-rail.tool-rail.tool-rail--redesigned
+    .tool-rail-toggle {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .editor-shell[data-navigation],
+  .editor-shell
+    #editor-tool-rail.tool-rail.tool-rail--redesigned
+    :is(button, a),
+  .tool-rail-tooltip {
+    transition: none;
+    animation: none;
+  }
+}

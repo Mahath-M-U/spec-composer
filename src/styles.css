@@ -14399,6 +14399,44 @@ button.de-subrow-tag:focus-visible {
   padding: 4px 6px;
 }
 
+/* Top-bar toolbar pill: solid surface, hairline border, no blur/gradient. */
+.editor-shell .editor-chip--end {
+  background: var(--color-editor-surface);
+  border-color: var(--editor-glass-border);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: 0 1px 2px color-mix(in oklab, black 20%, transparent);
+  padding: 6px;
+  gap: 6px;
+}
+.editor-shell .editor-chip .editor-toolbar-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  color: var(--color-editor-muted);
+  background: transparent;
+  box-shadow: none;
+}
+.editor-shell .editor-chip .editor-toolbar-icon svg {
+  width: 16px;
+  height: 16px;
+}
+.editor-shell .editor-chip .editor-toolbar-icon:hover {
+  background: var(--color-editor-hover);
+  color: var(--color-editor-foreground);
+}
+.editor-shell .editor-chip .editor-toolbar-icon[data-active] {
+  background: var(--editor-accent-soft);
+  color: var(--editor-accent-ink);
+}
+.editor-shell .editor-chip--end .editor-toolbar-divider {
+  height: 20px;
+  width: 1px;
+  flex-shrink: 0;
+  background: var(--editor-glass-border);
+  margin-inline: 2px;
+}
+
 .zoom-controls,
 .floating-controls {
   border-radius: 999px;
@@ -14944,35 +14982,42 @@ button.de-subrow-tag:focus-visible {
   }
 }
 
-/* Top-bar Copy split button: two halves joined into one soft-accent pill. */
+/* Top-bar Copy split button: two halves joined into one tool-rail
+ * selected-tint pill. The main half always copies immediately; the chevron
+ * only ever opens the menu — neither half's background changes meaning on
+ * hover. */
 .editor-split-button {
   display: inline-flex;
   align-items: center;
-}
-.editor-shell .editor-chip .editor-split-button {
-  --split-ink: var(--editor-accent-ink);
+  height: 32px;
+  border: 0;
+  border-radius: 999px;
+  overflow: hidden;
 }
 .editor-shell .editor-chip :is(.editor-split-main, .editor-split-toggle) {
   background: var(--editor-accent-soft);
-  color: var(--split-ink);
+  color: var(--editor-accent-ink);
   box-shadow: none;
 }
 .editor-shell .editor-chip :is(.editor-split-main, .editor-split-toggle):hover,
 .editor-shell .editor-chip .editor-split-toggle[data-state="open"] {
-  background: color-mix(
-    in oklab,
-    var(--editor-accent-soft),
-    var(--editor-accent-ink) 12%
-  );
-  color: var(--split-ink);
+  background: var(--editor-accent-soft);
+  color: var(--editor-accent-ink);
 }
 .editor-shell .editor-chip .editor-split-main {
-  padding-right: 8px;
+  height: 32px;
+  padding-inline: 12px 10px;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
   border-top-right-radius: 0;
   border-bottom-right-radius: 0;
 }
 .editor-shell .editor-chip .editor-split-toggle {
   position: relative;
+  width: 28px;
+  height: 32px;
+  padding: 0;
   border-top-left-radius: 0;
   border-bottom-left-radius: 0;
 }
@@ -14983,14 +15028,19 @@ button.de-subrow-tag:focus-visible {
   bottom: 8px;
   left: 0;
   width: 1px;
-  background: color-mix(in oklab, var(--split-ink) 30%, transparent);
+  background: var(--color-editor-surface);
   pointer-events: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .editor-split-chevron {
+    transition: transform 0.15s;
+  }
 }
 .editor-shell
   .editor-chip
-  .editor-split-button:is(:hover, :has([data-state="open"]))
-  .editor-split-toggle::before {
-  opacity: 0;
+  .editor-split-toggle[data-state="open"]
+  .editor-split-chevron {
+  transform: rotate(180deg);
 }
 /* Narrow top bar: tighten the split button's main-half padding now that it
  * no longer carries the chevron, after the unconditional padding-right
@@ -15036,15 +15086,37 @@ button.de-subrow-tag:focus-visible {
 .editor-menu .editor-menu-item:is(:focus, [data-highlighted]) > svg {
   color: var(--color-editor-foreground);
 }
-/* Radio items: move the checked dot to the trailing edge so the leading icon
- * lines up with plain items. */
-.editor-menu .editor-menu-item[role="menuitemradio"] {
-  position: relative;
-  padding-right: 28px;
+/* Top-bar Copy menu: wider items with an icon, title and description. */
+.editor-menu.editor-copy-menu,
+.editor-copy-menu {
+  width: 240px;
+  max-width: calc(100vw - 16px);
+  padding: 6px;
+  border-radius: 12px;
 }
-.editor-menu .editor-menu-item[role="menuitemradio"] > span:first-child {
-  left: auto;
-  right: 8px;
+.editor-menu.editor-copy-menu .editor-menu-item {
+  height: auto;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 8px;
+}
+.editor-menu.editor-copy-menu .editor-menu-item > svg {
+  margin-top: 2px;
+}
+.editor-copy-menu-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.editor-copy-menu-desc {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--color-editor-muted);
+}
+.editor-menu.editor-copy-menu
+  .editor-menu-item:is(:focus, [data-highlighted])
+  > svg {
   color: var(--color-primary);
 }
 .editor-shell .workspace {
@@ -15059,27 +15131,24 @@ button.de-subrow-tag:focus-visible {
   backdrop-filter: none;
 }
 
-/* Top-bar launcher while the right panel is hidden: text pills that open
- * the panel on Design, Prompt or Chat. */
+/* Top-bar launcher while the right panel is hidden: a minimal neutral
+ * segment (no nested track, no coral) that opens the panel on Design,
+ * Prompt or Chat. */
 .editor-shell .right-panel-launch {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  padding: 2px;
+  padding: 0;
   border-radius: 999px;
-  background: color-mix(
-    in oklab,
-    var(--color-editor-foreground) 5%,
-    transparent
-  );
+  background: transparent;
 }
 .editor-shell .right-panel-launch button {
-  height: 28px;
+  height: 32px;
   padding: 0 10px;
   border-radius: 999px;
   font-size: 12px;
-  font-weight: 600;
-  color: var(--color-editor-foreground);
+  font-weight: 500;
+  color: var(--color-editor-muted);
   background: transparent;
   box-shadow: none;
   transition:
@@ -15088,8 +15157,8 @@ button.de-subrow-tag:focus-visible {
 }
 .editor-shell .right-panel-launch button:hover,
 .editor-shell .right-panel-launch button:focus-visible {
-  background: var(--editor-accent-soft);
-  color: var(--editor-accent-ink);
+  background: var(--color-editor-hover);
+  color: var(--color-editor-foreground);
 }
 .editor-shell .right-panel-launch button:focus-visible {
   outline-offset: 0;
@@ -15493,6 +15562,7 @@ button.de-subrow-tag:focus-visible {
     .editor-chip
     :is(
       .tool-button,
+      .editor-toolbar-icon,
       .editor-preview-button,
       .editor-theme-button,
       .editor-split-toggle
@@ -15513,6 +15583,9 @@ button.de-subrow-tag:focus-visible {
     overflow: visible;
     clip: auto;
     white-space: nowrap;
+  }
+  .editor-shell .editor-chip--end .editor-toolbar-divider {
+    display: none;
   }
   .editor-shell .right-panel-launch {
     display: flex;

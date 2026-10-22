@@ -1,0 +1,127 @@
+.resize-panel {
+  container: resize-gallery / inline-size;
+}
+
+.resize-panel .resize-card-grid {
+  display: block;
+  columns: 2;
+  column-gap: 10px;
+  padding-inline: 8px;
+}
+
+@container resize-gallery (min-width: 660px) {
+  .resize-panel .resize-card-grid {
+    columns: 3;
+  }
+}
+
+.resize-panel .resize-format-card {
+  display: flex;
+  width: 100%;
+  margin: 0 0 10px;
+  break-inside: avoid;
+  border: 0;
+  border-radius: 0.75rem;
+  background: color-mix(in oklab, var(--color-editor-surface), white 7%);
+  padding: 4px;
+  outline: 1px solid transparent;
+}
+
+.resize-panel .resize-format-card:hover {
+  background: var(--color-secondary);
+  outline-color: var(--editor-action);
+}
+
+.resize-panel .resize-format-card[aria-pressed="true"] {
+  outline: 2px solid var(--editor-action);
+}
+
+.resize-panel .resize-format-card:focus-visible {
+  outline: 2px solid var(--editor-focus);
+  outline-offset: 2px;
+}
+
+.resize-panel .resize-card-grid .resize-format-card .resize-preset-preview {
+  outline: none;
+}
+
+.resize-panel .resize-card-art {
+  width: 100%;
+}
+
+.resize-panel .resize-card-details {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 2px;
+  margin-top: 6px;
+  white-space: nowrap;
+}
+
+.resize-panel .resize-card-details--custom {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+}
+
+.resize-panel .resize-card-title,
+.resize-panel .resize-card-ratio,
+.resize-panel .resize-card-meta {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 1px;
+  margin: 0;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.resize-panel .resize-card-title > span,
+.resize-panel .resize-card-details--custom .resize-card-meta > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.resize-panel .resize-card-ratio,
+.resize-panel .resize-card-meta {
+  color: var(--color-editor-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.resize-panel .resize-card-title,
+.resize-panel .resize-card-details svg {
+  color: var(--color-primary);
+}
+
+.resize-panel .resize-card-details svg {
+  width: 8px;
+  height: 8px;
+  flex: none;
+}
+
+.resize-panel
+  .resize-card-grid
+  .resize-format-card--custom
+  .resize-custom-visual {
+  aspect-ratio: 1;
+  border: 1px dashed var(--editor-action);
+  border-radius: 7px;
+  color: var(--color-primary);
+  transform: none;
+  outline: none;
+}
+
+.resize-panel .resize-format-card--custom:hover .resize-custom-visual,
+.resize-panel .resize-format-card--custom:focus-visible .resize-custom-visual {
+  background: var(--color-secondary);
+}
+
+@container resize-gallery (max-width: 260px) {
+  .resize-panel .resize-card-grid {
+    padding-inline: 0;
+  }
+
+  .resize-panel .resize-format-card {
+    padding-inline: 0;
+  }
+}

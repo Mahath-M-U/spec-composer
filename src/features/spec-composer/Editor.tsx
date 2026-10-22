@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -18,6 +19,7 @@ import { CanvasWorkspace } from "./canvas-surface";
 import { AssetsPanel } from "./assets-panel/AssetsPanel";
 import { LayersPanel } from "./layers-panel";
 import { ResizePanel } from "./resize-panel";
+import { ToolRail } from "./tool-rail";
 import { PanelHeader, PanelCollapseProvider } from "./panel-header";
 import { BrandKitPanel } from "./brand-kit-panel";
 import {
@@ -28,7 +30,6 @@ import {
   Trash2,
   AlignVerticalSpaceAround,
   Download,
-  Layers3,
   LayoutTemplate,
   LayoutGrid,
   Palette,
@@ -58,16 +59,12 @@ import {
   MoveUp,
   MoveDown,
   Search,
-  Gem,
   Check,
   Pencil,
   SlidersHorizontal,
   Loader2,
   AlertTriangle,
-  Plug,
   MessagesSquare,
-  Scaling,
-  Compass,
   PanelRightClose,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -81,8 +78,7 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
+  DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
@@ -102,7 +98,6 @@ import {
   type TextColorIntent,
   type TextColorProperty,
 } from "./text-color";
-import { UserSettings } from "./user-settings";
 import { useEditorStore, boundsOf, type Box, type ComposeLayout } from "./store";
 import {
   COMPOSE_LAYOUTS,
@@ -193,8 +188,7 @@ import {
   resolveImageStyleId,
   setImageStyle,
 } from "./image-styles";
-import { ChatComingSoonSplash, McpComingSoonSplash } from "./coming-soon-lazy";
-import { QuickGuide } from "./quick-guide-lazy";
+import { ChatComingSoonSplash } from "./coming-soon-lazy";
 import { EditorSkeleton } from "./editor-skeleton";
 import { hasPlaceholderArt, PLACEHOLDER_ART_OPTIONS } from "./illustrations";
 import {
@@ -239,13 +233,15 @@ function aspectRatioLabel(width: number, height: number): string {
 
 const LEFT_PANEL_DEFAULT_WIDTH = 432;
 const RIGHT_PANEL_DEFAULT_WIDTH = 624;
+const COMPACT_RAIL_TRACK_WIDTH = 84.8;
+const EXPANDED_RAIL_TRACK_WIDTH = 324.8;
 
 /** Total non-canvas width the floating shell reserves on desktop: the rail
  * track plus the left/right 12px resize-handle tracks and the shell's own
  * 12px padding on each side. Must stay in sync with `--rail-width`,
  * `--shell-gap` and the handle tracks in styles.css. */
-function editorChromeWidth(): number {
-  const rail = window.innerWidth <= 1250 ? 76 : 80;
+function editorChromeWidth(expanded = false): number {
+  const rail = expanded ? EXPANDED_RAIL_TRACK_WIDTH : COMPACT_RAIL_TRACK_WIDTH;
   return rail + 2 * 12 + 2 * 12;
 }
 
@@ -262,20 +258,41 @@ export function Editor({ projectId }: { projectId: string }) {
     RIGHT_PANEL_DEFAULT_WIDTH,
   );
   const sidebars = useSidebarLayout();
-
+  const [navigationExpanded, setNavigationExpanded] = useState(false);
+  const [phoneNavigation, setPhoneNavigation] = useState(false);
   useEffect(() => {
+    const query = window.matchMedia("(max-width: 767px)");
+    const update = () => setPhoneNavigation(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+  const navigationLayoutKey = phoneNavigation
+    ? "phone"
+    : navigationExpanded
+      ? "expanded"
+      : "compact";
+
+  useLayoutEffect(() => {
     const keepWorkspaceVisible = () => {
       if (sidebars.overlay) return;
       const left = sidebars.leftOpen ? leftPanelWidth : 0;
       const right = sidebars.rightOpen ? rightPanelWidth : 0;
       const panelBudget =
-        Math.max(1100, window.innerWidth) - editorChromeWidth() - 350;
+        Math.max(1100, window.innerWidth) -
+        editorChromeWidth(navigationExpanded) -
+        350;
       if (left + right <= panelBudget) return;
       if (sidebars.rightOpen) {
-        const nextRight = Math.max(280, panelBudget - left);
+        const minimumScale = sidebars.leftOpen
+          ? Math.min(1, panelBudget / (240 + 280))
+          : 1;
+        const nextRight = Math.max(280 * minimumScale, panelBudget - left);
         setRightPanelWidth(nextRight);
         if (sidebars.leftOpen)
-          setLeftPanelWidth(Math.max(240, panelBudget - nextRight));
+          setLeftPanelWidth(
+            Math.max(240 * minimumScale, panelBudget - nextRight),
+          );
       } else if (sidebars.leftOpen) {
         setLeftPanelWidth(Math.max(240, panelBudget - right));
       }
@@ -284,6 +301,7 @@ export function Editor({ projectId }: { projectId: string }) {
     window.addEventListener("resize", keepWorkspaceVisible);
     return () => window.removeEventListener("resize", keepWorkspaceVisible);
   }, [
+    navigationExpanded,
     leftPanelWidth,
     rightPanelWidth,
     sidebars.overlay,
@@ -341,10 +359,12 @@ export function Editor({ projectId }: { projectId: string }) {
     <div
       className="editor-shell"
       data-layout={sidebars.overlay ? "overlay" : "inline"}
+      data-navigation={navigationLayoutKey}
       data-left-panel={sidebars.leftOpen ? "open" : "closed"}
       data-right-panel={sidebars.rightOpen ? "open" : "closed"}
       style={
         {
+          "--rail-width": `${navigationExpanded && !phoneNavigation ? EXPANDED_RAIL_TRACK_WIDTH : COMPACT_RAIL_TRACK_WIDTH}px`,
           "--left-panel-width": `${leftPanelWidth}px`,
           "--right-panel-width": `${rightPanelWidth}px`,
         } as CSSProperties
@@ -352,10 +372,13 @@ export function Editor({ projectId }: { projectId: string }) {
     >
       <TopBar
         preview={() => setPreview(true)}
+        previewOpen={preview}
         sidebars={sidebars}
         openChat={() => setChatOpen(true)}
       />
       <ToolRail
+        expanded={navigationExpanded}
+        onExpandedChange={setNavigationExpanded}
         sidebars={sidebars}
         onSelectPanel={(id) => {
           if (store.panel === id && sidebars.leftOpen)
@@ -387,7 +410,10 @@ export function Editor({ projectId }: { projectId: string }) {
         defaultWidth={LEFT_PANEL_DEFAULT_WIDTH}
         className="panel-resize-handle--left"
       />
-      <Workspace onCanvasSelect={openStyleFromCanvas} />
+      <Workspace
+        onCanvasSelect={openStyleFromCanvas}
+        navigationLayoutKey={navigationLayoutKey}
+      />
       <PanelResizeHandle
         label="Resize right sidebar"
         side="right"
@@ -452,8 +478,12 @@ function PanelResizeHandle({
             ),
           );
       const workspaceMax =
-        shell.clientWidth - editorChromeWidth() - 350 - oppositeWidth;
-      return Math.min(max, Math.max(min, workspaceMax), Math.max(min, next));
+        shell.clientWidth -
+        editorChromeWidth(shell.dataset["navigation"] === "expanded") -
+        350 -
+        oppositeWidth;
+      const availableMax = Math.max(0, Math.min(max, workspaceMax));
+      return Math.min(availableMax, Math.max(Math.min(min, availableMax), next));
     },
     [max, min, side],
   );
@@ -503,10 +533,12 @@ function PanelResizeHandle({
 
 function TopBar({
   preview,
+  previewOpen,
   sidebars,
   openChat,
 }: {
   preview: () => void;
+  previewOpen: boolean;
   sidebars: SidebarLayout;
   openChat: () => void;
 }) {
@@ -574,7 +606,7 @@ function TopBar({
           </span>
         </Hint>
       </div>
-      <div className="editor-chip editor-chip--end flex items-center gap-1">
+      <div className="editor-chip editor-chip--end editor-toolbar flex items-center">
         <Hint label="Preview">
           <Button
             type="button"
@@ -582,22 +614,27 @@ function TopBar({
             size="icon"
             aria-keyshortcuts="P"
             aria-label="Preview"
+            aria-pressed={previewOpen}
+            data-active={previewOpen || undefined}
             data-tour="preview"
             onClick={preview}
-            className="editor-preview-button text-editor-muted hover:bg-editor-hover hover:text-editor-foreground"
+            className="editor-toolbar-icon editor-preview-button"
           >
             <Eye size={16} aria-hidden="true" />
           </Button>
         </Hint>
         {!sidebars.rightOpen && <TopBarCopyActions />}
-        <ThemeToggle className="editor-theme-button text-editor-muted hover:bg-editor-hover hover:text-editor-foreground" />
+        <ThemeToggle className="editor-toolbar-icon editor-theme-button" />
+        {!sidebars.rightOpen && (
+          <span className="editor-toolbar-divider" aria-hidden="true" />
+        )}
         <RightPanelReopen sidebars={sidebars} openChat={openChat} />
       </div>
     </header>
   );
 }
 
-function RightPanelReopen({
+export function RightPanelReopen({
   sidebars,
   openChat,
 }: {
@@ -640,122 +677,6 @@ function RightPanelReopen({
         </button>
       ))}
     </div>
-  );
-}
-
-function ToolRail({
-  sidebars,
-  onSelectPanel,
-  onTour,
-}: {
-  sidebars: SidebarLayout;
-  onSelectPanel: (id: PanelMode) => void;
-  onTour: () => void;
-}) {
-  const s = useEditorStore();
-  const [mcpOpen, setMcpOpen] = useState(false);
-  const [guideOpen, setGuideOpen] = useState(false);
-  const items = [
-    ["assets", Image, "Assets"],
-    ["style", Palette, "Style"],
-    ["layers", Layers3, "Layers"],
-    ["templates", LayoutTemplate, "Templates"],
-    ["brandKit", Gem, "Design kit"],
-    ["resize", Scaling, "Resize"],
-  ] as const;
-  return (
-    <aside
-      className="tool-rail"
-      onFocusCapture={(event) => {
-        if (!window.matchMedia("(max-width: 767px)").matches) return;
-        const rail = event.currentTarget;
-        const button = event.target;
-        if (
-          !(button instanceof HTMLButtonElement) ||
-          !rail.contains(button) ||
-          button.parentElement !== rail
-        )
-          return;
-        const railBounds = rail.getBoundingClientRect();
-        const buttonBounds = button.getBoundingClientRect();
-        const padding = getComputedStyle(rail);
-        const left = railBounds.left + Number.parseFloat(padding.paddingLeft);
-        const right =
-          railBounds.right - Number.parseFloat(padding.paddingRight);
-        const delta =
-          buttonBounds.left < left
-            ? buttonBounds.left - left
-            : buttonBounds.right > right
-              ? buttonBounds.right - right
-              : 0;
-        if (!delta) return;
-        rail.scrollTo({
-          left: Math.max(
-            0,
-            Math.min(
-              rail.scrollWidth - rail.clientWidth,
-              rail.scrollLeft + delta,
-            ),
-          ),
-          behavior: "auto",
-        });
-      }}
-    >
-      <UserSettings />
-      <Hint label="Home" side="right">
-        <Link to="/" className="spec-mark editor-top-home" aria-label="Home">
-          <AppIcon className="h-full w-full" />
-        </Link>
-      </Hint>
-      <i className="tool-rail-divider" aria-hidden="true" />
-      {items.map(([id, Icon, label]) => {
-        const active = sidebars.leftOpen && s.panel === id;
-        return (
-          <button
-            key={id}
-            type="button"
-            id={`editor-rail-${id}`}
-            className={active ? "active" : ""}
-            aria-pressed={active}
-            data-tour={`rail-${id}`}
-            onClick={() => onSelectPanel(id)}
-          >
-            <Icon />
-            <span>{label}</span>
-          </button>
-        );
-      })}
-      <i
-        className="tool-rail-divider tool-rail-divider-footer"
-        aria-hidden="true"
-      />
-      <button
-        type="button"
-        className="tool-rail-tour"
-        aria-label="Quick tour"
-        onClick={() => {
-          s.setPanel("assets");
-          onTour();
-          setGuideOpen(true);
-        }}
-      >
-        <Compass />
-        <span>Tour</span>
-      </button>
-      <button
-        type="button"
-        className="tool-rail-connect"
-        data-tour="connect"
-        onClick={() => setMcpOpen(true)}
-      >
-        <Plug />
-        <span>Connect</span>
-      </button>
-      {mcpOpen && <McpComingSoonSplash close={() => setMcpOpen(false)} />}
-      {guideOpen && (
-        <QuickGuide page="editor" close={() => setGuideOpen(false)} />
-      )}
-    </aside>
   );
 }
 
@@ -2227,19 +2148,38 @@ export function StylePanel() {
   );
 }
 
-function Workspace({ onCanvasSelect }: { onCanvasSelect: () => void }) {
+function Workspace({
+  onCanvasSelect,
+  navigationLayoutKey,
+}: {
+  onCanvasSelect: () => void;
+  navigationLayoutKey: string;
+}) {
   return (
-    <CanvasWorkspace onCanvasSelect={onCanvasSelect}>
+    <CanvasWorkspace
+      onCanvasSelect={onCanvasSelect}
+      navigationLayoutKey={navigationLayoutKey}
+    >
       <FloatingControls />
     </CanvasWorkspace>
   );
 }
 
-const COPY_OPTIONS: Record<CopyKind, { label: string; Icon: typeof Palette }> =
-  {
-    prompt: { label: "Copy prompt", Icon: FileText },
-    design: { label: "Copy design", Icon: Palette },
-  };
+const COPY_OPTIONS: Record<
+  CopyKind,
+  { label: string; description: string; Icon: typeof Palette }
+> = {
+  prompt: {
+    label: "Copy prompt",
+    description: "Copy optimized generation prompt",
+    Icon: FileText,
+  },
+  design: {
+    label: "Copy design",
+    description: "Copy current design specification",
+    Icon: Palette,
+  },
+};
 
 /** Per-viewer default for the top-bar Copy button; survives the component
  * unmounting while the right panel is open. */
@@ -2261,7 +2201,7 @@ function saveCopyMode(mode: CopyKind) {
  * panel's "before you copy" warnings and only blocks on the hard
  * external-tool requirement, surfaced as a toast instead of opening a
  * dialog. */
-function TopBarCopyActions() {
+export function TopBarCopyActions() {
   const [copied, setCopied] = useState<CopyKind | null>(null);
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<CopyKind>(loadCopyMode);
@@ -2319,16 +2259,17 @@ function TopBarCopyActions() {
             variant="ghost"
             size="sm"
             aria-label={modeLabel}
+            aria-busy={busy || undefined}
             onClick={() => void copy(mode)}
             className="editor-split-main"
           >
             {copied === mode ? (
-              <Check size={14} aria-hidden="true" />
+              <Check size={16} aria-hidden="true" />
             ) : (
-              <ModeIcon size={14} aria-hidden="true" />
+              <ModeIcon size={16} aria-hidden="true" />
             )}
             <span className="editor-copy-label">
-              {copied === mode ? "Copied" : modeLabel}
+              {copied === mode ? "Copied!" : modeLabel}
             </span>
           </Button>
         </Hint>
@@ -2340,29 +2281,41 @@ function TopBarCopyActions() {
                 variant="ghost"
                 size="icon"
                 aria-label="More copy options"
-                className="editor-split-toggle w-6"
+                className="editor-split-toggle"
               >
-                <ChevronDown size={12} aria-hidden="true" />
+                <ChevronDown
+                  size={14}
+                  aria-hidden="true"
+                  className="editor-split-chevron"
+                />
               </Button>
             </DropdownMenuTrigger>
           </Hint>
-          <DropdownMenuContent align="end" sideOffset={6} className="editor-menu">
-            <DropdownMenuRadioGroup value={mode}>
-              {(["prompt", "design"] as const).map((kind) => {
-                const { label, Icon } = COPY_OPTIONS[kind];
-                return (
-                  <DropdownMenuRadioItem
-                    key={kind}
-                    value={kind}
-                    className="editor-menu-item"
-                    onSelect={() => choose(kind)}
-                  >
-                    <Icon aria-hidden="true" />
-                    {label}
-                  </DropdownMenuRadioItem>
-                );
-              })}
-            </DropdownMenuRadioGroup>
+          <DropdownMenuContent
+            align="end"
+            side="bottom"
+            sideOffset={6}
+            collisionPadding={8}
+            className="editor-menu editor-copy-menu"
+          >
+            {(["design", "prompt"] as const).map((kind) => {
+              const { label, description, Icon } = COPY_OPTIONS[kind];
+              return (
+                <DropdownMenuItem
+                  key={kind}
+                  className="editor-menu-item"
+                  onSelect={() => choose(kind)}
+                >
+                  <Icon aria-hidden="true" />
+                  <span className="editor-copy-menu-text">
+                    <span>{label}</span>
+                    <span className="editor-copy-menu-desc">
+                      {description}
+                    </span>
+                  </span>
+                </DropdownMenuItem>
+              );
+            })}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

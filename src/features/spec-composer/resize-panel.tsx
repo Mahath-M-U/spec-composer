@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, Plus, Scaling, Search, X } from "lucide-react";
+import { Check, Plus, Ratio, Ruler, Scaling, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -11,8 +11,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { FormatPreview } from "./format-gallery";
 import { PanelHeader } from "./panel-header";
+import { ResizePresetPreview } from "./resize-preset-preview";
 import {
   RESIZE_PRESET_GROUPS,
   fromPixels,
@@ -24,25 +24,13 @@ import {
   type ResizeUnit,
 } from "./resize";
 import { useEditorStore } from "./store";
+import "./resize-gallery.css";
 
-const VARIANTS = [
-  "editorial",
-  "type",
-  "product",
-  "minimal",
-  "tint",
-  "banner",
-  "video",
-] as const;
-const PRESET_CARDS = RESIZE_PRESET_GROUPS.flatMap((group, groupIndex) =>
-  group.presets.map((preset, presetIndex) => ({
+const PRESET_CARDS = RESIZE_PRESET_GROUPS.flatMap((group) =>
+  group.presets.map((preset) => ({
     group: group.label,
     preset,
-    format: {
-      ...makeResizeFormat(preset.width, preset.height, preset),
-      previewVariant:
-        VARIANTS[(groupIndex * 3 + presetIndex) % VARIANTS.length],
-    },
+    format: makeResizeFormat(preset.width, preset.height, preset),
   })),
 );
 
@@ -279,11 +267,21 @@ export function ResizePanel() {
               <span className="resize-custom-visual" aria-hidden="true">
                 <Plus size={28} />
               </span>
-              <span className="resize-card-title">Custom size</span>
-              <span className="resize-card-meta">Enter width and height</span>
+              <span className="resize-card-details resize-card-details--custom">
+                <span className="resize-card-title" title="Custom size">
+                  <span>Custom size</span>
+                </span>
+                <span
+                  className="resize-card-meta"
+                  title="Enter width and height"
+                >
+                  <Ruler size={8} aria-hidden="true" />
+                  <span>Enter width and height</span>
+                </span>
+              </span>
             </button>
           )}
-          {visibleCards.map(({ group, preset, format }, index) => {
+          {visibleCards.map(({ group, preset, format }) => {
             const selected = preset.id === selectedId;
             const current = isCurrent(preset);
             return (
@@ -296,7 +294,7 @@ export function ResizePanel() {
                 onClick={() => togglePreset(preset.id)}
               >
                 <div className="resize-card-art">
-                  <FormatPreview format={format} index={index} />
+                  <ResizePresetPreview preset={preset} />
                   {current && (
                     <span className="resize-card-current" aria-hidden="true">
                       Current
@@ -308,11 +306,31 @@ export function ResizePanel() {
                     </span>
                   )}
                 </div>
-                <span className="resize-card-title">
-                  {group} {preset.label}
-                </span>
-                <span className="resize-card-meta">
-                  {preset.width} × {preset.height} px · {format.subtitle}
+                <span className="resize-card-details">
+                  <span
+                    className="resize-card-title"
+                    title={`${group} ${preset.label}`}
+                  >
+                    <span>
+                      {group} {preset.label}
+                    </span>
+                  </span>
+                  <span
+                    className="resize-card-ratio"
+                    title={`Aspect ratio ${format.subtitle}`}
+                  >
+                    <Ratio size={8} aria-hidden="true" />
+                    <span>{format.subtitle}</span>
+                  </span>
+                  <span
+                    className="resize-card-meta"
+                    title={`${preset.width} × ${preset.height} px`}
+                  >
+                    <Ruler size={8} aria-hidden="true" />
+                    <span>
+                      {preset.width}×{preset.height}
+                    </span>
+                  </span>
                 </span>
               </button>
             );
