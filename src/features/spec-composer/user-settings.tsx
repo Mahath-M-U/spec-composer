@@ -74,7 +74,7 @@ export function UserSettings() {
                   <p>Choose a light or dark workspace.</p>
                 </div>
                 <fieldset
-                  className="user-settings-theme"
+                  className="user-settings-theme ui-segmented"
                   aria-labelledby={themeLabelId}
                   disabled={!mounted}
                 >
@@ -95,9 +95,9 @@ export function UserSettings() {
                         }}
                         className="sr-only"
                       />
-                      <span>
+                      <span className="ui-segmented-item">
                         <Icon aria-hidden="true" />
-                        {label}
+                        <span>{label}</span>
                       </span>
                     </label>
                   ))}

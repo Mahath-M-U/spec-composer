@@ -16896,40 +16896,15 @@ button.de-subrow-tag:focus-visible {
   font-weight: 600;
 }
 .user-settings-dialog .user-settings-theme {
-  display: flex;
   flex-shrink: 0;
-  gap: 3px;
-  padding: 3px;
-  border: 1px solid var(--color-border);
-  border-radius: 9px;
-  background: var(--color-muted);
+  min-width: 0;
+  --editor-action: var(--color-primary);
+  --segmented-item-padding: 0 12px;
 }
 .user-settings-dialog .user-settings-theme label,
 .user-settings-dialog .user-settings-colors label {
   position: relative;
   cursor: pointer;
-}
-.user-settings-dialog .user-settings-theme label > span {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  min-height: 32px;
-  padding: 6px 11px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  color: var(--color-muted-foreground);
-  font-size: 12px;
-}
-.user-settings-dialog .user-settings-theme svg {
-  width: 14px;
-  height: 14px;
-}
-.user-settings-dialog .user-settings-theme input:checked + span {
-  border-color: var(--color-border);
-  background: var(--color-card);
-  color: var(--color-foreground);
-  font-weight: 600;
 }
 .user-settings-dialog .user-settings-theme:disabled {
   opacity: 0.6;
@@ -17973,7 +17948,7 @@ button.de-subrow-tag:focus-visible {
   justify-content: center;
   gap: 5px;
   min-height: 28px;
-  padding: 3px 9px;
+  padding: 4px 9px;
   border: 1px solid var(--color-editor-border);
   border-radius: 999px;
   background: var(--color-editor-surface);
@@ -17983,12 +17958,12 @@ button.de-subrow-tag:focus-visible {
   .layers-panel
   .layer-selection-mode
   .layer-selection-trigger[aria-pressed="true"] {
-  border-color: color-mix(
+  border-color: color-mix(in oklab, var(--editor-action) 45%, transparent);
+  background: color-mix(
     in oklab,
-    var(--color-editor-foreground) 20%,
-    transparent
+    var(--editor-action) 12%,
+    var(--color-editor-surface)
   );
-  background: var(--color-editor-hover);
   color: var(--color-editor-foreground);
 }
 .editor-shell
@@ -18080,7 +18055,11 @@ button.de-subrow-tag:focus-visible {
   flex: none;
 }
 
-/* Only the active Layers mode label uses primary ink. */
+/* The active Layers mode label and icon use primary ink. */
 .editor-shell .layers-panel .layer-selection-trigger[aria-pressed="true"] > span {
+  color: var(--editor-action);
+  font-weight: 650;
+}
+.editor-shell .layers-panel .layer-selection-trigger[aria-pressed="true"] svg {
   color: var(--editor-action);
 }

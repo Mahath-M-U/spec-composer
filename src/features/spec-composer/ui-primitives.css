@@ -84,10 +84,11 @@
 .ui-segmented-item:hover:not(:disabled) {
   color: var(--segmented-selected-foreground, var(--color-editor-foreground));
 }
-.ui-segmented-item:not([aria-selected="true"]):hover:not(:disabled) {
+.ui-segmented-item:not([aria-selected="true"], :checked + *):hover:not(:disabled) {
   background: var(--color-editor-hover);
 }
-.ui-segmented-item[aria-selected="true"] {
+.ui-segmented-item[aria-selected="true"],
+input:checked + .ui-segmented-item {
   border-color: var(
     --segmented-selected-border,
     color-mix(in oklab, var(--editor-action) 45%, transparent)
@@ -98,7 +99,8 @@
   );
   color: var(--segmented-selected-foreground, var(--color-editor-foreground));
 }
-.ui-segmented-item[aria-selected="true"] svg {
+.ui-segmented-item[aria-selected="true"] svg,
+input:checked + .ui-segmented-item svg {
   color: var(--segmented-selected-icon, var(--editor-action));
 }
 .ui-segmented-item:disabled {
@@ -115,7 +117,8 @@
   white-space: nowrap;
 }
 .ui-segmented-item:focus-visible,
-.editor-shell .ui-segmented .ui-segmented-item:focus-visible {
+.editor-shell .ui-segmented .ui-segmented-item:focus-visible,
+input:focus-visible + .ui-segmented-item {
   outline: 2px solid var(--segmented-focus-color, var(--editor-focus));
   outline-offset: 2px;
 }

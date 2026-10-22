@@ -147,6 +147,10 @@ describe("Layers panel markup and selection states", () => {
       (view) => {
         expect(modeButton(view).props["aria-pressed"]).toBe(true);
         expect(modeButton(view).props["aria-label"]).toBe("Done");
+        const [, label] = modeButton(view).props["children"] as ReactElement<
+          ElementProps
+        >[];
+        expect(label?.props.children).toBe("Done");
         expect(layerItem(view, "Title").props["multiSelect"]).toBe(true);
         call(layerItem(view, "Title"), "onSelect", plain, "Title");
       },
