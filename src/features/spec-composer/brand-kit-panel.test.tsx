@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { BrandKitPanel } from "./brand-kit-panel";
+import { BrandKitPanel, BrandKitPreview } from "./brand-kit-panel";
 import { useEditorStore } from "./store";
 import { createDocument } from "./templates";
 import type { BrandKit } from "./types";
@@ -89,6 +89,48 @@ const auroraKit = makeKit({
 
 const nightfallKit = makeKit({ id: "kit-nightfall", name: "Nightfall" });
 
+// A kit whose primary and secondary are both too close to white to read as
+// a mark or a title color, so both should fall back to the readable text
+// color instead.
+const paleKit = makeKit({
+  id: "kit-pale",
+  name: "Pale Kit",
+  colors: [
+    {
+      id: "p1",
+      role: "primary",
+      hex: "#F5E6E6",
+      type: "solid",
+      angle: 0,
+      usecase: "",
+    },
+    {
+      id: "p2",
+      role: "secondary",
+      hex: "#F5E6E6",
+      type: "solid",
+      angle: 0,
+      usecase: "",
+    },
+    {
+      id: "p3",
+      role: "background",
+      hex: "#FFFFFF",
+      type: "solid",
+      angle: 0,
+      usecase: "",
+    },
+    {
+      id: "p4",
+      role: "text",
+      hex: "#000000",
+      type: "solid",
+      angle: 0,
+      usecase: "",
+    },
+  ],
+});
+
 beforeEach(() => {
   useEditorStore.setState({
     doc: createDocument(),
@@ -118,17 +160,19 @@ describe("BrandKitPanel", () => {
     });
     const html = renderPanel();
 
-    const auroraIndex = html.indexOf(">Aurora<");
-    const nightfallIndex = html.indexOf(">Nightfall<");
-    expect(auroraIndex).toBeGreaterThan(-1);
-    expect(nightfallIndex).toBeGreaterThan(-1);
-    expect(auroraIndex).toBeLessThan(nightfallIndex);
+    // Each card starts at its data-tour="kit-card" marker, in render order.
+    const cards = html.split('data-tour="kit-card"').slice(1);
+    expect(cards).toHaveLength(2);
 
-    // The active kit's card (everything up to the next card) shows "Applied"
-    // and does not also offer a plain "Apply" action.
-    const auroraSegment = html.slice(auroraIndex, nightfallIndex);
-    expect(auroraSegment).toContain(">Applied<");
-    expect(auroraSegment).not.toContain(">Apply<");
+    expect(cards[0]).toContain(">Aurora<");
+    expect(cards[0]).toContain(">Applied<");
+    expect(cards[0]).not.toContain(">Apply<");
+    expect(cards[0]).toContain('aria-pressed="true"');
+    expect(cards[0]).toContain("bk-default-toggle bk-toolbar-btn active");
+
+    expect(cards[1]).toContain(">Nightfall<");
+    expect(cards[1]).toContain(">Apply<");
+    expect(cards[1]).toContain('aria-pressed="false"');
   });
 
   it("gives the edit action and the overflow menu trigger accessible labels", () => {
@@ -176,19 +220,211 @@ describe("BrandKitPanel", () => {
     );
   });
 
-  it("shows the typography row with the kit's font family and no legacy edit button", () => {
+  it("shows the kit's font family inside the preview, with no legacy typography row", () => {
     useEditorStore.setState({
       doc: createDocument(),
       brandKits: [auroraKit],
     });
     const html = renderPanel();
-    expect(html).toContain("Fraunces");
-    expect(html).not.toContain("bk-edit-button");
+    const previewIndex = html.indexOf('class="bk-preview');
+    expect(previewIndex).toBeGreaterThan(-1);
+    expect(html.indexOf("Fraunces")).toBeGreaterThan(previewIndex);
+    expect(html).not.toContain("bk-type-row");
+    expect(html).not.toMatch(/>(Heading|Body)\b/);
+    const typeBlock =
+      html.match(/<div class="bk-preview-type">[\s\S]*?<\/div>/)?.[0] ?? "";
+    expect(typeBlock).not.toContain(auroraKit.style);
   });
 
   it("shows an honest empty state when the library has no kits", () => {
     useEditorStore.setState({ doc: createDocument(), brandKits: [] });
     const html = renderPanel();
     expect(html).toContain("No design kits yet");
+  });
+
+  it("shows a Creative Style chip with the kit's own style", () => {
+    const techKit = makeKit({
+      id: "kit-tech",
+      name: "Tech Kit",
+      style: "Tech",
+      typography: "Fraunces",
+    });
+    useEditorStore.setState({ doc: createDocument(), brandKits: [techKit] });
+    const html = renderPanel();
+    expect(html).toContain('class="sr-only">Creative style: <');
+    expect(html).toContain('class="bk-preview-chip-value">Tech<');
+    expect(html).not.toContain("bk-preview-chip-label");
+    expect(html).not.toContain("bk-preview-pill");
+    expect(html).not.toContain(">Minimal<");
+  });
+
+  it("renders no Creative Style chip, and no chips row at all, when the kit has no style", () => {
+    const noStyleKit = makeKit({
+      id: "kit-no-style",
+      name: "No Style Kit",
+      style: "",
+    });
+    useEditorStore.setState({
+      doc: createDocument(),
+      brandKits: [noStyleKit],
+    });
+    const html = renderPanel();
+    expect(html).not.toContain("Creative style");
+    expect(html).not.toContain("bk-preview-chips");
+  });
+
+  it("never shows a Theme or Light/Dark chip", () => {
+    useEditorStore.setState({ doc: createDocument(), brandKits: [auroraKit] });
+    const html = renderPanel();
+    expect(html).not.toContain("Theme");
+    expect(html).not.toContain(">Light<");
+    expect(html).not.toContain(">Dark<");
+  });
+
+  it("renders the kit name once and the 'Aa' type specimen once per card", () => {
+    useEditorStore.setState({
+      doc: createDocument(),
+      brandKits: [nightfallKit, auroraKit],
+    });
+    const html = renderPanel();
+    expect(html.split(">Aurora<")).toHaveLength(2);
+    expect(html.split(">Aa<")).toHaveLength(3);
+  });
+
+  it("moves the apply toggle, edit, and overflow menu into a floating toolbar on the preview", () => {
+    useEditorStore.setState({ doc: createDocument(), brandKits: [auroraKit] });
+    const html = renderPanel();
+    const toolbarIndex = html.indexOf('class="bk-preview-actions"');
+    expect(toolbarIndex).toBeGreaterThan(-1);
+    expect(html.indexOf('aria-label="Edit Aurora"')).toBeGreaterThan(
+      toolbarIndex,
+    );
+    expect(
+      html.indexOf('aria-label="More actions for Aurora"'),
+    ).toBeGreaterThan(toolbarIndex);
+    expect(html).not.toContain("bk-face-top");
+  });
+
+  it("renders the apply toggle, edit, and overflow trigger as three separate controls, not a shared capsule", () => {
+    useEditorStore.setState({ doc: createDocument(), brandKits: [auroraKit] });
+    const html = renderPanel();
+    expect(html).toContain('class="bk-preview-top"');
+
+    const actionsMatch = html.match(
+      /<div class="bk-preview-actions" role="toolbar" aria-label="Aurora actions">([\s\S]*?)<\/div>/,
+    );
+    expect(actionsMatch).not.toBeNull();
+    const actionsHtml = actionsMatch![1] ?? "";
+
+    const toggleIndex = actionsHtml.indexOf('data-tour="kit-default-toggle"');
+    const editIndex = actionsHtml.indexOf('data-tour="kit-edit"');
+    const moreIndex = actionsHtml.indexOf(
+      'aria-label="More actions for Aurora"',
+    );
+    expect(toggleIndex).toBeGreaterThan(-1);
+    expect(editIndex).toBeGreaterThan(toggleIndex);
+    expect(moreIndex).toBeGreaterThan(editIndex);
+
+    // Three independent <button> elements, not one shared toolbar button group.
+    expect(actionsHtml.match(/<button/g)).toHaveLength(3);
+  });
+
+  it("shows an Image style chip with the document's resolved image style on the applied card only", () => {
+    const doc = createDocument();
+    doc.creativeDirection.brandKitId = auroraKit.id;
+    doc.imageStyle = "cinematic";
+    useEditorStore.setState({ doc, brandKits: [nightfallKit, auroraKit] });
+    const html = renderPanel();
+
+    const cards = html.split('data-tour="kit-card"').slice(1);
+    expect(cards).toHaveLength(2);
+
+    expect(cards[0]).toContain('class="sr-only">Image style: <');
+    expect(cards[0]).toContain('class="bk-preview-chip-value">Cinematic<');
+    expect(cards[0]).not.toContain("bk-preview-chip-label");
+    expect(cards[1]).not.toContain("Image style");
+  });
+
+  it('omits the Image style chip when the document\'s image style is "none"', () => {
+    const doc = createDocument();
+    doc.creativeDirection.brandKitId = auroraKit.id;
+    doc.imageStyle = "none";
+    useEditorStore.setState({ doc, brandKits: [auroraKit] });
+    const html = renderPanel();
+    expect(html).not.toContain("Image style");
+  });
+
+  it("never shows an Image style chip on the standalone design kit pages", () => {
+    useEditorStore.setState({
+      doc: createDocument(),
+      brandKits: [auroraKit],
+      defaultBrandKitId: auroraKit.id,
+    });
+    const html = renderPanel({ standalone: true });
+    expect(html).not.toContain("Image style");
+  });
+
+  it("renders the design.md illustration as the card artwork, colored by the kit", () => {
+    useEditorStore.setState({ doc: createDocument(), brandKits: [auroraKit] });
+    const html = renderPanel();
+    expect(html).toContain(
+      'class="bk-preview-illustration" aria-hidden="true"',
+    );
+    expect(html).toContain('class="bk-preview-art bk-preview-curve"');
+    expect(html).toContain('class="bk-preview-art bk-preview-sun"');
+    expect(html).toContain('class="bk-preview-art bk-preview-leaves"');
+    expect(html).toContain('fill="#112233"');
+    expect(html).toContain('fill="#223344"');
+    expect(html).not.toContain("data-variant");
+  });
+
+  it("sets kit-driven CSS custom properties for the canvas, primary, and the applied-pill mark color", () => {
+    useEditorStore.setState({ doc: createDocument(), brandKits: [auroraKit] });
+    const html = renderPanel();
+    const previewMatch = html.match(/<div class="bk-preview" style="([^"]*)"/);
+    expect(previewMatch).not.toBeNull();
+    const previewStyle = previewMatch![1] ?? "";
+    expect(previewStyle.startsWith("background:#ffffff")).toBe(true);
+    expect(previewStyle).toContain("--bk-primary:#112233");
+    expect(previewStyle).toContain("--bk-canvas:#ffffff");
+    // #112233 on #ffffff clears the 3:1 mark threshold, so the mark uses it.
+    expect(previewStyle).toContain("--bk-mark:#112233");
+  });
+
+  it("falls back the applied-pill mark color to the readable text color when the kit's primary is too pale to read", () => {
+    useEditorStore.setState({ doc: createDocument(), brandKits: [paleKit] });
+    const html = renderPanel();
+    const previewMatch = html.match(/<div class="bk-preview" style="([^"]*)"/);
+    expect(previewMatch).not.toBeNull();
+    expect(previewMatch![1] ?? "").toContain("--bk-mark:#000000");
+  });
+
+  it("uses the kit's secondary color as the title color when it stays readable on the canvas", () => {
+    useEditorStore.setState({ doc: createDocument(), brandKits: [auroraKit] });
+    const html = renderPanel();
+    // #223344 on #ffffff clears the 4.5:1 title threshold.
+    expect(html).toContain("font-family:Fraunces;color:#223344");
+  });
+
+  it("falls back the title color to the readable text color when the kit's secondary is too pale to read", () => {
+    useEditorStore.setState({ doc: createDocument(), brandKits: [paleKit] });
+    const html = renderPanel();
+    expect(html).not.toContain("color:#F5E6E6");
+    expect(html).toContain("color:#000000");
+  });
+
+  it("adds an arrow icon to the card's Get started CTA", () => {
+    useEditorStore.setState({ doc: createDocument(), brandKits: [auroraKit] });
+    const html = renderPanel();
+    const ctaMatch = html.match(/<span class="bk-preview-cta"[\s\S]*?<\/span>/);
+    expect(ctaMatch).not.toBeNull();
+    expect(ctaMatch![0]).toContain("lucide-arrow-right");
+  });
+
+  it("keeps the builder preview free of the card-only CSS custom properties", () => {
+    const html = renderToStaticMarkup(
+      createElement(BrandKitPreview, { kit: auroraKit, variant: "builder" }),
+    );
+    expect(html).not.toContain("--bk-");
   });
 });

@@ -1,7 +1,15 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
+import {
+  ArrowRight,
   Check,
   Gem,
+  Image as ImageIcon,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -29,7 +37,13 @@ import {
   matchesBrandKitQuery,
   orderBrandKitsActiveFirst,
 } from "./brand-kit-search";
-import { brandKitTileForeground, readableTextOn } from "./color-names";
+import {
+  brandKitTileForeground,
+  contrastRatio,
+  readableTextOn,
+} from "./color-names";
+import { DesignSettingsArt } from "./design-settings-art";
+import { resolveImageStyle } from "./image-styles";
 import { PanelHeader } from "./panel-header";
 import { useEditorStore } from "./store";
 import type { BrandKit, BrandKitColor } from "./types";
@@ -68,9 +82,17 @@ export async function copyBrandColorHex(hex: string) {
 export function BrandKitPreview({
   kit,
   variant = "card",
+  actions,
+  title,
+  imageStyle,
 }: {
   kit: BrandKit;
   variant?: "card" | "builder";
+  actions?: ReactNode;
+  title?: ReactNode;
+  /** The open document's resolved image style label, shown as a chip on the
+   * applied card only (card variant); omitted when unset. */
+  imageStyle?: string | undefined;
 }) {
   const { primary, secondary, accent, background, text } =
     brandKitPreviewColors(kit);
@@ -89,51 +111,33 @@ export function BrandKitPreview({
     : "#FFFFFF";
   const accentColor = accent ?? secondary;
 
-  return (
-    <div
-      className={
-        variant === "builder" ? "bk-preview bk-preview--builder" : "bk-preview"
-      }
-      style={{
-        background: backgroundPaint,
-        ...(variant === "builder"
-          ? { fontFamily: kit.typography || undefined, color: headlineColor }
-          : {}),
-      }}
-    >
-      {variant === "builder" && kit.style && (
-        <span className="bk-preview-style">{kit.style}</span>
-      )}
-      <strong
-        className="bk-preview-headline"
+  if (variant === "builder") {
+    return (
+      <div
+        className="bk-preview bk-preview--builder"
         style={{
+          background: backgroundPaint,
           fontFamily: kit.typography || undefined,
           color: headlineColor,
         }}
       >
-        {kit.name || "Your headline"}
-      </strong>
-      {variant === "builder" && (
-        <span className="bk-preview-specimen">Aa Bb 0123</span>
-      )}
-      {variant === "card" && kit.emotions.length > 0 && (
-        <span
-          className="bk-preview-support"
+        {kit.style && <span className="bk-preview-style">{kit.style}</span>}
+        <strong
+          className="bk-preview-headline"
           style={{
-            color: headlineColor,
             fontFamily: kit.typography || undefined,
+            color: headlineColor,
           }}
         >
-          {kit.emotions.slice(0, 3).join(" · ")}
+          {kit.name || "Your headline"}
+        </strong>
+        <span className="bk-preview-specimen">Aa Bb 0123</span>
+        <span
+          className="bk-preview-cta"
+          style={{ background: ctaPaint, color: ctaForeground }}
+        >
+          Get started
         </span>
-      )}
-      <span
-        className="bk-preview-cta"
-        style={{ background: ctaPaint, color: ctaForeground }}
-      >
-        Get started
-      </span>
-      {variant === "builder" ? (
         <svg
           className="bk-preview-shapes"
           viewBox="0 0 132 104"
@@ -178,15 +182,145 @@ export function BrandKitPreview({
             fill={primary?.hex ?? "var(--color-editor-muted)"}
           />
         </svg>
-      ) : (
-        accentColor && (
-          <i
-            className="bk-preview-accent"
+      </div>
+    );
+  }
+
+  const typeFontFamily =
+    kit.typography || "ui-sans-serif, system-ui, sans-serif";
+  const hasChips = kit.style.trim() || imageStyle?.trim();
+
+  // Card-only kit variables: the applied-pill mark needs just enough
+  // contrast to read as a button, while the title prefers the kit's
+  // secondary color but only when it stays readable on the canvas.
+  const canvasHex = background?.hex;
+  const markColor =
+    primary && canvasHex && contrastRatio(primary.hex, canvasHex) >= 3
+      ? primary.hex
+      : headlineColor;
+  const titleColor =
+    secondary && canvasHex && contrastRatio(secondary.hex, canvasHex) >= 4.5
+      ? secondary.hex
+      : headlineColor;
+
+  return (
+    <div
+      className="bk-preview"
+      style={
+        {
+          background: backgroundPaint,
+          color: headlineColor,
+          "--bk-canvas": canvasHex ?? "var(--color-editor)",
+          "--bk-ink": headlineColor,
+          "--bk-primary": primary?.hex ?? "var(--color-editor-muted)",
+          "--bk-mark": markColor,
+          "--bk-title": titleColor,
+        } as CSSProperties
+      }
+    >
+      <div className="bk-preview-top">
+        <div className="bk-preview-heading">
+          {title ?? (
+            <strong
+              className="bk-preview-headline"
+              style={{
+                fontFamily: kit.typography || undefined,
+                color: titleColor,
+              }}
+            >
+              {kit.name}
+            </strong>
+          )}
+          {kit.emotions.length > 0 && (
+            <span
+              className="bk-preview-support"
+              style={{
+                color: titleColor,
+                fontFamily: kit.typography || undefined,
+              }}
+            >
+              {kit.emotions.slice(0, 3).join(" · ")}
+            </span>
+          )}
+        </div>
+        {actions && (
+          <div
+            className="bk-preview-actions"
+            role="toolbar"
+            aria-label={`${kit.name} actions`}
+          >
+            {actions}
+          </div>
+        )}
+      </div>
+      <div className="bk-preview-content">
+        {hasChips && (
+          <div className="bk-preview-chips">
+            {kit.style.trim() && (
+              <span className="bk-preview-chip">
+                <Sparkles className="bk-preview-chip-icon" aria-hidden="true" />
+                <span className="sr-only">{"Creative style: "}</span>
+                <span className="bk-preview-chip-value">{kit.style}</span>
+              </span>
+            )}
+            {imageStyle?.trim() && (
+              <span className="bk-preview-chip">
+                <ImageIcon
+                  className="bk-preview-chip-icon"
+                  aria-hidden="true"
+                />
+                <span className="sr-only">{"Image style: "}</span>
+                <span className="bk-preview-chip-value">{imageStyle}</span>
+              </span>
+            )}
+          </div>
+        )}
+        <div className="bk-preview-type">
+          <span
+            className="bk-preview-type-specimen"
             aria-hidden="true"
-            style={{ background: brandKitPaint(accentColor) }}
-          />
-        )
-      )}
+            style={{ fontFamily: typeFontFamily }}
+          >
+            Aa
+          </span>
+          <span
+            className="bk-preview-type-family"
+            style={{
+              fontFamily: typeFontFamily,
+              color: kit.typography ? undefined : "var(--color-editor-muted)",
+            }}
+          >
+            {kit.typography || "No typeface set"}
+          </span>
+        </div>
+        <span
+          className="bk-preview-cta"
+          aria-hidden="true"
+          style={{
+            background: ctaPaint,
+            color: ctaForeground,
+            fontFamily: kit.typography || undefined,
+          }}
+        >
+          Get started
+          <ArrowRight className="bk-preview-cta-icon" aria-hidden="true" />
+        </span>
+      </div>
+      <div className="bk-preview-illustration" aria-hidden="true">
+        <DesignSettingsArt
+          classPrefix="bk-preview"
+          primary={primary?.hex ?? "var(--color-editor-muted)"}
+          secondary={
+            secondary?.hex ?? primary?.hex ?? "var(--color-editor-muted)"
+          }
+          accent={
+            accentColor?.hex ??
+            secondary?.hex ??
+            primary?.hex ??
+            "var(--color-editor-muted)"
+          }
+        />
+      </div>
     </div>
   );
 }
@@ -286,6 +420,11 @@ export function BrandKitPanel({
     ? s.brandKits
     : s.brandKits.filter((kit) => matchesBrandKitQuery(kit, kitQuery));
   const visibleKits = orderBrandKitsActiveFirst(filteredKits, activeKitId);
+
+  // The open document's resolved image style, shown as a chip on the
+  // applied card only — never on standalone home/design-kit pages.
+  const appliedImageStyle =
+    !standalone && d ? resolveImageStyle(d)?.label : undefined;
 
   return (
     <div
@@ -398,6 +537,7 @@ export function BrandKitPanel({
             key={kit.id}
             kit={kit}
             active={activeKitId === kit.id}
+            appliedImageStyle={appliedImageStyle}
             onActivate={() =>
               standalone
                 ? s.setDefaultBrandKit(kit.id)
@@ -431,6 +571,7 @@ function BrandKitCard({
   onRename,
   onDelete,
   applyMode = false,
+  appliedImageStyle,
 }: {
   kit: BrandKit;
   active: boolean;
@@ -441,6 +582,9 @@ function BrandKitCard({
   onDelete: () => void;
   /** The toggle applies the kit to the open poster rather than setting the default. */
   applyMode?: boolean;
+  /** The open document's resolved image style label; only shown when this
+   * card is the applied one. */
+  appliedImageStyle?: string | undefined;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
@@ -463,113 +607,114 @@ function BrandKitCard({
       data-tour="kit-card"
     >
       <div className="bk-face">
-        <div className="bk-face-top">
-          {renaming ? (
-            <input
-              ref={nameInput}
-              className="bk-face-name-input"
-              aria-label="Kit name"
-              value={draftName}
-              onChange={(e) => setDraftName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  commitRename();
-                } else if (e.key === "Escape") {
-                  e.preventDefault();
-                  setRenaming(false);
+        <BrandKitPreview
+          kit={kit}
+          imageStyle={active ? appliedImageStyle : undefined}
+          title={
+            renaming ? (
+              <input
+                ref={nameInput}
+                className="bk-face-name-input"
+                aria-label="Kit name"
+                value={draftName}
+                onChange={(e) => setDraftName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    commitRename();
+                  } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    setRenaming(false);
+                  }
+                }}
+                onBlur={commitRename}
+              />
+            ) : undefined
+          }
+          actions={
+            <>
+              <Hint
+                label={
+                  active
+                    ? applyMode
+                      ? "Remove from design"
+                      : "Clear default"
+                    : undefined
                 }
-              }}
-              onBlur={commitRename}
-            />
-          ) : (
-            <span className="truncate bk-face-name" title={kit.name}>
-              {kit.name}
-            </span>
-          )}
-
-          <Hint
-            label={
-              active
-                ? applyMode
-                  ? "Remove from design"
-                  : "Clear default"
-                : undefined
-            }
-          >
-            <button
-              type="button"
-              className={`bk-default-toggle${active ? " active" : ""}`}
-              aria-pressed={active}
-              aria-label={
-                applyMode
-                  ? `${active ? "Remove" : "Apply"} ${kit.name}`
-                  : `${active ? "Remove" : "Set"} ${kit.name} as default`
-              }
-              data-tour="kit-default-toggle"
-              onClick={active ? onDeactivate : onActivate}
-            >
-              {active && <Check size={12} aria-hidden="true" />}
-              {applyMode
-                ? active
-                  ? "Applied"
-                  : "Apply"
-                : active
-                  ? "Default"
-                  : "Set as default"}
-            </button>
-          </Hint>
-
-          <Hint label="Edit kit">
-            <button
-              type="button"
-              className="bk-icon-action"
-              aria-label={`Edit ${kit.name}`}
-              data-tour="kit-edit"
-              onClick={onEdit}
-            >
-              <Pencil size={14} aria-hidden="true" />
-            </button>
-          </Hint>
-
-          <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-            <Hint label="More actions">
-              <DropdownMenuTrigger asChild>
+              >
                 <button
                   type="button"
-                  className="bk-icon-action"
-                  aria-label={`More actions for ${kit.name}`}
+                  className={`bk-default-toggle bk-toolbar-btn${active ? " active" : ""}`}
+                  aria-pressed={active}
+                  aria-label={
+                    applyMode
+                      ? `${active ? "Remove" : "Apply"} ${kit.name}`
+                      : `${active ? "Remove" : "Set"} ${kit.name} as default`
+                  }
+                  data-tour="kit-default-toggle"
+                  onClick={active ? onDeactivate : onActivate}
                 >
-                  <MoreHorizontal size={14} aria-hidden="true" />
+                  {active && <Check size={13} aria-hidden="true" />}
+                  {applyMode
+                    ? active
+                      ? "Applied"
+                      : "Apply"
+                    : active
+                      ? "Default"
+                      : "Set as default"}
                 </button>
-              </DropdownMenuTrigger>
-            </Hint>
-            <DropdownMenuContent
-              className="editor-menu"
-              align="end"
-              onCloseAutoFocus={(e) => {
-                if (renaming) e.preventDefault();
-              }}
-            >
-              <DropdownMenuItem
-                onSelect={() => {
-                  setDraftName(kit.name);
-                  setRenaming(true);
-                }}
-              >
-                <Pencil aria-hidden="true" /> Rename
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="text-destructive"
-                onSelect={onDelete}
-              >
-                <Trash2 aria-hidden="true" /> Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+              </Hint>
 
-        <BrandKitPreview kit={kit} />
+              <Hint label="Edit kit">
+                <button
+                  type="button"
+                  className="bk-icon-action bk-toolbar-btn"
+                  aria-label={`Edit ${kit.name}`}
+                  data-tour="kit-edit"
+                  onClick={onEdit}
+                >
+                  <Pencil size={15} aria-hidden="true" />
+                </button>
+              </Hint>
+
+              <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+                <Hint label="More actions">
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="bk-icon-action bk-toolbar-btn"
+                      aria-label={`More actions for ${kit.name}`}
+                    >
+                      <MoreHorizontal size={16} aria-hidden="true" />
+                    </button>
+                  </DropdownMenuTrigger>
+                </Hint>
+                <DropdownMenuContent
+                  className="editor-menu"
+                  align="end"
+                  onCloseAutoFocus={(e) => {
+                    if (renaming) e.preventDefault();
+                  }}
+                >
+                  <DropdownMenuItem
+                    onSelect={() => {
+                      setDraftName(kit.name);
+                      setRenaming(true);
+                    }}
+                  >
+                    <Pencil aria-hidden="true" /> Rename
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="text-destructive"
+                    onSelect={onDelete}
+                  >
+                    <Trash2 aria-hidden="true" /> Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
+          }
+        />
 
         <div
           className="bk-palette"
@@ -622,27 +767,6 @@ function BrandKitCard({
             );
           })}
         </div>
-
-        <Hint label="Edit typography">
-          <button
-            type="button"
-            className="bk-type-row"
-            aria-label={`Edit typography for ${kit.name}`}
-            onClick={onEdit}
-          >
-            <span
-              className="bk-type-glyph"
-              style={{ fontFamily: kit.typography || undefined }}
-              aria-hidden="true"
-            >
-              Aa
-            </span>
-            <span className="bk-type-copy">
-              <strong>{kit.typography || "No typeface set"}</strong>
-              {kit.style && <small>{kit.style}</small>}
-            </span>
-          </button>
-        </Hint>
       </div>
     </div>
   );
