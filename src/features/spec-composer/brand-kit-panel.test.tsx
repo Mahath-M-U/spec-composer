@@ -334,6 +334,47 @@ describe("BrandKitPanel", () => {
     expect(html).not.toContain("bk-preview-chips");
   });
 
+  it("shows a Positioning chip with the kit's positioning tier label on every card, not just the applied one", () => {
+    const premiumKit = makeKit({
+      id: "kit-premium",
+      name: "Premium Kit",
+      profile: { positioningTier: "premium" },
+    });
+    useEditorStore.setState({
+      doc: createDocument(),
+      brandKits: [nightfallKit, premiumKit],
+    });
+    const html = renderPanel();
+    const cards = html.split('data-tour="kit-card"').slice(1);
+    expect(cards).toHaveLength(2);
+    expect(cards[1]).toContain('class="sr-only">Positioning: <');
+    expect(cards[1]).toContain('class="bk-preview-chip-value">Premium<');
+  });
+
+  it("shows the Positioning chip on standalone design kit pages too", () => {
+    const premiumKit = makeKit({
+      id: "kit-premium",
+      name: "Premium Kit",
+      profile: { positioningTier: "premium" },
+    });
+    useEditorStore.setState({
+      doc: createDocument(),
+      brandKits: [premiumKit],
+    });
+    const html = renderPanel({ standalone: true });
+    expect(html).toContain('class="sr-only">Positioning: <');
+    expect(html).toContain('class="bk-preview-chip-value">Premium<');
+  });
+
+  it("renders no Positioning chip when the kit has no positioning tier set", () => {
+    useEditorStore.setState({
+      doc: createDocument(),
+      brandKits: [nightfallKit],
+    });
+    const html = renderPanel();
+    expect(html).not.toContain("Positioning");
+  });
+
   it("never shows a Theme or Light/Dark chip", () => {
     useEditorStore.setState({ doc: createDocument(), brandKits: [auroraKit] });
     const html = renderPanel();

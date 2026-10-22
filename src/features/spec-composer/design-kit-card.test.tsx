@@ -158,6 +158,30 @@ describe("shared DesignKitCard", () => {
     expect(inactiveHtml).not.toContain(" active");
   });
 
+  it("gives the active card a border in the kit's own primary color", () => {
+    const activeHtml = renderToStaticMarkup(
+      withTooltips(
+        <DesignKitCard kit={auroraKit} actions={makeActions({ active: true })} />,
+      ),
+    );
+    expect(activeHtml).toContain("--bk-active-border:#112233");
+
+    const inactiveHtml = renderToStaticMarkup(
+      withTooltips(<DesignKitCard kit={auroraKit} actions={makeActions()} />),
+    );
+    expect(inactiveHtml).not.toContain("--bk-active-border");
+
+    const staticActiveHtml = renderToStaticMarkup(
+      <DesignKitCard kit={auroraKit} active />,
+    );
+    expect(staticActiveHtml).toContain("--bk-active-border:#112233");
+
+    const staticInactiveHtml = renderToStaticMarkup(
+      <DesignKitCard kit={auroraKit} />,
+    );
+    expect(staticInactiveHtml).not.toContain("--bk-active-border");
+  });
+
   it("renders the full showcase card with artwork and the interactive palette", () => {
     const actions = makeActions();
     const html = renderToStaticMarkup(

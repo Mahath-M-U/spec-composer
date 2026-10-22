@@ -1,9 +1,9 @@
-import { ArrowRight, Check, Copy, ExternalLink, FileText } from "lucide-react";
+import { ExternalLink, FileText, Ruler } from "lucide-react";
 import {
-  PreviewCard,
-  type PreviewCardAction,
+  DesignCard,
+  type DesignCardCopyAction,
   type PreviewCardMenuItem,
-} from "@/components/preview-card";
+} from "@/components/design-card";
 import { TemplateCardMedia } from "./template-card-media";
 import { templateImageFor } from "./template-images";
 import type { SpecDocument } from "./types";
@@ -36,25 +36,18 @@ export function HomeTemplateCard({
 }: HomeTemplateCardProps) {
   const copyLabel = doc.promptMode === "design_skill" ? "DESIGN.md" : "prompt";
   const copyProps: {
-    secondaryActions?: PreviewCardAction[];
+    copyAction?: DesignCardCopyAction;
     menuItems?: PreviewCardMenuItem[];
   } = onCopy
     ? {
-        secondaryActions: [
-          {
-            label: "Copy",
-            ariaLabel: `Copy ${copyLabel}: ${doc.name}`,
-            icon: copied ? (
-              <Check size={14} aria-hidden="true" />
-            ) : (
-              <Copy size={14} aria-hidden="true" />
-            ),
-            onSelect: onCopy,
-            disabled: copying,
-            busy: copying,
-            status: copied ? "Copied" : copying ? "Copying…" : "",
-          },
-        ],
+        copyAction: {
+          ariaLabel: `Copy ${copyLabel}: ${doc.name}`,
+          tooltip: copyLabel === "DESIGN.md" ? "Copy DESIGN.md" : "Copy prompt",
+          onSelect: onCopy,
+          busy: copying,
+          copied,
+          disabled: copying,
+        },
         menuItems: [
           {
             id: "use",
@@ -77,11 +70,10 @@ export function HomeTemplateCard({
     : {};
 
   return (
-    <PreviewCard
+    <DesignCard
       {...(className !== undefined ? { className } : {})}
       title={doc.name}
-      subtitle={category ?? doc.format.label}
-      subtitleTitle={category ?? doc.format.label}
+      category={category ?? doc.format.label}
       media={
         <TemplateCardMedia
           doc={doc}
@@ -89,22 +81,16 @@ export function HomeTemplateCard({
           priority={priority}
         />
       }
-      pills={[
-        ...(category
-          ? [{ id: "category", label: category, decorative: true }]
-          : []),
-        {
-          id: "format",
-          label: `${doc.format.width} × ${doc.format.height}`,
-          title: doc.format.label,
-        },
-      ]}
-      primaryAction={{
-        label: "Use template",
-        ariaLabel: `Use template: ${doc.name}`,
-        icon: <ArrowRight size={14} aria-hidden="true" />,
-        onSelect: onOpen,
-      }}
+      previewLabel={`Use template: ${doc.name}`}
+      onOpen={onOpen}
+      modifiedBadge={
+        <span className="design-card-chip">
+          <Ruler size={10} aria-hidden="true" />
+          <span>
+            {doc.format.width}×{doc.format.height}
+          </span>
+        </span>
+      }
       {...copyProps}
       {...(onWarmEditor !== undefined ? { onWarm: onWarmEditor } : {})}
     />

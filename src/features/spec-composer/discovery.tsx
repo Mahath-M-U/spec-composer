@@ -33,7 +33,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { AppIcon } from "@/components/app-icon";
-import { PreviewCard, PreviewCardSkeleton } from "@/components/preview-card";
+import { PreviewCardSkeleton } from "@/components/preview-card";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Hint } from "@/components/ui/tooltip";
@@ -54,9 +54,8 @@ import { projectsQueryOptions } from "./queries";
 import { reportStorageError } from "./storage/errors";
 import type { Format, SpecDocument } from "./types";
 import { BrandKitPanel } from "./brand-kit-panel";
-import { DesignKitCard, DesignKitSummary } from "./design-kit-card";
+import { DesignKitCard } from "./design-kit-card";
 import { DocumentPreview } from "./static-render";
-import { TemplateCardMedia } from "./template-card-media";
 import { RecentDesignCard } from "./recent-design-card";
 import { HomeTemplateCard } from "./home-template-card";
 import { templateImageFor } from "./template-images";
@@ -171,10 +170,9 @@ export function DiscoveryShell({
             <Nav to="/projects" icon={<Folder />}>
               My designs
             </Nav>
-            <span className="sidebar-nav-label sidebar-nav-label--brand">
-              Brand assets
-            </span>
-            <BrandKitSidebarLink />
+            <Nav to="/design-kit" icon={<Gem />}>
+              Design kit
+            </Nav>
           </nav>
           <Link
             to="/release-notes"
@@ -352,37 +350,6 @@ export function DiscoveryShell({
         <QuickGuide page={tourPage} close={() => setGuideOpen(false)} />
       ) : null}
     </>
-  );
-}
-
-function BrandKitSidebarLink() {
-  const brandKits = useEditorStore((state) => state.brandKits);
-  const defaultBrandKitId = useEditorStore((state) => state.defaultBrandKitId);
-  const globalKit = brandKits.find((kit) => kit.id === defaultBrandKitId);
-
-  if (globalKit) {
-    return (
-      <Link
-        to="/design-kit"
-        activeProps={{ className: "active" }}
-        className="sidebar-kit-link"
-        data-tour="design-kit"
-        aria-label={`Design kits: ${globalKit.name}`}
-      >
-        <DesignKitCard kit={globalKit} active />
-      </Link>
-    );
-  }
-
-  return (
-    <Link
-      to="/design-kit"
-      activeProps={{ className: "active" }}
-      className="sidebar-brandkit-card"
-      data-tour="design-kit"
-    >
-      <DesignKitSummary title="Design kits" subtitle="Build your identity" showSwatches={false} />
-    </Link>
   );
 }
 
@@ -576,6 +543,7 @@ export function HomePage() {
   const featured = useFeaturedTemplates();
   const recentCards = useVisibleHomeCardCount(projectsPending);
   const starterCards = useVisibleHomeCardCount();
+  const popularFormatCards = useVisibleHomeCardCount();
   const openNewProject = useOpenNewProject();
   const nextProjectName = useNextProjectName();
 
@@ -602,6 +570,10 @@ export function HomePage() {
   }, [platform, query]);
 
   const heading = query.trim() ? "Search results" : platform;
+  const isDefaultPopular = platform === "Popular" && !query.trim();
+  const visibleFormats = isDefaultPopular
+    ? shown.slice(0, Math.max(0, popularFormatCards.visibleCount - 1))
+    : shown;
 
   return (
     <DiscoveryShell>
@@ -648,9 +620,11 @@ export function HomePage() {
           </div>
           {shown.length ? (
             <FormatGrid
-              formats={shown}
+              formats={visibleFormats}
               onSelect={createFromPreset}
               onCreateCustom={() => setCustomOpen(true)}
+              containerRef={popularFormatCards.containerRef}
+              className={isDefaultPopular ? "home-popular-format-grid" : ""}
             />
           ) : (
             <div className="empty-gallery">
@@ -769,6 +743,7 @@ export function HomePage() {
               View all <ArrowRight size={14} />
             </Link>
           </div>
+          <BrandKitPanel standalone />
         </section>
       </div>
       {customOpen ? (
@@ -1318,39 +1293,21 @@ function CreationDialog({
             {compatibleTemplates.length ? (
               <div className="creation-template-grid">
                 {compatibleTemplates.map((template) => (
-                  <PreviewCard
+                  <HomeTemplateCard
                     key={template.name}
                     className="creation-template-option"
-                    title={template.name}
-                    subtitle={template.category}
-                    media={
-                      <TemplateCardMedia
-                        doc={template.document}
-                        image={
-                          Math.abs(
-                            Math.log(
-                              template.document.format.width /
-                                template.document.format.height /
-                                0.8,
-                            ),
-                          ) < 0.02
-                            ? templateImageFor(template.name)
-                            : undefined
-                        }
-                      />
+                    doc={template.document}
+                    category={template.category}
+                    templatePhoto={
+                      Math.abs(
+                        Math.log(
+                          template.document.format.width /
+                            template.document.format.height /
+                            0.8,
+                        ),
+                      ) < 0.02
                     }
-                    pills={[
-                      {
-                        id: "format",
-                        label: `${template.document.format.width} × ${template.document.format.height}`,
-                      },
-                    ]}
-                    primaryAction={{
-                      label: "Use template",
-                      ariaLabel: `Use ${template.name} template`,
-                      icon: <ArrowRight size={14} aria-hidden="true" />,
-                      onSelect: () => create(template.name),
-                    }}
+                    onOpen={() => create(template.name)}
                   />
                 ))}
               </div>

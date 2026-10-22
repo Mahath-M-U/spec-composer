@@ -6,7 +6,8 @@ import {
   type ReactNode,
 } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { PreviewCard } from "@/components/preview-card";
+import { DesignCard } from "@/components/design-card";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { describe, expect, it, vi } from "vitest";
 import { HomeTemplateCard } from "./home-template-card";
 import { TemplateCardMedia } from "./template-card-media";
@@ -46,7 +47,9 @@ function renderCard(
     tree = HomeTemplateCard(props);
     return tree;
   }
-  const html = renderToStaticMarkup(createElement(Capture));
+  const html = renderToStaticMarkup(
+    createElement(TooltipProvider, null, createElement(Capture)),
+  );
   function elements(node: ReactNode): ReactElement<ElementProps>[] {
     if (Array.isArray(node)) return node.flatMap(elements);
     if (!isValidElement<ElementProps>(node)) return [];
@@ -57,27 +60,29 @@ function renderCard(
     expect(element).toBeDefined();
     return element!;
   }
-  const card = find((element) => element.type === PreviewCard);
-  const cardProps = card.props as unknown as ComponentProps<typeof PreviewCard>;
+  const card = find((element) => element.type === DesignCard);
+  const cardProps = card.props as unknown as ComponentProps<typeof DesignCard>;
   return { props, html, find, all: elements(tree!), card, cardProps };
 }
 
 describe("home template card", () => {
-  it("passes the full template media and compact metadata to PreviewCard", () => {
+  it("passes the full template media and compact metadata to DesignCard", () => {
     const { props, html, card, cardProps } = renderCard();
-    expect(card.type).toBe(PreviewCard);
+    expect(card.type).toBe(DesignCard);
     expect(html).toContain('aria-label="Use template: Product Launch"');
     expect(html).toContain('aria-label="Copy prompt: Product Launch"');
     expect(html).toContain('aria-label="More actions for Product Launch"');
     expect(html).toContain('data-template-preview="true"');
     expect(html).toContain("Product Launch");
-    expect(html).toContain(props.doc.format.label);
-    expect(html).toContain(
-      `${props.doc.format.width} × ${props.doc.format.height}`,
-    );
     expect(html).toContain("Marketing");
     expect(html).not.toContain("Cinematic");
     expect(html).not.toContain("<time");
+    expect(html).not.toContain("recent-design-edited-chip");
+    expect(html).toContain("design-card-chip");
+    expect(html).toContain("lucide-ruler");
+    expect(html).toContain(
+      `${props.doc.format.width}×${props.doc.format.height}`,
+    );
     expect(cardProps.media).toMatchObject({
       type: TemplateCardMedia,
       props: {
@@ -88,10 +93,11 @@ describe("home template card", () => {
     });
   });
 
-  it("shares the existing Use and Copy callbacks across preview, overlay and overflow by identity", () => {
+  it("shares the existing Use and Copy callbacks across preview, badge and overflow by identity", () => {
     const { props, cardProps } = renderCard();
-    expect(cardProps.primaryAction.onSelect).toBe(props.onOpen);
-    expect(cardProps.secondaryActions![0]!.onSelect).toBe(props.onCopy);
+    expect(cardProps.onOpen).toBe(props.onOpen);
+    expect(cardProps.previewLabel).toBe("Use template: Product Launch");
+    expect(cardProps.copyAction!.onSelect).toBe(props.onCopy);
     const menu = cardProps.menuItems!;
     expect(menu).toHaveLength(2);
     expect(menu[0]!.onSelect).toBe(props.onOpen);
@@ -101,18 +107,17 @@ describe("home template card", () => {
     expect(cardProps.onWarm).toBe(props.onWarmEditor);
   });
 
-  it("preserves pending and copied feedback on an icon-only Copy button", () => {
+  it("preserves pending and copied feedback on the icon-only Copy button", () => {
     const pending = renderCard({ copying: true });
-    const secondary = pending.cardProps.secondaryActions![0]!;
-    expect(secondary.disabled).toBe(true);
-    expect(secondary.busy).toBe(true);
-    expect(secondary.ariaLabel).toBe("Copy prompt: Product Launch");
-    expect(secondary.status).toBe("Copying…");
+    const copyAction = pending.cardProps.copyAction!;
+    expect(copyAction.disabled).toBe(true);
+    expect(copyAction.busy).toBe(true);
+    expect(copyAction.ariaLabel).toBe("Copy prompt: Product Launch");
+    expect(copyAction.status).toBeUndefined();
+    expect(copyAction.copied).toBe(false);
     expect(pending.cardProps.menuItems![1]!.disabled).toBe(true);
-    expect(pending.html).toContain("Copying…");
     const copied = renderCard({ copied: true });
-    expect(copied.cardProps.secondaryActions![0]!.status).toBe("Copied");
-    expect(copied.html).toContain("Copied");
+    expect(copied.cardProps.copyAction!.copied).toBe(true);
     expect(copied.html).toContain('aria-busy="false"');
   });
 
@@ -121,22 +126,17 @@ describe("home template card", () => {
       doc: { ...createDocument(), promptMode: "design_skill" },
     });
     expect(cardProps.menuItems![1]!.label).toBe("Copy DESIGN.md");
+    expect(cardProps.copyAction!.tooltip).toBe("Copy DESIGN.md");
     expect(html).toContain('aria-label="Copy DESIGN.md:');
     const labels = cardProps.menuItems!.map((item) => item.label);
     expect(labels).not.toContain("Rename");
     expect(labels).not.toContain("Delete");
   });
 
-  it("keeps the overlay actions ordered as Use, Copy, then the overflow menu", () => {
+  it("keeps the badge, copy action and overflow menu present when onCopy is provided", () => {
     const { cardProps } = renderCard();
-    expect(Object.keys(cardProps)).toEqual(
-      expect.arrayContaining([
-        "primaryAction",
-        "secondaryActions",
-        "menuItems",
-      ]),
-    );
-    expect(cardProps.secondaryActions).toHaveLength(1);
+    expect(cardProps.modifiedBadge).toBeDefined();
+    expect(cardProps.copyAction).toBeDefined();
     expect(cardProps.menuItems).toHaveLength(2);
   });
 
@@ -150,9 +150,8 @@ describe("home template card", () => {
 
   it("falls back to the format label when no category is provided", () => {
     const { cardProps, props } = renderCard({ category: undefined });
-    expect(cardProps.pills).toHaveLength(1);
-    expect(cardProps.subtitle).toBe(props.doc.format.label);
-    expect(cardProps.subtitleTitle).toBe(props.doc.format.label);
+    expect(cardProps.category).toBe(props.doc.format.label);
+    expect(cardProps.dimensions).toBeUndefined();
   });
 
   it("supports a minimal sidebar usage without copy affordances or template photos", () => {
@@ -166,12 +165,12 @@ describe("home template card", () => {
       className: "template-panel-card",
       templatePhoto: false,
     });
-    expect(cardProps.secondaryActions).toBeUndefined();
+    expect(cardProps.copyAction).toBeUndefined();
     expect(cardProps.menuItems).toBeUndefined();
     expect(cardProps.className).toBe("template-panel-card");
     expect(
       (cardProps.media as ReactElement<{ image?: unknown }>).props.image,
     ).toBeUndefined();
-    expect(cardProps.primaryAction.onSelect).toBe(onOpen);
+    expect(cardProps.onOpen).toBe(onOpen);
   });
 });

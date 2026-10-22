@@ -13,6 +13,7 @@ import {
   MoreHorizontal,
   Pencil,
   Sparkles,
+  Tag,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -23,6 +24,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { POSITIONING_TIERS } from "./brand-profile";
 import { getBrandKitColor } from "./brand-kits";
 import {
   brandKitTileForeground,
@@ -179,7 +181,10 @@ export function BrandKitPreview({
 
   const typeFontFamily =
     kit.typography || "ui-sans-serif, system-ui, sans-serif";
-  const hasChips = kit.style.trim() || imageStyle?.trim();
+  const positioningLabel = POSITIONING_TIERS.find(
+    (tier) => tier.id === kit.profile?.positioningTier,
+  )?.label;
+  const hasChips = kit.style.trim() || positioningLabel || imageStyle?.trim();
 
   // Card-only kit variables: the applied-pill mark needs just enough
   // contrast to read as a button, while the title prefers the kit's
@@ -252,6 +257,15 @@ export function BrandKitPreview({
                 <Sparkles className="bk-preview-chip-icon" aria-hidden="true" />
                 <span className="sr-only">{"Creative style: "}</span>
                 <span className="bk-preview-chip-value">{kit.style}</span>
+              </span>
+            )}
+            {positioningLabel && (
+              <span className="bk-preview-chip">
+                <Tag className="bk-preview-chip-icon" aria-hidden="true" />
+                <span className="sr-only">{"Positioning: "}</span>
+                <span className="bk-preview-chip-value">
+                  {positioningLabel}
+                </span>
               </span>
             )}
             {imageStyle?.trim() && (
@@ -596,10 +610,18 @@ export function DesignKitCard({
   const [menuOpen, setMenuOpen] = useState(false);
   const isStatic = !actions;
   const isActive = actions?.active ?? active ?? false;
+  const activeBorder = isActive
+    ? brandKitPreviewColors(kit).primary?.hex
+    : undefined;
 
   return (
     <div
       className={`design-kit-card brandkit-card bk-showcase-card${isStatic ? " is-static" : ""}${isActive ? " active" : ""}`}
+      style={
+        activeBorder
+          ? ({ "--bk-active-border": activeBorder } as CSSProperties)
+          : undefined
+      }
       data-tour={actions ? "kit-card" : undefined}
     >
       <div className="bk-face">

@@ -1,9 +1,11 @@
-/* Single source for the "this kit is applied" border tint, so it isn't
-   redefined per context (Home/Design kits list, the card itself, sidebar
-   link, tool rail). Scoped at :root so the tool rail wrapper (tool-rail.css)
-   can read it too, not just .design-kit-card itself. */
+/* Single source for the "this kit is applied" border tint, used by the
+   editor tool rail's kit box (tool-rail.css:202) only — the card itself
+   (.design-kit-card.active below) uses a secondary-color fill and a
+   kit-primary border instead.
+   Scoped at :root so the tool rail wrapper can read it. */
 :root {
-  --design-kit-card-applied-border: var(--card-border-selected);
+  /* Intentionally softer than --card-border-selected (0.45). */
+  --design-kit-card-applied-border: rgb(255 255 255 / 0.30);
 }
 
 /* Brand kit showcase card: a self-contained preview of one kit's colors,
@@ -466,10 +468,23 @@ button.bk-palette-slot:hover {
   outline-offset: 2px;
 }
 .design-kit-card.active {
-  border-color: var(--design-kit-card-applied-border);
+  border-color: var(--bk-active-border, var(--color-primary));
+  background: var(--color-secondary);
 }
 /* Hover affordance for the interactive Design kits list only — not the
-   read-only display cards (sidebar, hero) or the applied card itself. */
+   read-only display cards (sidebar, hero). Applied cards keep their
+   kit-primary border on hover; only inactive interactive cards gain the
+   hover border. */
 .brandkit-list-panel .design-kit-card:not(.is-static):not(.active):hover {
   border-color: var(--card-border-hover);
+}
+
+/* Applied card: icon buttons always pick up the kit's primary (matching the
+   Applied pill); the tint keeps the icon legible. */
+.design-kit-card.active .bk-preview-actions .bk-icon-action {
+  color: var(--bk-mark);
+  background: color-mix(in oklab, var(--bk-primary) 24%, var(--bk-canvas));
+}
+.design-kit-card.active .bk-preview-actions .bk-icon-action:hover {
+  background: color-mix(in oklab, var(--bk-primary) 34%, var(--bk-canvas));
 }

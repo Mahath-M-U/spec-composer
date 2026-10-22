@@ -188,14 +188,14 @@ describe("shared Tool Rail", () => {
       "Applied Design Kit",
     );
   });
-  it("preserves utilities, truthful Connect availability, and rich tooltip copy", () => {
-    const { html, find, nodes, props } = capture();
+  it("preserves utilities and accessible labels without rail tooltips", () => {
+    const { html, find, props } = capture();
     expect(html).toContain('aria-label="User settings"');
     expect(html).toContain("Coming soon");
     expect(find("data-tour", "connect").props["aria-haspopup"]).toBe("dialog");
-    expect(
-      nodes.find((node) => node.props.name === "Style")?.props.description,
-    ).toBe("Edit visual styling");
+    expect(find("id", "editor-rail-style").props["aria-label"]).toBe("Style");
+    expect(html).toContain("Edit visual styling");
+    expect(html).not.toContain("tool-rail-tooltip");
     (find("aria-label", "Quick tour").props.onClick as () => void)();
     expect(props.onTour).toHaveBeenCalledOnce();
     expect(useEditorStore.getState().panel).toBe("assets");

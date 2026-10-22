@@ -1,4 +1,4 @@
-import type { ElementType } from "react";
+import type { ElementType, Ref } from "react";
 import AutoAwesomeOutlinedIcon from "@mui/icons-material/AutoAwesomeOutlined";
 import CategoryOutlinedIcon from "@mui/icons-material/CategoryOutlined";
 import FacebookIcon from "@mui/icons-material/Facebook";
@@ -85,13 +85,20 @@ export function FormatGrid({
   formats,
   onSelect,
   onCreateCustom,
+  containerRef,
+  className,
 }: {
   formats: Format[];
   onSelect: (format: Format) => void;
   onCreateCustom?: () => void;
+  containerRef?: Ref<HTMLDivElement>;
+  className?: string;
 }) {
   return (
-    <div className="format-grid">
+    <div
+      ref={containerRef}
+      className={className ? `format-grid ${className}` : "format-grid"}
+    >
       {onCreateCustom ? <AddFormatCard onClick={onCreateCustom} /> : null}
       {formats.map((format, index) => (
         <FormatCard

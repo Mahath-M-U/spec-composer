@@ -6,10 +6,10 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  PreviewCard,
+  DesignCard,
   type PreviewCardLinkProps,
   type PreviewCardMenuItem,
-} from "@/components/preview-card";
+} from "@/components/design-card";
 import {
   Dialog,
   DialogContent,
@@ -85,6 +85,7 @@ export function RecentDesignCard({ doc }: { doc: SpecDocument }) {
   const [duplicating, setDuplicating] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [copyingText, setCopyingText] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [now, setNow] = useState<number | null>(null);
   const duplicatePending = useRef(false);
   const renamePending = useRef(false);
@@ -92,6 +93,7 @@ export function RecentDesignCard({ doc }: { doc: SpecDocument }) {
   const deletePending = useRef(false);
   const dialogPending = useRef(false);
   const menuTrigger = useRef<HTMLButtonElement>(null);
+  const copiedResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nameId = useId();
   useEffect(() => {
     const updateClock = () => setNow(Date.now());
@@ -99,6 +101,12 @@ export function RecentDesignCard({ doc }: { doc: SpecDocument }) {
     const interval = setInterval(updateClock, 60_000);
     return () => clearInterval(interval);
   }, []);
+  useEffect(
+    () => () => {
+      if (copiedResetTimer.current) clearTimeout(copiedResetTimer.current);
+    },
+    [],
+  );
 
   const warmEditor = () => {
     router
@@ -150,6 +158,11 @@ export function RecentDesignCard({ doc }: { doc: SpecDocument }) {
             ? "DESIGN.md is ready to paste."
             : "The design prompt is ready to paste.",
       });
+      if (kind === "design") {
+        setCopied(true);
+        if (copiedResetTimer.current) clearTimeout(copiedResetTimer.current);
+        copiedResetTimer.current = setTimeout(() => setCopied(false), 2000);
+      }
     } catch {
       toast.error("Couldn't copy design", {
         description: "Allow clipboard access in your browser and try again.",
@@ -268,36 +281,23 @@ export function RecentDesignCard({ doc }: { doc: SpecDocument }) {
 
   return (
     <>
-      <PreviewCard
+      <DesignCard
         title={doc.name}
-        subtitle={`${doc.format.label} · ${doc.format.width} × ${doc.format.height}`}
-        subtitleTitle={doc.format.label}
+        category={doc.format.label}
+        dimensions={`${doc.format.width} × ${doc.format.height}`}
         media={<DocumentPreview doc={doc} />}
-        previewLabel={`Preview ${doc.name}`}
-        badge={<RecentDesignEditedTime updatedAt={doc.updatedAt} now={now} />}
-        pills={[
-          {
-            id: "format",
-            label: `${doc.format.width} × ${doc.format.height}`,
-            title: doc.format.label,
-          },
-        ]}
-        primaryAction={{
-          label: "Open",
-          ariaLabel: `Open ${doc.name}`,
-          icon: <ExternalLink size={14} aria-hidden="true" />,
-          renderLink: renderOpenLink,
+        previewLabel={`Open ${doc.name}`}
+        renderLink={renderOpenLink}
+        modifiedBadge={
+          <RecentDesignEditedTime updatedAt={doc.updatedAt} now={now} />
+        }
+        copyAction={{
+          ariaLabel: `Copy DESIGN.md: ${doc.name}`,
+          tooltip: "Copy DESIGN.md",
+          onSelect: copyDesignMarkdown,
+          busy: copyingText,
+          copied,
         }}
-        secondaryActions={[
-          {
-            label: "Copy",
-            ariaLabel: `Copy DESIGN.md: ${doc.name}`,
-            icon: <Copy size={14} aria-hidden="true" />,
-            onSelect: copyDesignMarkdown,
-            disabled: copyingText,
-            busy: copyingText,
-          },
-        ]}
         menuItems={menuItems}
         menuTriggerRef={menuTrigger}
         onMenuCloseAutoFocus={(event) => {

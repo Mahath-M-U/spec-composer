@@ -137,30 +137,6 @@
   :is(.tool-rail-copy small, .tool-rail-status, .tool-rail-kit) {
   display: none;
 }
-.tool-rail-tooltip {
-  z-index: 100;
-  max-width: min(240px, calc(100vw - 24px));
-  padding: 10px 12px;
-  border: 1px solid var(--color-editor-border);
-  border-radius: 11px;
-  background: var(--color-editor-surface);
-  color: var(--color-editor-foreground);
-  box-shadow: 0 4px 16px #0002;
-  animation: none;
-}
-.tool-rail-tooltip strong {
-  display: block;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 18px;
-}
-.tool-rail-tooltip > span {
-  display: block;
-  margin-top: 2px;
-  font-size: 11px;
-  line-height: 16px;
-  color: var(--color-editor-muted);
-}
 @media (min-width: 768px) {
   .editor-shell
     #editor-tool-rail.tool-rail.tool-rail--redesigned[data-expanded="true"] {
@@ -299,9 +275,7 @@
   .editor-shell[data-navigation],
   .editor-shell
     #editor-tool-rail.tool-rail.tool-rail--redesigned
-    :is(button, a),
-  .tool-rail-tooltip {
+    :is(button, a) {
     transition: none;
-    animation: none;
   }
 }
