@@ -32,6 +32,7 @@ import {
   BrandKitDeleteDialog,
   type BrandKitBuilderMode,
 } from "./brand-kit-builder";
+import { brandKitColorPaint } from "./brand-kit-summary";
 import { getBrandKitColor } from "./brand-kits";
 import {
   matchesBrandKitQuery,
@@ -49,9 +50,7 @@ import { useEditorStore } from "./store";
 import type { BrandKit, BrandKitColor } from "./types";
 
 export function brandKitPaint(color: BrandKitColor): string {
-  return color.type === "gradient"
-    ? `linear-gradient(${color.angle}deg, ${color.hex}, ${color.secondaryHex ?? color.hex})`
-    : color.hex;
+  return brandKitColorPaint(color);
 }
 
 /** The roles used to render a design kit's showcase preview, with fallbacks

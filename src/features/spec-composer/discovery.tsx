@@ -6,9 +6,7 @@ import {
   ArrowDownAZ,
   ArrowRight,
   Clock3,
-  Check,
   Compass,
-  Copy,
   Download,
   Upload,
   FilePlus2,
@@ -24,7 +22,6 @@ import {
   Search,
   Shuffle,
   Sparkles,
-  Trash2,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -35,17 +32,8 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { AppIcon } from "@/components/app-icon";
+import { PreviewCard, PreviewCardSkeleton } from "@/components/preview-card";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Hint } from "@/components/ui/tooltip";
@@ -62,16 +50,16 @@ import {
 } from "./templates";
 import { getNextProjectName, saveProject } from "./persistence";
 import { createProjectBackup, importProjectBackup } from "./project-backup";
-import { projectsQueryOptions, useRemoveProject } from "./queries";
+import { projectsQueryOptions } from "./queries";
 import { reportStorageError } from "./storage/errors";
 import type { Format, SpecDocument } from "./types";
 import { BrandKitPanel } from "./brand-kit-panel";
+import { BrandKitSummary, brandKitColorPaint } from "./brand-kit-summary";
 import { DocumentPreview } from "./static-render";
 import { TemplateCardMedia } from "./template-card-media";
 import { RecentDesignCard } from "./recent-design-card";
 import { HomeTemplateCard } from "./home-template-card";
 import { templateImageFor } from "./template-images";
-import { findImageStyle } from "./image-styles";
 import { useEditorStore } from "./store";
 import {
   compileDesignSkill,
@@ -92,6 +80,7 @@ import {
 } from "./coming-soon-lazy";
 import { QuickGuide } from "./quick-guide-lazy";
 import { LATEST_RELEASE } from "./release-notes";
+import "./home-dashboard.css";
 
 /** Saves a new document, then opens it in the editor. */
 function useOpenNewProject() {
@@ -125,9 +114,11 @@ function Mark() {
 export function DiscoveryShell({
   children,
   tourPage = "home",
+  variant,
 }: {
   children: React.ReactNode;
   tourPage?: "home" | "brand-kit";
+  variant?: "home";
 }) {
   const [createOpen, setCreateOpen] = useState(false);
   const [comingSoon, setComingSoon] = useState<"mcp" | "remix" | null>(null);
@@ -136,7 +127,12 @@ export function DiscoveryShell({
 
   return (
     <>
-      <div className="min-h-screen text-foreground md:grid md:grid-cols-[268px_minmax(0,1fr)]">
+      <div
+        className={cn(
+          "min-h-screen text-foreground md:grid md:grid-cols-[268px_minmax(0,1fr)]",
+          variant === "home" && "discovery-shell--home",
+        )}
+      >
         <aside className="discovery-sidebar">
           <div className="flex items-center justify-between gap-2">
             <Link to="/" className="flex min-w-0 items-center gap-3 font-bold">
@@ -187,6 +183,11 @@ export function DiscoveryShell({
             </span>
             <BrandKitSidebarLink />
           </nav>
+          {variant === "home" ? (
+            <span className="sidebar-nav-label sidebar-nav-label--utilities">
+              Resources
+            </span>
+          ) : null}
           <Link
             to="/release-notes"
             className="sidebar-release-link"
@@ -258,7 +259,10 @@ export function DiscoveryShell({
                 </SheetTrigger>
                 <SheetContent
                   side="right"
-                  className="mobile-discovery-menu"
+                  className={cn(
+                    "mobile-discovery-menu",
+                    variant === "home" && "mobile-discovery-menu--home",
+                  )}
                   aria-describedby={undefined}
                 >
                   <SheetTitle>Workspace</SheetTitle>
@@ -372,9 +376,7 @@ function colorPaint(color: {
   secondaryHex?: string;
   angle: number;
 }) {
-  return color.type === "gradient"
-    ? `linear-gradient(${color.angle}deg, ${color.hex}, ${color.secondaryHex ?? color.hex})`
-    : color.hex;
+  return brandKitColorPaint(color);
 }
 
 function BrandKitSidebarLink() {
@@ -389,26 +391,12 @@ function BrandKitSidebarLink() {
       className="sidebar-brandkit-card"
       data-tour="design-kit"
     >
-      <span className="sidebar-brandkit-icon" aria-hidden="true">
-        <Gem />
-      </span>
-      <span className="sidebar-brandkit-copy">
-        <b>Design kits</b>
-        <small>{globalKit?.name ?? "Build your identity"}</small>
-      </span>
-      {globalKit ? (
-        <span
-          className="sidebar-brandkit-swatches"
-          aria-label="Default design kit selected"
-        >
-          {globalKit.colors.slice(0, 3).map((color) => (
-            <i key={color.id} style={{ background: colorPaint(color) }} />
-          ))}
-          {!globalKit.colors.length ? <i /> : null}
-        </span>
-      ) : (
-        <ArrowRight className="sidebar-brandkit-arrow" aria-hidden="true" />
-      )}
+      <BrandKitSummary
+        kit={globalKit}
+        variant="sidebar"
+        title="Design kits"
+        subtitle={globalKit?.name ?? "Build your identity"}
+      />
     </Link>
   );
 }
@@ -581,6 +569,31 @@ function useFeaturedTemplates() {
   };
 }
 
+function HomeSectionHeading({
+  eyebrow,
+  title,
+  id,
+  description,
+  action,
+}: {
+  eyebrow: string;
+  title: React.ReactNode;
+  id: string;
+  description: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="section-heading showcase-heading home-section-heading">
+      <div className="section-heading-copy">
+        <span className="section-kicker">{eyebrow}</span>
+        <h2 id={id}>{title}</h2>
+        <p>{description}</p>
+      </div>
+      {action}
+    </div>
+  );
+}
+
 export function HomePage() {
   const navigate = useNavigate();
   const [platform, setPlatform] = useState<PlatformFilter>("Popular");
@@ -616,10 +629,14 @@ export function HomePage() {
       : matchingFormats;
   }, [platform, query]);
 
-  const heading = query.trim() ? "Search results" : platform;
+  const heading = query.trim()
+    ? "Search results"
+    : platform === "Popular"
+      ? "Popular formats"
+      : platform;
 
   return (
-    <DiscoveryShell>
+    <DiscoveryShell variant="home">
       <div className="discovery-content home-page-content">
         <HomeHero onCreate={() => setCustomOpen(true)} />
 
@@ -628,7 +645,7 @@ export function HomePage() {
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search formats, platforms, stories, ads…"
+            placeholder="Find a format to start your next design…"
             aria-label="Search design formats"
           />
           {query ? (
@@ -655,12 +672,21 @@ export function HomePage() {
           data-tour="formats"
           aria-labelledby="format-section-title"
         >
-          <div className="section-heading">
-            <h2 id="format-section-title">{heading}</h2>
-            <span>
-              {shown.length} {shown.length === 1 ? "format" : "formats"}
-            </span>
-          </div>
+          <HomeSectionHeading
+            eyebrow="Start with a size"
+            title={heading}
+            id="format-section-title"
+            description={`${shown.length} ${shown.length === 1 ? "format" : "formats"} · Choose the right canvas for your next idea.`}
+            action={
+              <button
+                type="button"
+                className="section-link"
+                onClick={() => setCustomOpen(true)}
+              >
+                Custom size <Plus size={14} aria-hidden="true" />
+              </button>
+            }
+          />
           {shown.length ? (
             <FormatGrid
               formats={shown}
@@ -692,16 +718,17 @@ export function HomePage() {
           data-tour="recent"
           aria-labelledby="recent-section-title"
         >
-          <div className="section-heading showcase-heading">
-            <div className="section-heading-copy">
-              <span className="section-kicker">Your workspace</span>
-              <h2 id="recent-section-title">Recent designs</h2>
-              <p>Pick up where you left off.</p>
-            </div>
-            <Link to="/projects" className="section-link">
-              View all <ArrowRight size={14} />
-            </Link>
-          </div>
+          <HomeSectionHeading
+            eyebrow="Your workspace"
+            title="Recent designs"
+            id="recent-section-title"
+            description="Pick up where you left off."
+            action={
+              <Link to="/projects" className="section-link">
+                View all <ArrowRight size={14} />
+              </Link>
+            }
+          />
           {projectsPending ? (
             <div
               className="template-strip template-strip--recent"
@@ -710,12 +737,7 @@ export function HomePage() {
             >
               <span className="sr-only">Loading recent designs</span>
               {[0, 1, 2].map((index) => (
-                <div key={index} className="template-card-skeleton">
-                  <div className="template-preview">
-                    <MediaSkeleton />
-                  </div>
-                  <MediaSkeleton className="media-skeleton--line" />
-                </div>
+                <PreviewCardSkeleton key={index} />
               ))}
             </div>
           ) : recent.length ? (
@@ -737,19 +759,21 @@ export function HomePage() {
           data-tour="templates"
           aria-labelledby="template-section-title"
         >
-          <div className="section-heading showcase-heading">
-            <div className="section-heading-copy">
-              <span className="section-kicker">Curated starters</span>
-              <h2 id="template-section-title">
-                Start from a template
-                <span className="beta-chip">Beta</span>
-              </h2>
-              <p>Choose a direction, then make every detail your own.</p>
-            </div>
-            <Link to="/templates" className="section-link">
-              View all <ArrowRight size={14} />
-            </Link>
-          </div>
+          <HomeSectionHeading
+            eyebrow="Curated starters"
+            title={
+              <>
+                Start from a template<span className="beta-chip">Beta</span>
+              </>
+            }
+            id="template-section-title"
+            description="Choose a direction, then make every detail your own."
+            action={
+              <Link to="/templates" className="section-link">
+                View all <ArrowRight size={14} />
+              </Link>
+            }
+          />
           <div
             className="template-strip template-strip--starters"
             data-ready={featured.ready ? "" : undefined}
@@ -759,7 +783,6 @@ export function HomePage() {
                 key={template.name}
                 doc={template.document}
                 category={template.category}
-                homePreview
               />
             ))}
           </div>
@@ -771,15 +794,17 @@ export function HomePage() {
           data-tour="design-kit"
           aria-labelledby="design-kit-section-title"
         >
-          <div className="section-heading showcase-heading">
-            <div className="section-heading-copy">
-              <span className="section-kicker">Reusable identity</span>
-              <h2 id="design-kit-section-title">Design kit</h2>
-              <p>
-                Save colors, typography, style, and emotion for every design.
-              </p>
-            </div>
-          </div>
+          <HomeSectionHeading
+            eyebrow="Reusable identity"
+            title="Design kits"
+            id="design-kit-section-title"
+            description="Keep your colors, typography, and creative direction close."
+            action={
+              <Link to="/design-kit" className="section-link">
+                View all <ArrowRight size={14} />
+              </Link>
+            }
+          />
           <BrandKitPanel standalone />
         </section>
       </div>
@@ -899,23 +924,17 @@ function HomeHero({ onCreate }: { onCreate: () => void }) {
         <div className="home-hero-fern home-hero-fern--right" />
       </div>
       <div className="home-hero-copy">
-        <p className="home-hero-eyebrow">
-          FROM CANVAS TO CREATIVE INTELLIGENCE
-        </p>
-        <h1 id="home-hero-title">
-          Design visually.
-          <span>From idea to AI image.</span>
-        </h1>
+        <p className="home-hero-eyebrow">YOUR CREATIVE WORKSPACE</p>
+        <h1 id="home-hero-title">Create your next design.</h1>
         <p className="home-hero-description">
-          Draw or drop a visual idea, get a structured specification, and
-          generate production-ready images with AI &mdash; all in one place.
+          Choose a format, start from a template, or continue your latest work.
         </p>
         <div className="home-hero-actions">
           <button type="button" onClick={onCreate}>
             <Plus size={17} aria-hidden="true" /> Create a design
           </button>
-          <a href="#format-section-title">
-            Explore templates <ArrowRight size={16} aria-hidden="true" />
+          <a href="#template-section-title">
+            Browse templates <ArrowRight size={16} aria-hidden="true" />
           </a>
         </div>
       </div>
@@ -989,25 +1008,15 @@ function HomeHero({ onCreate }: { onCreate: () => void }) {
   );
 }
 
-function TemplateStyleChip({ style }: { style: string | undefined }) {
-  const label = findImageStyle(style)?.label;
-  return label ? <span className="template-style-chip">{label}</span> : null;
-}
-
 function TemplateCard({
   doc,
   category,
-  existing = false,
   priority = false,
-  homePreview = false,
 }: {
   doc: SpecDocument;
   category?: string;
-  existing?: boolean;
   priority?: boolean;
-  homePreview?: boolean;
 }) {
-  const navigate = useNavigate();
   const router = useRouter();
   const openNewProject = useOpenNewProject();
   const [copied, setCopied] = useState(false);
@@ -1063,115 +1072,19 @@ function TemplateCard({
       ?.catch(() => {});
   };
   const open = () => {
-    if (existing) {
-      navigate({ to: "/design/$projectId", params: { projectId: doc.id } });
-      return;
-    }
     void openNewProject(cloneTemplate(doc.name, doc.format.id));
   };
-  if (homePreview) {
-    return (
-      <HomeTemplateCard
-        doc={doc}
-        category={category}
-        priority={priority}
-        copied={copied}
-        copying={copying}
-        onOpen={open}
-        onCopy={copyDesign}
-        onWarmEditor={warmEditor}
-      />
-    );
-  }
-  const { primaryColor, secondaryColor } = doc.creativeDirection;
-  const swatches = [
-    ...(doc.background.type === "solid" ? [doc.background.value] : []),
-    primaryColor,
-    secondaryColor,
-  ];
-
   return (
-    <div
-      className={`template-card template-card--actions template-card--${existing ? "recent" : "starter"} group w-full text-left`}
-      onPointerEnter={warmEditor}
-      onFocus={warmEditor}
-    >
-      {!existing && (
-        <div className="template-card-style-row">
-          <TemplateStyleChip style={doc.imageStyle} />
-        </div>
-      )}
-      <div className="template-preview">
-        <button
-          type="button"
-          className="template-preview-media template-preview-open"
-          onClick={open}
-          tabIndex={-1}
-          aria-label={`${existing ? "Open" : "Use"} ${doc.name}`}
-        >
-          <TemplateCardMedia
-            doc={doc}
-            image={existing ? undefined : templateImageFor(doc.name)}
-            priority={priority}
-          />
-        </button>
-        {/* Revealed as the poster window morphs up on hover or focus. */}
-        <div className="template-preview-reveal">
-          <span className="template-preview-details" aria-hidden="true">
-            <span className="template-preview-swatches">
-              {swatches.map((color, index) => (
-                <i key={index} style={{ background: color }} />
-              ))}
-            </span>
-            <span className="template-preview-format">
-              {doc.format.width} × {doc.format.height}
-            </span>
-          </span>
-          <div className="template-preview-actions">
-            <button
-              type="button"
-              className="template-preview-action"
-              onClick={open}
-              aria-label={`${existing ? "Open" : "Use"} ${doc.name}`}
-            >
-              <span className="template-preview-action-label">
-                {existing ? "Open design" : "Use template"}
-              </span>
-              <ArrowRight size={14} aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              className="template-preview-action template-preview-copy"
-              onClick={() => void copyDesign()}
-              disabled={copying}
-              aria-label={`Copy design: ${doc.name}`}
-            >
-              {copied ? (
-                <Check size={14} aria-hidden="true" />
-              ) : (
-                <Copy size={14} aria-hidden="true" />
-              )}
-              <span className="template-preview-action-label">
-                {copied ? "Copied" : copying ? "Copying…" : "Copy design"}
-              </span>
-            </button>
-          </div>
-        </div>
-      </div>
-      <button
-        type="button"
-        className="template-card-copy w-full text-left"
-        onClick={open}
-        tabIndex={-1}
-      >
-        <span className="template-card-title">{doc.name}</span>
-        <span className="template-card-meta">
-          {existing
-            ? `${doc.format.label} · ${doc.format.width} × ${doc.format.height}px`
-            : (category ?? "Template")}
-        </span>
-      </button>
-    </div>
+    <HomeTemplateCard
+      doc={doc}
+      category={category}
+      priority={priority}
+      copied={copied}
+      copying={copying}
+      onOpen={open}
+      onCopy={copyDesign}
+      onWarmEditor={warmEditor}
+    />
   );
 }
 
@@ -1436,72 +1349,40 @@ function CreationDialog({
             {compatibleTemplates.length ? (
               <div className="creation-template-grid">
                 {compatibleTemplates.map((template) => (
-                  <button
-                    type="button"
+                  <PreviewCard
                     key={template.name}
-                    className="template-card creation-template-option"
-                    aria-label={`Use ${template.name} template`}
-                    onClick={() => create(template.name)}
-                  >
-                    <span className="template-card-style-row">
-                      <TemplateStyleChip style={template.document.imageStyle} />
-                    </span>
-                    <span className="template-preview">
-                      <span className="template-preview-media">
-                        <TemplateCardMedia
-                          doc={template.document}
-                          image={
-                            Math.abs(
-                              Math.log(
-                                template.document.format.width /
-                                  template.document.format.height /
-                                  0.8,
-                              ),
-                            ) < 0.02
-                              ? templateImageFor(template.name)
-                              : undefined
-                          }
-                        />
-                      </span>
-                      <span
-                        className="template-preview-reveal"
-                        aria-hidden="true"
-                      >
-                        <span className="template-preview-details">
-                          <span className="template-preview-swatches">
-                            {[
-                              ...(template.document.background.type === "solid"
-                                ? [template.document.background.value]
-                                : []),
-                              template.document.creativeDirection.primaryColor,
-                              template.document.creativeDirection
-                                .secondaryColor,
-                            ].map((color, index) => (
-                              <i key={index} style={{ background: color }} />
-                            ))}
-                          </span>
-                          <span className="template-preview-format">
-                            {template.document.format.width} ×{" "}
-                            {template.document.format.height}
-                          </span>
-                        </span>
-                        <span className="template-preview-action">
-                          <span className="template-preview-action-label">
-                            Use template
-                          </span>
-                          <ArrowRight size={14} />
-                        </span>
-                      </span>
-                    </span>
-                    <span className="template-card-copy">
-                      <span className="template-card-title">
-                        {template.name}
-                      </span>
-                      <span className="template-card-meta">
-                        {template.category}
-                      </span>
-                    </span>
-                  </button>
+                    className="creation-template-option"
+                    title={template.name}
+                    subtitle={template.category}
+                    media={
+                      <TemplateCardMedia
+                        doc={template.document}
+                        image={
+                          Math.abs(
+                            Math.log(
+                              template.document.format.width /
+                                template.document.format.height /
+                                0.8,
+                            ),
+                          ) < 0.02
+                            ? templateImageFor(template.name)
+                            : undefined
+                        }
+                      />
+                    }
+                    pills={[
+                      {
+                        id: "format",
+                        label: `${template.document.format.width} × ${template.document.format.height}`,
+                      },
+                    ]}
+                    primaryAction={{
+                      label: "Use template",
+                      ariaLabel: `Use ${template.name} template`,
+                      icon: <ArrowRight size={14} aria-hidden="true" />,
+                      onSelect: () => create(template.name),
+                    }}
+                  />
                 ))}
               </div>
             ) : (
@@ -1634,10 +1515,8 @@ export function ProjectsPage() {
   const queryClient = useQueryClient();
   const backupInput = useRef<HTMLInputElement>(null);
   const ready = !isPending;
-  const removeProject = useRemoveProject();
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<"updated" | "name">("updated");
-  const [pendingDelete, setPendingDelete] = useState<SpecDocument>();
 
   const shownProjects = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -1827,18 +1706,7 @@ export function ProjectsPage() {
           ) : shownProjects.length ? (
             <div className="project-library-grid">
               {shownProjects.map((document) => (
-                <div key={document.id} className="project-library-card">
-                  <TemplateCard doc={document} existing />
-                  <button
-                    type="button"
-                    aria-label={`Delete ${document.name}`}
-                    className="project-delete-button"
-                    onClick={() => setPendingDelete(document)}
-                  >
-                    <Trash2 size={14} />
-                    <span>Delete</span>
-                  </button>
-                </div>
+                <RecentDesignCard key={document.id} doc={document} />
               ))}
             </div>
           ) : (
@@ -1867,39 +1735,6 @@ export function ProjectsPage() {
           )}
         </section>
       </div>
-
-      <AlertDialog
-        open={Boolean(pendingDelete)}
-        onOpenChange={(open) => {
-          if (!open) setPendingDelete(undefined);
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete “{pendingDelete?.name}”?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This design is stored only in this browser. Deleting it cannot be
-              undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Keep design</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => {
-                if (!pendingDelete) return;
-                removeProject.mutate(pendingDelete.id, {
-                  onError: (error) =>
-                    reportStorageError(error, "remove-project"),
-                });
-                setPendingDelete(undefined);
-              }}
-            >
-              Delete design
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </DiscoveryShell>
   );
 }

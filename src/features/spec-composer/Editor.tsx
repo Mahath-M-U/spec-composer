@@ -82,6 +82,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { PreviewCard } from "@/components/preview-card";
 import { readRaw, writeRaw } from "@/lib/storage/local";
 import { AppIcon } from "@/components/app-icon";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -792,47 +793,25 @@ function TemplatesPanel() {
         </div>
         <div className="template-panel-grid">
           {shown.map((t) => (
-            <button
-              type="button"
-              className="template-card template-panel-card"
+            <PreviewCard
               key={t.name}
-              aria-label={`Use ${t.name} template`}
-              onClick={() => apply(t)}
-            >
-              <span className="template-preview">
-                <span className="template-preview-media">
-                  <DocumentPreview doc={t.document} />
-                </span>
-                <span className="template-preview-reveal" aria-hidden="true">
-                  <span className="template-preview-details">
-                    <span className="template-preview-swatches">
-                      {[
-                        ...(t.document.background.type === "solid"
-                          ? [t.document.background.value]
-                          : []),
-                        t.document.creativeDirection.primaryColor,
-                        t.document.creativeDirection.secondaryColor,
-                      ].map((color, index) => (
-                        <i key={index} style={{ background: color }} />
-                      ))}
-                    </span>
-                    <span className="template-preview-format">
-                      {t.document.format.width} × {t.document.format.height}
-                    </span>
-                  </span>
-                  <span className="template-preview-action">
-                    <span className="template-preview-action-label">
-                      Use template
-                    </span>
-                    <ArrowRight size={14} />
-                  </span>
-                </span>
-              </span>
-              <span className="template-card-copy">
-                <span className="template-card-title">{t.name}</span>
-                <span className="template-card-meta">{t.category}</span>
-              </span>
-            </button>
+              className="template-panel-card"
+              title={t.name}
+              subtitle={t.category}
+              media={<DocumentPreview doc={t.document} />}
+              pills={[
+                {
+                  id: "format",
+                  label: `${t.document.format.width} × ${t.document.format.height}`,
+                },
+              ]}
+              primaryAction={{
+                label: "Use template",
+                ariaLabel: `Use ${t.name} template`,
+                icon: <ArrowRight size={14} aria-hidden="true" />,
+                onSelect: () => apply(t),
+              }}
+            />
           ))}
           {!shown.length && (
             <p className="template-panel-empty">No templates match.</p>

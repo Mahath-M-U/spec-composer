@@ -1,0 +1,95 @@
+button.preset-card {
+  --preset-surface: var(--color-surface-subtle);
+  --preset-border: var(--color-border);
+  --preset-muted: var(--color-muted-foreground);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--preset-border);
+  border-radius: 12px;
+  background: var(--preset-surface);
+  padding: 8px;
+  text-align: left;
+  outline: none;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease;
+}
+button.preset-card:is(:hover, [aria-pressed="true"]) {
+  background: var(--color-secondary);
+  border-color: var(--color-primary);
+}
+button.preset-card:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+}
+button.preset-card:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.preset-card .preset-card-art {
+  position: relative;
+  display: grid;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--preset-border);
+  border-radius: 9px;
+  background: var(--color-surface-raised);
+}
+.preset-card--home .preset-card-art > .preset-artwork {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.preset-card-details {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px 6px;
+  padding: 10px 3px 4px;
+}
+.preset-card-title {
+  display: block;
+  flex-basis: 100%;
+  overflow: hidden;
+  color: var(--color-primary);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.preset-card-meta {
+  color: var(--preset-muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+.preset-card-badge {
+  color: var(--preset-muted);
+  font-size: 8px;
+}
+button.preset-card--create {
+  border-color: color-mix(
+    in oklab,
+    var(--color-primary) 60%,
+    var(--preset-border)
+  );
+}
+.preset-card .preset-create-art {
+  border: 1px dashed var(--color-primary);
+  background: color-mix(
+    in oklab,
+    var(--color-primary) 7%,
+    var(--preset-surface)
+  );
+  color: var(--color-primary);
+}
+@media (prefers-reduced-motion: reduce) {
+  button.preset-card {
+    transition: none;
+  }
+}

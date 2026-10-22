@@ -15,38 +15,33 @@
   }
 }
 
-.resize-panel .resize-format-card {
-  display: flex;
+.resize-panel button.preset-card--resize {
+  --preset-surface: color-mix(in oklab, var(--color-editor-surface), white 7%);
+  --preset-border: var(--color-editor-border);
+  --preset-muted: var(--color-editor-muted);
   width: 100%;
   margin: 0 0 10px;
   break-inside: avoid;
-  border: 0;
-  border-radius: 0.75rem;
-  background: color-mix(in oklab, var(--color-editor-surface), white 7%);
   padding: 4px;
-  outline: 1px solid transparent;
 }
-
-.resize-panel .resize-format-card:hover {
+.resize-panel button.preset-card--resize:hover {
   background: var(--color-secondary);
-  outline-color: var(--editor-action);
 }
-
-.resize-panel .resize-format-card[aria-pressed="true"] {
+.resize-panel .preset-card--resize .preset-card-art {
+  aspect-ratio: auto;
+  border: 0;
+  border-radius: 7px;
+}
+.resize-panel .preset-card--resize .preset-create-art {
+  aspect-ratio: 1;
+  border: 1px dashed var(--color-primary);
+}
+.resize-panel .preset-card--resize[aria-pressed="true"] {
   outline: 2px solid var(--editor-action);
 }
-
-.resize-panel .resize-format-card:focus-visible {
+.resize-panel .preset-card--resize:focus-visible {
   outline: 2px solid var(--editor-focus);
   outline-offset: 2px;
-}
-
-.resize-panel .resize-card-grid .resize-format-card .resize-preset-preview {
-  outline: none;
-}
-
-.resize-panel .resize-card-art {
-  width: 100%;
 }
 
 .resize-panel .resize-card-details {
@@ -97,23 +92,6 @@
   width: 8px;
   height: 8px;
   flex: none;
-}
-
-.resize-panel
-  .resize-card-grid
-  .resize-format-card--custom
-  .resize-custom-visual {
-  aspect-ratio: 1;
-  border: 1px dashed var(--editor-action);
-  border-radius: 7px;
-  color: var(--color-primary);
-  transform: none;
-  outline: none;
-}
-
-.resize-panel .resize-format-card--custom:hover .resize-custom-visual,
-.resize-panel .resize-format-card--custom:focus-visible .resize-custom-visual {
-  background: var(--color-secondary);
 }
 
 @container resize-gallery (max-width: 260px) {

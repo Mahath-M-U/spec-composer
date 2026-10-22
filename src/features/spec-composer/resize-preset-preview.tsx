@@ -602,60 +602,158 @@ function Video4k() {
   );
 }
 
-const compositions: Record<string, () => ReactNode> = {
-  "instagram-post": InstagramPost,
-  "instagram-story": InstagramStory,
-  "instagram-ad": InstagramAd,
-  "facebook-landscape": FacebookLandscape,
-  "facebook-square": FacebookSquare,
-  "facebook-cover": FacebookCover,
-  "youtube-thumbnail": YoutubeThumbnail,
-  "youtube-channel": YoutubeChannel,
-  "youtube-short": YoutubeShort,
-  "linkedin-post": LinkedinPost,
-  "linkedin-banner": LinkedinBanner,
-  "linkedin-square": LinkedinSquare,
-  "x-post": XPost,
-  "x-header": XHeader,
-  "x-square": XSquare,
-  "video-full-hd": VideoFullHd,
-  "video-4k-uhd": Video4k,
+// Illustration view boxes are independent of dimensions in either preset catalog.
+const compositions = {
+  "instagram-post": {
+    render: InstagramPost,
+    height: 320,
+    background: palette.cream,
+  },
+  "instagram-story": {
+    render: InstagramStory,
+    height: 569,
+    background: palette.cream,
+  },
+  "instagram-ad": {
+    render: InstagramAd,
+    height: 320,
+    background: palette.cream,
+  },
+  "facebook-landscape": {
+    render: FacebookLandscape,
+    height: 168,
+    background: palette.cream,
+  },
+  "facebook-square": {
+    render: FacebookSquare,
+    height: 320,
+    background: palette.cream,
+  },
+  "facebook-cover": {
+    render: FacebookCover,
+    height: 119,
+    background: palette.cream,
+  },
+  "youtube-thumbnail": {
+    render: YoutubeThumbnail,
+    height: 180,
+    background: palette.cream,
+  },
+  "youtube-channel": {
+    render: YoutubeChannel,
+    height: 180,
+    background: palette.cream,
+  },
+  "youtube-short": {
+    render: YoutubeShort,
+    height: 569,
+    background: palette.burgundy,
+  },
+  "linkedin-post": {
+    render: LinkedinPost,
+    height: 167.2,
+    background: palette.cream,
+  },
+  "linkedin-banner": {
+    render: LinkedinBanner,
+    height: 80,
+    background: palette.forest,
+  },
+  "linkedin-square": {
+    render: LinkedinSquare,
+    height: 320,
+    background: palette.cream,
+  },
+  "x-post": { render: XPost, height: 180, background: palette.cream },
+  "x-header": { render: XHeader, height: 107, background: palette.blush },
+  "x-square": { render: XSquare, height: 320, background: palette.coral },
+  "video-full-hd": {
+    render: VideoFullHd,
+    height: 180,
+    background: palette.forest,
+  },
+  "video-4k-uhd": { render: Video4k, height: 180, background: palette.blush },
 };
 
+export type PresetArtworkId = keyof typeof compositions;
+export const PRESET_ARTWORK_IDS = Object.keys(
+  compositions,
+) as PresetArtworkId[];
+
 /** Decorative size illustrations only; never used as canvas/template contents. */
-export function ResizePresetPreview({ preset }: { preset: ResizePreset }) {
-  const Composition = Object.hasOwn(compositions, preset.id)
-    ? compositions[preset.id]
+export function PresetArtwork({
+  id,
+  width,
+  height,
+  artworkId = id,
+  className,
+}: {
+  id: string;
+  width: number;
+  height: number;
+  artworkId?: string | undefined;
+  className?: string | undefined;
+}) {
+  const composition = Object.hasOwn(compositions, artworkId)
+    ? compositions[artworkId as PresetArtworkId]
     : undefined;
+  const Composition = composition?.render;
   return (
     <svg
-      className="resize-preset-preview"
-      width={preset.width}
-      height={preset.height}
-      viewBox={`0 0 ${preset.width} ${preset.height}`}
+      className={`preset-artwork${className ? ` ${className}` : ""}`}
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
       preserveAspectRatio="xMidYMid meet"
       aria-hidden="true"
       focusable="false"
-      data-resize-art={Composition ? preset.id : "dimensions"}
+      data-resize-art={Composition ? id : "dimensions"}
+      data-preset-art={Composition ? artworkId : "dimensions"}
     >
-      <rect width={preset.width} height={preset.height} fill={palette.cream} />
-      {Composition ? (
-        <g transform={`scale(${preset.width / 320})`}>
+      <rect
+        width={width}
+        height={height}
+        fill={composition?.background ?? palette.cream}
+      />
+      {Composition && composition ? (
+        <svg
+          width={width}
+          height={height}
+          viewBox={`0 0 320 ${composition.height}`}
+          preserveAspectRatio="xMidYMid meet"
+        >
+          <rect
+            width="320"
+            height={composition.height}
+            fill={composition.background}
+          />
           <Composition />
-        </g>
+        </svg>
       ) : (
         <text
-          x={preset.width / 2}
-          y={preset.height / 2}
+          x={width / 2}
+          y={height / 2}
           textAnchor="middle"
           dominantBaseline="middle"
           fontFamily={sans}
-          fontSize={Math.min(preset.width, preset.height) * 0.09}
+          fontSize={Math.min(width, height) * 0.09}
           fill={palette.ink}
         >
-          {preset.width} × {preset.height}
+          {width} × {height}
         </text>
       )}
     </svg>
+  );
+}
+
+/** Compatibility adapter for callers that already have a Resize preset. */
+export function ResizePresetPreview({ preset }: { preset: ResizePreset }) {
+  return (
+    <PresetArtwork
+      id={preset.id}
+      width={preset.width}
+      height={preset.height}
+      className="resize-preset-preview"
+    />
   );
 }

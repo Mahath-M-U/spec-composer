@@ -1,24 +1,15 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Link, useRouter } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  Copy,
-  ExternalLink,
-  FileText,
-  MoreHorizontal,
-  Pencil,
-  Trash2,
-} from "lucide-react";
+import { Copy, ExternalLink, FileText, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  PreviewCard,
+  type PreviewCardLinkProps,
+  type PreviewCardMenuItem,
+} from "@/components/preview-card";
 import {
   Dialog,
   DialogContent,
@@ -89,7 +80,6 @@ export function RecentDesignCard({ doc }: { doc: SpecDocument }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const removeProject = useRemoveProject();
-  const [menuOpen, setMenuOpen] = useState(false);
   const [dialog, setDialog] = useState<"rename" | "delete" | null>(null);
   const [name, setName] = useState(doc.name);
   const [duplicating, setDuplicating] = useState(false);
@@ -202,7 +192,7 @@ export function RecentDesignCard({ doc }: { doc: SpecDocument }) {
     deletePending.current = true;
     const focusFallback = menuTrigger.current
       ?.closest("section")
-      ?.querySelector<HTMLAnchorElement>(".section-link");
+      ?.querySelector<HTMLElement>(".section-link, .projects-search input");
     try {
       await removeProject.mutateAsync(doc.id);
       setDialog(null);
@@ -219,114 +209,102 @@ export function RecentDesignCard({ doc }: { doc: SpecDocument }) {
     }
   };
 
+  const renderOpenLink = (linkProps: PreviewCardLinkProps) => (
+    <Link
+      to="/design/$projectId"
+      params={{ projectId: doc.id }}
+      {...linkProps}
+    />
+  );
+  const menuItems: PreviewCardMenuItem[] = [
+    {
+      id: "open",
+      label: "Open",
+      icon: <ExternalLink aria-hidden="true" />,
+      ariaLabel: `Open ${doc.name}`,
+      renderLink: renderOpenLink,
+    },
+    {
+      id: "duplicate",
+      label: "Duplicate design",
+      icon: <Copy aria-hidden="true" />,
+      onSelect: duplicateDesign,
+      disabled: duplicating,
+    },
+    {
+      id: "copy-design",
+      label: "Copy DESIGN.md",
+      icon: <FileText aria-hidden="true" />,
+      onSelect: copyDesignMarkdown,
+      disabled: copyingText,
+    },
+    ...(doc.promptMode === "visual_prompt"
+      ? [
+          {
+            id: "copy-prompt",
+            label: "Copy prompt",
+            icon: <FileText aria-hidden="true" />,
+            onSelect: copyPrompt,
+            disabled: copyingText,
+          },
+        ]
+      : []),
+    {
+      id: "rename",
+      label: "Rename",
+      icon: <Pencil aria-hidden="true" />,
+      onSelect: () => openDialog("rename"),
+    },
+    {
+      id: "delete",
+      label: "Delete",
+      icon: <Trash2 aria-hidden="true" />,
+      onSelect: () => openDialog("delete"),
+      disabled: removeProject.isPending,
+      destructive: true,
+      separatorBefore: true,
+    },
+  ];
+
   return (
     <>
-      <article
-        className="recent-design-card"
-        data-menu-open={menuOpen || undefined}
-        onPointerEnter={warmEditor}
-        onFocus={warmEditor}
-      >
-        <div className="recent-design-preview">
-          <Link
-            to="/design/$projectId"
-            params={{ projectId: doc.id }}
-            className="recent-design-preview-link"
-            aria-label={`Preview ${doc.name}`}
-            tabIndex={-1}
-          >
-            <DocumentPreview doc={doc} />
-          </Link>
-          <RecentDesignEditedTime updatedAt={doc.updatedAt} now={now} />
-          <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-            <DropdownMenuTrigger asChild>
-              <button
-                ref={menuTrigger}
-                type="button"
-                className="recent-design-menu-trigger"
-                aria-label={`More actions for ${doc.name}`}
-              >
-                <MoreHorizontal size={18} aria-hidden="true" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              className="recent-design-menu"
-              align="end"
-              sideOffset={6}
-              onCloseAutoFocus={(event) => {
-                if (dialogPending.current) event.preventDefault();
-              }}
-            >
-              <DropdownMenuItem asChild>
-                <Link
-                  to="/design/$projectId"
-                  params={{ projectId: doc.id }}
-                  aria-label={`Open ${doc.name}`}
-                >
-                  <ExternalLink aria-hidden="true" /> Open
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={duplicateDesign}
-                disabled={duplicating}
-              >
-                <Copy aria-hidden="true" /> Duplicate design
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={copyDesignMarkdown}
-                disabled={copyingText}
-              >
-                <FileText aria-hidden="true" />
-                Copy DESIGN.md
-              </DropdownMenuItem>
-              {doc.promptMode === "visual_prompt" && (
-                <DropdownMenuItem onSelect={copyPrompt} disabled={copyingText}>
-                  <FileText aria-hidden="true" /> Copy prompt
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuItem onSelect={() => openDialog("rename")}>
-                <Pencil aria-hidden="true" /> Rename
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="recent-design-delete-item"
-                onSelect={() => openDialog("delete")}
-                disabled={removeProject.isPending}
-              >
-                <Trash2 aria-hidden="true" /> Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <div className="recent-design-actions">
-            <Link
-              to="/design/$projectId"
-              params={{ projectId: doc.id }}
-              className="recent-design-action recent-design-open"
-              aria-label={`Open ${doc.name}`}
-            >
-              <ExternalLink size={14} aria-hidden="true" /> Open
-            </Link>
-            <button
-              type="button"
-              className="recent-design-action recent-design-copy"
-              aria-label={`Copy DESIGN.md: ${doc.name}`}
-              aria-busy={copyingText}
-              disabled={copyingText}
-              onClick={copyDesignMarkdown}
-            >
-              <Copy size={14} aria-hidden="true" /> Copy
-            </button>
-          </div>
-        </div>
-        <div className="recent-design-metadata">
-          <h3 className="recent-design-title" title={doc.name}>
-            {doc.name}
-          </h3>
-          <p className="recent-design-format" title={doc.format.label}>
-            {doc.format.label} · {doc.format.width} × {doc.format.height}
-          </p>
-        </div>
-      </article>
+      <PreviewCard
+        title={doc.name}
+        subtitle={`${doc.format.label} · ${doc.format.width} × ${doc.format.height}`}
+        subtitleTitle={doc.format.label}
+        media={<DocumentPreview doc={doc} />}
+        previewLabel={`Preview ${doc.name}`}
+        badge={<RecentDesignEditedTime updatedAt={doc.updatedAt} now={now} />}
+        pills={[
+          {
+            id: "format",
+            label: `${doc.format.width} × ${doc.format.height}`,
+            title: doc.format.label,
+          },
+        ]}
+        primaryAction={{
+          label: "Open",
+          ariaLabel: `Open ${doc.name}`,
+          icon: <ExternalLink size={14} aria-hidden="true" />,
+          renderLink: renderOpenLink,
+        }}
+        secondaryActions={[
+          {
+            label: "Copy",
+            ariaLabel: `Copy DESIGN.md: ${doc.name}`,
+            icon: <Copy size={14} aria-hidden="true" />,
+            onSelect: copyDesignMarkdown,
+            disabled: copyingText,
+            busy: copyingText,
+          },
+        ]}
+        menuItems={menuItems}
+        menuTriggerRef={menuTrigger}
+        onMenuCloseAutoFocus={(event) => {
+          if (dialogPending.current) event.preventDefault();
+        }}
+        onWarm={warmEditor}
+      />
       <Dialog
         open={dialog === "rename"}
         onOpenChange={(open) => {

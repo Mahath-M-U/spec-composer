@@ -1,21 +1,5 @@
-.resize-preset-preview {
+.preset-artwork {
   display: block;
   width: 100%;
   height: auto;
-  border-radius: 7px;
-}
-
-.resize-format-card:hover .resize-preset-preview {
-  outline: 1px solid var(--editor-action);
-  outline-offset: 2px;
-}
-
-.resize-format-card[aria-pressed="true"] .resize-preset-preview {
-  outline: 2px solid var(--editor-action);
-  outline-offset: 2px;
-}
-
-.resize-format-card:focus-visible .resize-preset-preview {
-  outline: 2px solid var(--editor-focus);
-  outline-offset: 3px;
 }

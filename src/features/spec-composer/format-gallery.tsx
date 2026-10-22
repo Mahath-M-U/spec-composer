@@ -1,4 +1,4 @@
-import type { CSSProperties, ElementType } from "react";
+import type { ElementType } from "react";
 import AutoAwesomeOutlinedIcon from "@mui/icons-material/AutoAwesomeOutlined";
 import CategoryOutlinedIcon from "@mui/icons-material/CategoryOutlined";
 import FacebookIcon from "@mui/icons-material/Facebook";
@@ -8,9 +8,19 @@ import PinterestIcon from "@mui/icons-material/Pinterest";
 import WhatsAppIcon from "@mui/icons-material/WhatsApp";
 import XIcon from "@mui/icons-material/X";
 import YouTubeIcon from "@mui/icons-material/YouTube";
-import { History, Music2, Play, Plus } from "lucide-react";
+import { ChevronDown, History, Music2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { PlatformFilter } from "./formats";
 import type { Format } from "./types";
+import { formatArtworkId } from "./format-artwork";
+import { PresetArtwork } from "./resize-preset-preview";
+import { PresetCard, PresetCreateCard } from "./preset-card";
 
 const platformIcons: Record<PlatformFilter, ElementType> = {
   Popular: AutoAwesomeOutlinedIcon,
@@ -35,9 +45,12 @@ export function PlatformFilterBar({
   value: PlatformFilter;
   onChange: (platform: PlatformFilter) => void;
 }) {
+  const primary = platforms.slice(0, 6);
+  const more = platforms.slice(6);
+  const selectedMore = more.includes(value);
   return (
     <div className="platform-scroll" aria-label="Filter formats by platform">
-      {platforms.map((platform) => {
+      {primary.map((platform) => {
         const Icon = platformIcons[platform];
         const active = value === platform;
         return (
@@ -54,76 +67,59 @@ export function PlatformFilterBar({
           </button>
         );
       })}
+      {more.length ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="platform-chip platform-chip--more"
+              aria-label={
+                selectedMore ? `More platforms: ${value}` : "More platforms"
+              }
+              data-selected={selectedMore || undefined}
+            >
+              <span>{selectedMore ? value : "More"}</span>
+              <ChevronDown aria-hidden="true" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            className="home-platform-menu"
+            align="end"
+            sideOffset={6}
+            collisionPadding={12}
+          >
+            <DropdownMenuRadioGroup
+              value={value}
+              onValueChange={(next) => {
+                const platform = more.find((item) => item === next);
+                if (platform) onChange(platform);
+              }}
+            >
+              {more.map((platform) => {
+                const Icon = platformIcons[platform];
+                return (
+                  <DropdownMenuRadioItem key={platform} value={platform}>
+                    <Icon aria-hidden="true" />
+                    {platform}
+                  </DropdownMenuRadioItem>
+                );
+              })}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
     </div>
   );
 }
 
-const headlines: Record<string, [string, string]> = {
-  geometric: ["MAKE", "IT BOLD"],
-  editorial: ["BUILD", "VISUALLY"],
-  type: ["COMPOSE", "CLEARLY"],
-  tint: ["NEW", "ENERGY"],
-  product: ["DESIGN", "WITH INTENT"],
-  minimal: ["LESS", "BUT BETTER"],
-  profile: ["YOUR", "STORY"],
-  banner: ["MAKE SPACE", "FOR IDEAS"],
-  carousel: ["ONE IDEA", "AT A TIME"],
-  video: ["MOVE", "WITH PURPOSE"],
-};
-const DEFAULT_HEADLINE: [string, string] = ["MAKE", "IT BOLD"];
-
-function platformMark(format: Format) {
-  if (format.category === "LinkedIn") return "in";
-  if (format.category === "Instagram") return "ig";
-  if (format.category === "WhatsApp") return "wa";
-  if (format.category === "Facebook") return "f";
-  if (format.category === "YouTube") return "yt";
-  return format.category.slice(0, 1).toLowerCase();
-}
-
-export function FormatPreview({
-  format,
-  index = 0,
-}: {
-  format: Format;
-  index?: number;
-}) {
-  const variant = format.previewVariant ?? "geometric";
-  const [lineOne, lineTwo] = headlines[variant] ?? DEFAULT_HEADLINE;
-  const ratio = format.width / format.height;
-  const orientation =
-    ratio > 1.2 ? "landscape" : ratio < 0.8 ? "portrait" : "square";
-  const style = {
-    aspectRatio: `${format.width} / ${format.height}`,
-    "--preview-index": index,
-  } as CSSProperties;
-
+export function FormatPreview({ format }: { format: Format; index?: number }) {
   return (
-    <div className="format-well" aria-hidden="true">
-      <div
-        className={`preview-art preview-${variant} preview-type-${format.type ?? "post"} preview-orientation-${orientation}`}
-        style={style}
-      >
-        <span className="preview-platform">{platformMark(format)}</span>
-        <span className="preview-kicker">
-          SPEC / {String(index + 1).padStart(2, "0")}
-        </span>
-        <span className="preview-image" />
-        <strong>
-          {lineOne}
-          <br />
-          {lineTwo}
-        </strong>
-        <i />
-        <small>{format.category}</small>
-        {format.animated ? (
-          <span className="preview-play">
-            <Play size={9} fill="currentColor" />
-          </span>
-        ) : null}
-      </div>
-      <span className="format-action">Use template</span>
-    </div>
+    <PresetArtwork
+      id={format.id}
+      artworkId={formatArtworkId(format.id) ?? "dimensions"}
+      width={format.width}
+      height={format.height}
+    />
   );
 }
 
@@ -137,39 +133,20 @@ export function FormatCard({
   onSelect: (format: Format) => void;
 }) {
   return (
-    <button
-      type="button"
-      className="format-card group"
+    <PresetCard
+      title={format.label}
+      width={format.width}
+      height={format.height}
+      artwork={<FormatPreview format={format} index={index} />}
+      badge={format.animated ? "Animated" : undefined}
       onClick={() => onSelect(format)}
-      aria-label={`Create ${format.label}, ${format.width} by ${format.height} pixels`}
-    >
-      <FormatPreview format={format} index={index} />
-      <span className="format-name">{format.label}</span>
-      <span className="format-meta">
-        <span>
-          {format.width} × {format.height} px <b>·</b> {format.subtitle}
-        </span>
-        {format.animated ? <em>Animated</em> : null}
-      </span>
-    </button>
+      ariaLabel={`Create ${format.label}, ${format.width} by ${format.height} pixels`}
+    />
   );
 }
 
 export function AddFormatCard({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      className="format-card format-card--add group"
-      onClick={onClick}
-      aria-label="Create a design with a preset or custom size"
-    >
-      <div className="format-well format-well--add" aria-hidden="true">
-        <Plus size={26} />
-      </div>
-      <span className="format-name">Create a design</span>
-      <span className="format-meta">Preset or custom size</span>
-    </button>
-  );
+  return <PresetCreateCard onClick={onClick} />;
 }
 
 export function FormatGrid({

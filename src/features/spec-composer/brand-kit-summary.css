@@ -1,0 +1,114 @@
+.brand-kit-summary {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  border-radius: 9px;
+}
+.brand-kit-summary--compact {
+  padding: 10px;
+}
+.brand-kit-summary-icon {
+  width: 20px;
+  height: 20px;
+  color: var(--color-primary);
+}
+.brand-kit-summary-copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+.brand-kit-summary-title {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.brand-kit-summary-subtitle {
+  display: block;
+  overflow: hidden;
+  font-size: 11px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.78;
+}
+.brand-kit-summary--sidebar .brand-kit-summary-title {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.brand-kit-summary--sidebar .brand-kit-summary-subtitle {
+  font-size: 10px;
+}
+.brand-kit-swatches {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+}
+.brand-kit-swatches i {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+}
+.brand-kit-swatches small {
+  font-size: 10px;
+  color: var(--color-muted-foreground);
+}
+.brand-kit-summary-actions {
+  display: flex;
+  grid-column: 2;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.sidebar-brandkit-card > .brand-kit-summary {
+  grid-column: 1 / -1;
+}
+/* Reuse the same summary in the expanded rail without changing navigation sizing. */
+.editor-shell
+  #editor-tool-rail.tool-rail--redesigned
+  .tool-rail-kit
+  .brand-kit-summary {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 9px;
+  width: 100%;
+  text-align: left;
+}
+.editor-shell
+  #editor-tool-rail.tool-rail--redesigned
+  .tool-rail-kit
+  .brand-kit-summary-copy {
+  display: grid;
+  gap: 3px;
+}
+.editor-shell
+  #editor-tool-rail.tool-rail--redesigned
+  .tool-rail-kit
+  .brand-kit-summary-title {
+  font-size: 12px;
+  color: var(--color-editor-foreground);
+}
+.editor-shell
+  #editor-tool-rail.tool-rail--redesigned
+  .tool-rail-kit
+  .brand-kit-summary-subtitle {
+  color: var(--color-editor-muted);
+}
+.editor-shell
+  #editor-tool-rail.tool-rail--redesigned
+  .tool-rail-kit
+  .brand-kit-swatches {
+  display: flex;
+  gap: 4px;
+}

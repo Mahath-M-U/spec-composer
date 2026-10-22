@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, Plus, Ratio, Ruler, Scaling, Search, X } from "lucide-react";
+import { Scaling, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { PanelHeader } from "./panel-header";
 import { ResizePresetPreview } from "./resize-preset-preview";
+import { PresetCard, PresetCreateCard } from "./preset-card";
 import {
   RESIZE_PRESET_GROUPS,
   fromPixels,
@@ -254,85 +255,35 @@ export function ResizePanel() {
 
         <div className="resize-card-grid" aria-label="Available sizes">
           {showCustomCard && (
-            <button
-              type="button"
-              className="resize-format-card resize-format-card--custom"
-              aria-label="Enter a custom size"
-              aria-pressed={customOpen}
+            <PresetCreateCard
+              variant="resize"
+              title="Custom size"
+              description="Enter width and height"
+              ariaLabel="Enter a custom size"
+              selected={customOpen}
               onClick={() => {
                 setSelectedId(null);
                 setCustomOpen((open) => !open);
               }}
-            >
-              <span className="resize-custom-visual" aria-hidden="true">
-                <Plus size={28} />
-              </span>
-              <span className="resize-card-details resize-card-details--custom">
-                <span className="resize-card-title" title="Custom size">
-                  <span>Custom size</span>
-                </span>
-                <span
-                  className="resize-card-meta"
-                  title="Enter width and height"
-                >
-                  <Ruler size={8} aria-hidden="true" />
-                  <span>Enter width and height</span>
-                </span>
-              </span>
-            </button>
+            />
           )}
           {visibleCards.map(({ group, preset, format }) => {
             const selected = preset.id === selectedId;
             const current = isCurrent(preset);
             return (
-              <button
+              <PresetCard
                 key={preset.id}
-                type="button"
-                className="resize-format-card"
-                aria-pressed={selected}
-                aria-label={`${selected ? "Deselect" : "Select"} ${group} ${preset.label}, ${preset.width} by ${preset.height} pixels${current ? ", current size" : ""}`}
+                variant="resize"
+                title={`${group} ${preset.label}`}
+                width={preset.width}
+                height={preset.height}
+                ratio={format.subtitle}
+                selected={selected}
+                current={current}
+                ariaLabel={`${selected ? "Deselect" : "Select"} ${group} ${preset.label}, ${preset.width} by ${preset.height} pixels${current ? ", current size" : ""}`}
                 onClick={() => togglePreset(preset.id)}
-              >
-                <div className="resize-card-art">
-                  <ResizePresetPreview preset={preset} />
-                  {current && (
-                    <span className="resize-card-current" aria-hidden="true">
-                      Current
-                    </span>
-                  )}
-                  {selected && (
-                    <span className="resize-card-check" aria-hidden="true">
-                      <Check size={13} strokeWidth={3} />
-                    </span>
-                  )}
-                </div>
-                <span className="resize-card-details">
-                  <span
-                    className="resize-card-title"
-                    title={`${group} ${preset.label}`}
-                  >
-                    <span>
-                      {group} {preset.label}
-                    </span>
-                  </span>
-                  <span
-                    className="resize-card-ratio"
-                    title={`Aspect ratio ${format.subtitle}`}
-                  >
-                    <Ratio size={8} aria-hidden="true" />
-                    <span>{format.subtitle}</span>
-                  </span>
-                  <span
-                    className="resize-card-meta"
-                    title={`${preset.width} × ${preset.height} px`}
-                  >
-                    <Ruler size={8} aria-hidden="true" />
-                    <span>
-                      {preset.width}×{preset.height}
-                    </span>
-                  </span>
-                </span>
-              </button>
+                artwork={<ResizePresetPreview preset={preset} />}
+              />
             );
           })}
           {!showCustomCard && !visibleCards.length && (

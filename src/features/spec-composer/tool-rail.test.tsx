@@ -172,8 +172,8 @@ describe("shared Tool Rail", () => {
     const { html, find, props } = capture({ expanded: true });
     expect(html).toContain("Studio Fern");
     expect(html).toContain("Applied Design Kit");
-    expect(html).toContain("background-color:#123456");
-    expect(html).toContain("background-color:#abcdef");
+    expect(html).toContain("background:#123456");
+    expect(html).toContain("background:#abcdef");
     const before = useEditorStore.getState().doc;
     (
       find("aria-label", "Open applied Design Kit: Studio Fern").props

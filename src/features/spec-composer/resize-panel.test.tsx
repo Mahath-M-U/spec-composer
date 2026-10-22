@@ -92,7 +92,9 @@ describe("ResizePanel gallery presentation", () => {
     expect(custom).toContain('title="Custom size"');
     expect(custom).toContain('title="Enter width and height"');
     expect(custom).toContain("Enter width and height</span>");
-    expect(custom).toContain('class="resize-custom-visual" aria-hidden="true"');
+    expect(custom).toContain(
+      'class="preset-card-art preset-create-art" aria-hidden="true"',
+    );
     expect(custom).toContain('aria-pressed="false"');
   });
 
@@ -106,9 +108,7 @@ describe("ResizePanel gallery presentation", () => {
       ).length,
     );
     for (const card of currentCards) {
-      expect(card).toContain(
-        'class="resize-card-current" aria-hidden="true">Current</span>',
-      );
+      expect(card).toContain('class="resize-card-current">Current</span>');
     }
   });
 });

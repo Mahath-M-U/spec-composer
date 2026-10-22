@@ -1,12 +1,13 @@
 import {
   createElement,
   isValidElement,
+  type ComponentProps,
   type ReactElement,
   type ReactNode,
 } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Link } from "@tanstack/react-router";
-import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { PreviewCard } from "@/components/preview-card";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RecentDesignCard, RecentDesignEditedTime } from "./recent-design-card";
 import { createDocument } from "./templates";
@@ -99,19 +100,18 @@ function find(predicate: (element: ReactElement<ElementProps>) => boolean) {
   expect(element).toBeDefined();
   return element!;
 }
-function byText(text: string) {
-  return find((element) => {
-    const children = element.props.children;
-    return (
-      Array.isArray(children) &&
-      children.some(
-        (child) => typeof child === "string" && child.trim() === text,
-      )
-    );
-  });
+function previewCard() {
+  const card = find((element) => element.type === PreviewCard);
+  return card.props as unknown as ComponentProps<typeof PreviewCard>;
 }
-function callback(element: ReactElement<ElementProps>, prop: string) {
-  return element.props[prop] as (event?: {
+function menuItem(label: string) {
+  const items = previewCard().menuItems ?? [];
+  const item = items.find((candidate) => candidate.label === label);
+  expect(item).toBeDefined();
+  return item!;
+}
+function callback(element: { [key: string]: unknown }, prop: string) {
+  return element[prop] as (event?: {
     preventDefault: () => void;
   }) => Promise<void> | void;
 }
@@ -128,7 +128,7 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("recent design card", () => {
-  it("renders mounted, separate Open and Copy controls with full preview and safe metadata", () => {
+  it("passes the full preview and safe metadata to the shared PreviewCard", () => {
     const doc = {
       ...createDocument(),
       id: "recent-design",
@@ -137,8 +137,8 @@ describe("recent design card", () => {
     };
     const html = renderCard(doc);
     expect(html).toContain('href="/design/recent-design"');
-    expect(html).toContain('class="recent-design-action recent-design-open"');
-    expect(html).toContain('class="recent-design-action recent-design-copy"');
+    expect(html).toContain('class="preview-card-primary"');
+    expect(html).toContain('class="preview-card-icon preview-card-secondary"');
     expect(html).toContain('data-full-preview="true"');
     expect(html).toContain("&lt;Long title &amp; &quot;quotes&quot;&gt;");
     expect(html).toContain(doc.format.label);
@@ -146,64 +146,50 @@ describe("recent design card", () => {
     expect(html).not.toContain("<time");
     expect(html).not.toContain("Edited Oct 19, 2026");
     expect(html).toContain('aria-label="More actions for');
-    const card = find((element) => element.type === "article");
-    expect(card.props["onClick"]).toBeUndefined();
-    expect(card.props["onKeyDown"]).toBeUndefined();
-    const preview = find(
-      (element) => element.props["className"] === "recent-design-preview",
-    );
-    const chip = elements(preview.props.children).find(
-      (element) => element.type === RecentDesignEditedTime,
-    );
-    expect(chip?.props).toEqual({ updatedAt: doc.updatedAt, now: null });
-    const metadata = find(
-      (element) => element.props["className"] === "recent-design-metadata",
-    );
-    expect(
-      elements(metadata.props.children).some(
-        (element) =>
-          element.type === RecentDesignEditedTime || element.type === "time",
-      ),
-    ).toBe(false);
+    const card = previewCard();
+    expect(card.badge).toMatchObject({
+      type: RecentDesignEditedTime,
+      props: { updatedAt: doc.updatedAt, now: null },
+    });
   });
 
-  it("offers an overflow Open link to the selected design", () => {
+  it("offers an overflow Open link to the selected design, reused by the primary action", () => {
     const doc = { ...createDocument(), id: "selected-recent-design" };
     renderCard(doc);
-    const item = find(
-      (element) =>
-        element.type === DropdownMenuItem && element.props["asChild"] === true,
-    );
-    expect(item.props.children).toMatchObject({
+    const card = previewCard();
+    const openItem = menuItem("Open");
+    const rendered = openItem.renderLink!({
+      children: "Open",
+    });
+    expect(rendered).toMatchObject({
       type: Link,
       props: {
         to: "/design/$projectId",
         params: { projectId: doc.id },
-        "aria-label": `Open ${doc.name}`,
       },
     });
+    expect(card.primaryAction.renderLink).toBe(openItem.renderLink);
+    expect(card.primaryAction.ariaLabel).toBe(`Open ${doc.name}`);
   });
 
   it("omits invalid last-edited data", () => {
-    expect(
-      renderCard({ ...createDocument(), updatedAt: "invalid" }),
-    ).not.toContain("<time");
+    renderCard({ ...createDocument(), updatedAt: "invalid" });
+    expect(previewCard().badge).toMatchObject({
+      type: RecentDesignEditedTime,
+      props: { updatedAt: "invalid", now: null },
+    });
   });
 
-  it("shares one guarded DESIGN.md clipboard handler between the visible button and menu", async () => {
+  it("shares one guarded DESIGN.md clipboard handler between the visible button and the menu", async () => {
     const writeText = vi.fn();
     vi.stubGlobal("navigator", { clipboard: { writeText } });
     const doc = createDocument();
     renderCard(doc);
-    const visible = find(
-      (element) =>
-        element.type === "button" &&
-        element.props["className"] ===
-          "recent-design-action recent-design-copy",
-    );
-    const menu = byText("Copy DESIGN.md");
-    expect(visible.props["onClick"]).toBe(menu.props["onSelect"]);
-    expect(visible.props["aria-label"]).toBe(`Copy DESIGN.md: ${doc.name}`);
+    const card = previewCard();
+    const visible = card.secondaryActions![0]!;
+    const menu = menuItem("Copy DESIGN.md");
+    expect(visible.onSelect).toBe(menu.onSelect);
+    expect(visible.ariaLabel).toBe(`Copy DESIGN.md: ${doc.name}`);
     let resolve!: () => void;
     writeText.mockImplementationOnce(
       () =>
@@ -211,8 +197,8 @@ describe("recent design card", () => {
           resolve = done;
         }),
     );
-    const pending = callback(visible, "onClick")();
-    await callback(menu, "onSelect")();
+    const pending = visible.onSelect!();
+    await menu.onSelect!(new Event("select"));
     expect(writeText).toHaveBeenCalledExactlyOnceWith("Compiled DESIGN.md");
     resolve();
     await pending;
@@ -237,13 +223,8 @@ describe("recent design card", () => {
         message: "Missing external tool settings",
       });
       renderCard(doc);
-      const visible = find(
-        (element) =>
-          element.type === "button" &&
-          element.props["className"] ===
-            "recent-design-action recent-design-copy",
-      );
-      await callback(visible, "onClick")();
+      const visible = previewCard().secondaryActions![0]!;
+      await visible.onSelect!();
       expect(writeText).toHaveBeenCalledExactlyOnceWith("Compiled DESIGN.md");
       expect(mocks.compileDesign).toHaveBeenCalledWith(doc, undefined);
       expect(mocks.compilePrompt).not.toHaveBeenCalled();
@@ -260,7 +241,8 @@ describe("recent design card", () => {
       .mockResolvedValue(undefined);
     vi.stubGlobal("navigator", { clipboard: { writeText } });
     renderCard(createDocument());
-    const copy = callback(byText("Copy DESIGN.md"), "onSelect");
+    const copy = () =>
+      menuItem("Copy DESIGN.md").onSelect!(new Event("select"));
     await copy();
     expect(mocks.error).toHaveBeenCalledWith("Couldn't copy design", {
       description: "Allow clipboard access in your browser and try again.",
@@ -278,7 +260,8 @@ describe("recent design card", () => {
   it("keeps duplication guarded and refreshes projects only from Duplicate design", async () => {
     const doc = createDocument();
     renderCard(doc);
-    const duplicate = callback(byText("Duplicate design"), "onSelect");
+    const duplicate = () =>
+      menuItem("Duplicate design").onSelect!(new Event("select"));
     let resolve!: () => void;
     mocks.duplicate.mockImplementationOnce(
       () =>
@@ -299,7 +282,8 @@ describe("recent design card", () => {
 
   it("reports duplication failures and releases the guard for retry", async () => {
     renderCard(createDocument());
-    const copy = callback(byText("Duplicate design"), "onSelect");
+    const copy = () =>
+      menuItem("Duplicate design").onSelect!(new Event("select"));
     const error = new Error("Storage unavailable");
     mocks.duplicate.mockRejectedValueOnce(error);
     await copy();
@@ -313,7 +297,7 @@ describe("recent design card", () => {
   it("only removes a design after the confirmation action, with pending protection", async () => {
     const doc = createDocument();
     renderCard(doc);
-    await callback(byText("Delete"), "onSelect")();
+    menuItem("Delete").onSelect!(new Event("select"));
     expect(mocks.remove).not.toHaveBeenCalled();
     const cancel = find((element) => element.props.children === "Keep design");
     expect(cancel.props["onClick"]).toBeUndefined();
@@ -328,8 +312,8 @@ describe("recent design card", () => {
         }),
     );
     const event = { preventDefault: vi.fn() };
-    callback(confirm, "onClick")(event);
-    callback(confirm, "onClick")(event);
+    callback(confirm.props, "onClick")(event);
+    callback(confirm.props, "onClick")(event);
     expect(event.preventDefault).toHaveBeenCalledTimes(2);
     expect(mocks.remove).toHaveBeenCalledExactlyOnceWith(doc.id);
     resolve();
@@ -343,7 +327,8 @@ describe("recent design card", () => {
     vi.stubGlobal("navigator", { clipboard: { writeText } });
     const doc = { ...createDocument(), promptMode: "visual_prompt" as const };
     renderCard(doc);
-    const copyText = callback(byText("Copy prompt"), "onSelect");
+    const copyText = () =>
+      menuItem("Copy prompt").onSelect!(new Event("select"));
     mocks.validate.mockReturnValueOnce({ message: "Select a tool" });
     await copyText();
     expect(writeText).not.toHaveBeenCalled();
@@ -368,7 +353,7 @@ describe("recent design card", () => {
         revision: 3,
         designEditRevision: 1,
       });
-      await callback(byText("Copy DESIGN.md"), "onSelect")();
+      await menuItem("Copy DESIGN.md").onSelect!(new Event("select"));
       expect(writeText).toHaveBeenCalledWith(designEdit);
     },
   );

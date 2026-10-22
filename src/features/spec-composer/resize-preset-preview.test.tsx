@@ -41,7 +41,7 @@ describe("ResizePresetPreview", () => {
       expect(markup.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ")).toContain(
         headlines[preset.id],
       );
-      bodies.add(markup.slice(markup.indexOf("<g ")));
+      bodies.add(markup.slice(markup.indexOf("<svg ", 1)));
     }
     expect(bodies.size).toBe(presets.length);
   });

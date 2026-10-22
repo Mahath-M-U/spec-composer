@@ -23,7 +23,10 @@ vi.mock("./store", async (importOriginal) => {
 });
 
 function renderPanel(
-  props: Partial<{ standalone: boolean; pageView: boolean }> = {},
+  props: Partial<{
+    standalone: boolean;
+    pageView: boolean;
+  }> = {},
 ) {
   function Capture() {
     return BrandKitPanel(props);
@@ -140,6 +143,29 @@ beforeEach(() => {
 });
 
 describe("BrandKitPanel", () => {
+  it("uses the full editor card presentation on Home with standalone default-kit actions", () => {
+    useEditorStore.setState({
+      brandKits: [auroraKit],
+      defaultBrandKitId: auroraKit.id,
+    });
+    const html = renderPanel({ standalone: true });
+    expect(html).toContain("bk-showcase-card");
+    expect(html).toContain("bk-preview-illustration");
+    expect(html).toContain("bk-preview-type-specimen");
+    expect(html).toContain("Aurora");
+    expect(html).toContain("Fraunces");
+    expect(html).toContain("Minimal");
+    expect(html).toContain('aria-label="Remove Aurora as default"');
+    expect(html).toContain('aria-label="Edit Aurora"');
+    expect(html).toContain('aria-label="More actions for Aurora"');
+    expect(html).toContain('aria-label="Copy Primary #112233"');
+    expect(html.match(/class="bk-palette-slot(?: is-empty)?"/g)).toHaveLength(
+      5,
+    );
+    expect(html).not.toContain("bk-compact-card");
+    expect(html).not.toContain("brand-kit-summary");
+    expect(html).not.toContain(">Applied<");
+  });
   it("uses honest, non-AI wording for creating and generating kits", () => {
     useEditorStore.setState({
       doc: createDocument(),

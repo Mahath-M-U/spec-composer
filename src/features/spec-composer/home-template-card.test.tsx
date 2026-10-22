@@ -6,7 +6,7 @@ import {
   type ReactNode,
 } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { PreviewCard } from "@/components/preview-card";
 import { describe, expect, it, vi } from "vitest";
 import { HomeTemplateCard } from "./home-template-card";
 import { TemplateCardMedia } from "./template-card-media";
@@ -57,12 +57,15 @@ function renderCard(
     expect(element).toBeDefined();
     return element!;
   }
-  return { props, html, find, all: elements(tree!) };
+  const card = find((element) => element.type === PreviewCard);
+  const cardProps = card.props as unknown as ComponentProps<typeof PreviewCard>;
+  return { props, html, find, all: elements(tree!), card, cardProps };
 }
 
 describe("home template card", () => {
-  it("renders full template media and compact metadata with mounted accessible actions", () => {
-    const { props, html, find } = renderCard();
+  it("passes the full template media and compact metadata to PreviewCard", () => {
+    const { props, html, card, cardProps } = renderCard();
+    expect(card.type).toBe(PreviewCard);
     expect(html).toContain('aria-label="Use template: Product Launch"');
     expect(html).toContain('aria-label="Copy prompt: Product Launch"');
     expect(html).toContain('aria-label="More actions for Product Launch"');
@@ -72,82 +75,83 @@ describe("home template card", () => {
     expect(html).toContain(
       `${props.doc.format.width} × ${props.doc.format.height}`,
     );
-    expect(html).not.toContain("Marketing");
+    expect(html).toContain("Marketing");
     expect(html).not.toContain("Cinematic");
     expect(html).not.toContain("<time");
-    const media = find((element) => element.type === TemplateCardMedia);
-    expect(media.props).toMatchObject({
-      doc: props.doc,
-      priority: true,
-      image: templateImageFor(props.doc.name),
+    expect(cardProps.media).toMatchObject({
+      type: TemplateCardMedia,
+      props: {
+        doc: props.doc,
+        priority: true,
+        image: templateImageFor(props.doc.name),
+      },
     });
   });
 
-  it("shares existing Use and Copy callbacks across preview, overlay and overflow", () => {
-    const { props, find, all } = renderCard();
-    const preview = find(
-      (element) =>
-        element.type === "button" &&
-        element.props["className"] === "recent-design-preview-link",
-    );
-    const use = find(
-      (element) =>
-        element.type === "button" &&
-        element.props["className"] ===
-          "recent-design-action recent-design-open",
-    );
-    const copy = find(
-      (element) =>
-        element.type === "button" &&
-        element.props["className"] ===
-          "recent-design-action recent-design-copy",
-    );
-    const menu = all.filter((element) => element.type === DropdownMenuItem);
+  it("shares the existing Use and Copy callbacks across preview, overlay and overflow by identity", () => {
+    const { props, cardProps } = renderCard();
+    expect(cardProps.primaryAction.onSelect).toBe(props.onOpen);
+    expect(cardProps.secondaryActions![0]!.onSelect).toBe(props.onCopy);
+    const menu = cardProps.menuItems!;
     expect(menu).toHaveLength(2);
-    expect(preview.props["onClick"]).toBe(props.onOpen);
-    expect(use.props["onClick"]).toBe(props.onOpen);
-    expect(menu[0]!.props["onSelect"]).toBe(props.onOpen);
-    expect(copy.props["onClick"]).toBe(props.onCopy);
-    expect(menu[1]!.props["onSelect"]).toBe(props.onCopy);
-    expect(menu[0]!.props.children).toContain(" Use template");
-    expect(menu[1]!.props.children).toContain("Copy prompt");
-    const card = find((element) => element.type === "article");
-    expect(card.props["onClick"]).toBeUndefined();
-    expect(card.props["onKeyDown"]).toBeUndefined();
-    expect(card.props["onPointerEnter"]).toBe(props.onWarmEditor);
-    expect(card.props["onFocus"]).toBe(props.onWarmEditor);
+    expect(menu[0]!.onSelect).toBe(props.onOpen);
+    expect(menu[0]!.label).toBe("Use template");
+    expect(menu[1]!.onSelect).toBe(props.onCopy);
+    expect(menu[1]!.label).toBe("Copy prompt");
+    expect(cardProps.onWarm).toBe(props.onWarmEditor);
   });
 
-  it("preserves pending and copied feedback without changing the visible Copy label", () => {
+  it("preserves pending and copied feedback on an icon-only Copy button", () => {
     const pending = renderCard({ copying: true });
-    const button = pending.find(
-      (element) =>
-        element.type === "button" &&
-        element.props["className"] ===
-          "recent-design-action recent-design-copy",
-    );
-    const menu = pending.all.filter(
-      (element) => element.type === DropdownMenuItem,
-    );
-    expect(button.props["disabled"]).toBe(true);
-    expect(button.props["aria-busy"]).toBe(true);
-    expect(button.props.children).toContain("Copy");
-    expect(menu[1]!.props["disabled"]).toBe(true);
+    const secondary = pending.cardProps.secondaryActions![0]!;
+    expect(secondary.disabled).toBe(true);
+    expect(secondary.busy).toBe(true);
+    expect(secondary.ariaLabel).toBe("Copy prompt: Product Launch");
+    expect(secondary.status).toBe("Copying…");
+    expect(pending.cardProps.menuItems![1]!.disabled).toBe(true);
     expect(pending.html).toContain("Copying…");
     const copied = renderCard({ copied: true });
+    expect(copied.cardProps.secondaryActions![0]!.status).toBe("Copied");
     expect(copied.html).toContain("Copied");
     expect(copied.html).toContain('aria-busy="false"');
   });
 
   it("offers DESIGN.md copying without project-only actions", () => {
-    const { all, html } = renderCard({
+    const { cardProps, html } = renderCard({
       doc: { ...createDocument(), promptMode: "design_skill" },
     });
-    const menu = all.filter((element) => element.type === DropdownMenuItem);
-    expect(menu[1]!.props.children).toContain("Copy DESIGN.md");
+    expect(cardProps.menuItems![1]!.label).toBe("Copy DESIGN.md");
     expect(html).toContain('aria-label="Copy DESIGN.md:');
-    const labels = menu.flatMap((element) => element.props.children);
+    const labels = cardProps.menuItems!.map((item) => item.label);
     expect(labels).not.toContain("Rename");
     expect(labels).not.toContain("Delete");
+  });
+
+  it("keeps the overlay actions ordered as Use, Copy, then the overflow menu", () => {
+    const { cardProps } = renderCard();
+    expect(Object.keys(cardProps)).toEqual(
+      expect.arrayContaining([
+        "primaryAction",
+        "secondaryActions",
+        "menuItems",
+      ]),
+    );
+    expect(cardProps.secondaryActions).toHaveLength(1);
+    expect(cardProps.menuItems).toHaveLength(2);
+  });
+
+  it("never exposes favorite or preview-only affordances", () => {
+    const { all } = renderCard();
+    const labels = all
+      .map((element) => element.props["aria-label"])
+      .filter((label): label is string => typeof label === "string");
+    expect(labels.some((label) => /favorite|preview/i.test(label))).toBe(false);
+  });
+
+  it("falls back to the format label when no category is provided", () => {
+    const { cardProps, props } = renderCard({ category: undefined });
+    expect(cardProps.pills).toHaveLength(1);
+    expect(cardProps.subtitle).toBe(props.doc.format.label);
+    expect(cardProps.subtitleTitle).toBe(props.doc.format.label);
   });
 });
