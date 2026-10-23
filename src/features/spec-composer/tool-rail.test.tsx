@@ -88,7 +88,7 @@ beforeEach(() =>
 
 describe("shared Tool Rail", () => {
   it.each([false, true])(
-    "keeps the six destinations and exclusive active state (expanded=%s)",
+    "keeps the seven destinations and exclusive active state (expanded=%s)",
     (expanded) => {
       const { html, nodes, props } = capture({ expanded });
       expect(html).not.toContain('aria-label="Home"');
@@ -100,6 +100,7 @@ describe("shared Tool Rail", () => {
       );
       expect(tools.map((node) => node.props.id)).toEqual([
         "editor-rail-assets",
+        "editor-rail-environment",
         "editor-rail-style",
         "editor-rail-layers",
         "editor-rail-templates",
@@ -109,14 +110,14 @@ describe("shared Tool Rail", () => {
       expect(tools.filter((node) => node.props["aria-pressed"])).toHaveLength(
         1,
       );
-      expect(tools[1]!.props["aria-pressed"]).toBe(true);
+      expect(tools[2]!.props["aria-pressed"]).toBe(true);
       for (const tool of tools) {
         expect(tool.props["data-tour"]).toBe(
           String(tool.props.id).replace("editor-", ""),
         );
         (tool.props.onClick as () => void)();
       }
-      expect(props.onSelectPanel).toHaveBeenCalledTimes(6);
+      expect(props.onSelectPanel).toHaveBeenCalledTimes(7);
     },
   );
   it("does not mark a closed inspector active", () => {

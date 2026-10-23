@@ -37,7 +37,13 @@ export type ElementKind = (typeof ELEMENT_KINDS)[number];
 
 export type PromptMode = "visual_prompt" | "design_skill";
 export type PanelMode =
-  "assets" | "layers" | "templates" | "brandKit" | "resize" | "style";
+  | "assets"
+  | "environment"
+  | "layers"
+  | "templates"
+  | "brandKit"
+  | "resize"
+  | "style";
 export type ToolMode = "select" | "hand";
 
 export const SHAPE_ROLES = [
@@ -80,6 +86,43 @@ export const STUDIO_LIGHT_MODIFIERS = [
   "Bare",
 ] as const;
 export const MAX_STUDIO_LIGHTS = 6;
+/** Scene objects (environment editor): a light's visual role in the 2D scene
+ * canvas, distinct from its camera-relative STUDIO_LIGHT_ROLES. */
+export const SCENE_LIGHT_KINDS = [
+  "sun",
+  "diffused",
+  "spot",
+  "point",
+  "area",
+] as const;
+export type SceneLightKind = (typeof SCENE_LIGHT_KINDS)[number];
+export const CAMERA_VIEW_ANGLES = [
+  "eye-level",
+  "low",
+  "high",
+  "top-down",
+  "three-quarter",
+] as const;
+export type CameraViewAngle = (typeof CAMERA_VIEW_ANGLES)[number];
+export const CAMERA_PROJECTIONS = [
+  "normal",
+  "wide",
+  "telephoto",
+  "orthographic",
+] as const;
+export type CameraProjection = (typeof CAMERA_PROJECTIONS)[number];
+export const SCENE_DEPTHS = ["front", "side", "back"] as const;
+export type SceneDepth = (typeof SCENE_DEPTHS)[number];
+/** Shared cap for the number of scene lights (environment editor) and the
+ * legacy studio lighting rig they're stored in. */
+export const MAX_SCENE_LIGHTS = MAX_STUDIO_LIGHTS;
+/** Normalized scene-canvas position: origin is the artboard centre, +x is
+ * right, +y is up. */
+export const sceneVec2Schema = z.object({
+  x: z.number().finite().min(-1.5).max(1.5),
+  y: z.number().finite().min(-1.5).max(1.5),
+});
+export type SceneVec2 = z.infer<typeof sceneVec2Schema>;
 export const studioLightSchema = z.object({
   id: z.string().min(1),
   name: z.string().trim().min(1).max(60),
@@ -95,8 +138,45 @@ export const studioLightSchema = z.object({
   diffusion: z.number().finite().min(0).max(100),
   temperature: z.number().finite().min(2000).max(10000),
   shadows: z.enum(SHADOW_TYPES),
+  /** Scene editor (environment editor) fields, all optional so legacy rigs
+   * parse unchanged; see scene-space.ts for the canvas <-> azimuth/elevation
+   * mapping. */
+  kind: z.enum(SCENE_LIGHT_KINDS).optional(),
+  canvas: sceneVec2Schema.optional(),
+  /** 2D aim on the scene canvas; 0 = pointing right, counter-clockwise. */
+  rotation: z.number().finite().min(-180).max(180).optional(),
+  depth: z.enum(SCENE_DEPTHS).optional(),
+  coneAngle: z.number().finite().min(5).max(120).optional(),
+  radius: z.number().finite().min(0.05).max(3).optional(),
+  color: z
+    .string()
+    .regex(/^#[0-9a-f]{6}$/i)
+    .optional(),
+  /** Hides this object's canvas guide without disabling it in the prompt. */
+  guideHidden: z.boolean().optional(),
 });
 export type StudioLight = z.infer<typeof studioLightSchema>;
+/** Environment editor camera; presence of this object means the scene has a
+ * camera (there's at most one). */
+export const sceneCameraSchema = z.object({
+  enabled: z.boolean(),
+  position: sceneVec2Schema,
+  rotation: z.number().finite().min(-180).max(180),
+  target: sceneVec2Schema,
+  focalLength: z.number().finite().min(14).max(300),
+  angle: z.enum(CAMERA_VIEW_ANGLES),
+  projection: z.enum(CAMERA_PROJECTIONS),
+  guideHidden: z.boolean().optional(),
+});
+export type SceneCamera = z.infer<typeof sceneCameraSchema>;
+/** Global ambient fill; a scene setting rather than a positioned object, so
+ * it has no canvas position. */
+export const sceneAmbientSchema = z.object({
+  enabled: z.boolean(),
+  intensity: z.number().finite().min(0).max(100),
+  temperature: z.number().finite().min(2000).max(10000),
+});
+export type SceneAmbient = z.infer<typeof sceneAmbientSchema>;
 export const generationSettingsSchema = z.object({
   cameraAngle: z.enum(CAMERA_ANGLES).optional(),
   lightType: z.enum(LIGHT_TYPES).optional(),
@@ -112,6 +192,10 @@ export const generationSettingsSchema = z.object({
       "Studio light IDs must be unique.",
     )
     .optional(),
+  camera: sceneCameraSchema.optional(),
+  ambient: sceneAmbientSchema.optional(),
+  /** Applied environment preset id (see environment-presets.ts, Step C). */
+  scenePreset: z.string().optional(),
 });
 
 export type GenerationSettings = z.infer<typeof generationSettingsSchema>;

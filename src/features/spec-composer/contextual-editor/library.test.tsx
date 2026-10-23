@@ -8,7 +8,12 @@ import {
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CreativePurposeSelect } from "./CreativePurposeSelect";
-import { CATALOG_DRAG_TYPE, libraryEntries, parseCatalogDrag } from "./catalog";
+import {
+  CATALOG_DRAG_TYPE,
+  HIDDEN_LIBRARY_IDS,
+  libraryEntries,
+  parseCatalogDrag,
+} from "./catalog";
 import { ElementLibrary } from "./ElementLibrary";
 import { useEditorStore } from "../store";
 import { createDocument } from "../templates";
@@ -72,7 +77,7 @@ describe("purpose-aware element library", () => {
   it("searches all78 even from Recommended and accepts UI aliases", () => {
     expect(
       libraryEntries(undefined, "all", "").flatMap((group) => group.entries),
-    ).toHaveLength(78);
+    ).toHaveLength(76);
     expect(
       libraryEntries(undefined, "recommended", "citation")
         .flatMap((group) => group.entries)
@@ -84,6 +89,20 @@ describe("purpose-aware element library", () => {
     expect(
       libraryEntries(undefined, "recommended", "model")[0]!.entries[0]!.id,
     ).toBe("subjects.person");
+  });
+  it("hides the environment editor's catalog ids from every library view", () => {
+    for (const view of ["recommended", "all"] as const) {
+      const ids = libraryEntries(undefined, view, "").flatMap((group) =>
+        group.entries.map((entry) => entry.id),
+      );
+      for (const hidden of HIDDEN_LIBRARY_IDS) expect(ids).not.toContain(hidden);
+    }
+    for (const hidden of HIDDEN_LIBRARY_IDS)
+      expect(
+        libraryEntries(undefined, "all", hidden).flatMap(
+          (group) => group.entries.map((entry) => entry.id),
+        ),
+      ).not.toContain(hidden);
   });
   it("validates canonical drag payloads without trusting external instructions", () => {
     expect(CATALOG_DRAG_TYPE).toContain("contextual");

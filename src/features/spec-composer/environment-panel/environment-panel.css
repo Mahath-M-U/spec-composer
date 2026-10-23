@@ -1,0 +1,110 @@
+.environment-add-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.environment-ambient-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: color-mix(in oklab, var(--color-editor-foreground) 4%, var(--color-editor-surface));
+}
+.environment-presets-section h3,
+.environment-prompt-section h3 {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-editor-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.environment-prompt-section {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in oklab, var(--color-editor-foreground) 10%, transparent);
+}
+.scene-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+.scene-list-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+}
+.scene-list-row[data-selected="true"] {
+  border-color: var(--editor-action);
+}
+.scene-list-select {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-editor-muted);
+  cursor: pointer;
+}
+.scene-list-select[aria-pressed="true"] {
+  color: var(--editor-action);
+}
+.scene-list-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.scene-list-row .se-field {
+  flex: 1;
+  min-width: 0;
+}
+/* The rename CommitInput's visible label is redundant next to the row's own
+ * icon; keep it for screen readers without showing it twice. */
+.scene-list-row .se-field > span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.scene-list-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.scene-list-icon-button {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-editor-muted);
+  cursor: pointer;
+}
+.scene-list-icon-button:hover {
+  background: color-mix(in oklab, var(--color-editor-foreground) 10%, transparent);
+  color: var(--color-editor-foreground);
+}
+.scene-list-icon-button[aria-pressed="true"] {
+  color: var(--editor-action);
+}
+.scene-list-delete:hover {
+  color: var(--color-editor-danger, #d64545);
+}

@@ -34,13 +34,28 @@ import {
   type StudioPresetId,
 } from "./studio-lighting";
 import {
+  canAddCamera,
+  canAddLight,
+  createSceneCamera,
+  createSceneLight,
+  sceneObjectList,
+} from "./scene-objects";
+import { canvasToScene, clampNorm } from "./scene-space";
+import {
   generationSettingsSchema,
+  sceneCameraSchema,
+  sceneAmbientSchema,
   descriptionDraftsSchema,
   descriptionTemplateSelectionSchema,
   studioLightSchema,
   type StudioLight,
   shapeRoleSchema,
   type GenerationSettings,
+  type SceneAmbient,
+  type SceneCamera,
+  type SceneDepth,
+  type SceneLightKind,
+  type SceneVec2,
   type ShapeRole,
   type ElementStyle,
 } from "./types";
@@ -122,6 +137,12 @@ interface EditorState {
   selectedIds: string[];
   selectedGroupIds: string[];
   backgroundSelected: boolean;
+  /** Selected scene object (environment editor): "camera", a light id, or
+   * "ambient". Mutually exclusive with element/background selection. */
+  selectedSceneId: string | null;
+  /** UI-only: whether the canvas Scene Overlay renders its guides at all.
+   * Not persisted, not part of undo history. */
+  sceneGuidesVisible: boolean;
   panel: PanelMode;
   /** Which tab the Style panel shows; lifted out of local state so canvas
    * selection can force it open to Style. */
@@ -181,6 +202,51 @@ interface EditorState {
   removeStudioLight: (id: string) => void;
   applyStudioPreset: (id: StudioPresetId) => void;
   resetStudioRig: () => void;
+  /** Selects a scene object ("camera" | light id | "ambient"), or clears
+   * the selection with null; validates against the current document and
+   * clears element/background selection. */
+  selectScene: (id: string | null) => void;
+  /** Adds a scene light of `kind` at `at` (or a sensible default position);
+   * returns its id, or null at the MAX_SCENE_LIGHTS cap. Selects the light. */
+  addSceneLight: (
+    kind: SceneLightKind,
+    at?: { x: number; y: number },
+    overrides?: { role?: StudioLight["role"]; depth?: SceneDepth },
+  ) => string | null;
+  /** Adds the scene camera at `at` (or a default position); returns false
+   * if a camera already exists. Selects the camera. */
+  addSceneCamera: (at?: { x: number; y: number }) => boolean;
+  /** Adds (or updates) the camera to roughly match the canvas's current
+   * zoom level; a deliberately simple stand-in until Step B's camera
+   * inspector adds finer framing controls. */
+  setCameraFromView: () => void;
+  /** Patches a scene light; recomputes azimuth/elevation when `canvas` or
+   * `depth` change so the legacy compiler path stays valid. `history=false`
+   * coalesces continuous edits (e.g. a slider drag) into the bracketing
+   * commit. */
+  updateSceneLight: (
+    id: string,
+    patch: Partial<Omit<StudioLight, "id">>,
+    history?: boolean,
+  ) => void;
+  updateSceneCamera: (patch: Partial<SceneCamera>, history?: boolean) => void;
+  updateAmbient: (patch: Partial<SceneAmbient>, history?: boolean) => void;
+  /** Duplicates a scene light; returns its new id, or null at the cap or if
+   * the light doesn't exist. Selects the copy. */
+  duplicateSceneLight: (id: string) => string | null;
+  /** Removes a scene object: deletes a light, deletes the camera, or (for
+   * "ambient", which always "exists" as a setting) disables it. */
+  removeSceneObject: (id: string) => void;
+  /** Renames a scene light; camera and ambient have no stored name. */
+  renameSceneObject: (id: string, name: string) => void;
+  /** Toggles a scene object's canvas guide without disabling it. */
+  toggleSceneGuide: (id: string) => void;
+  setSceneGuidesVisible: (visible: boolean) => void;
+  /** Commits a Scene Overlay drag/rotate as a single history entry. */
+  commitSceneTransform: (
+    id: string,
+    patch: { canvas?: SceneVec2; rotation?: number; target?: SceneVec2 },
+  ) => void;
   addElement: (
     k: ElementKind,
     x?: number,
@@ -507,6 +573,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   selectedIds: [],
   selectedGroupIds: [],
   backgroundSelected: false,
+  selectedSceneId: null,
+  sceneGuidesVisible: true,
   panel: "assets",
   styleTab: "layout",
   tool: "select",
@@ -546,6 +614,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       selectedIds: [],
       selectedGroupIds: [],
       backgroundSelected: false,
+      selectedSceneId: null,
       saveStatus: "saved",
       externallyModified: false,
       composeOrigin: undefined,
@@ -572,7 +641,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       delete doc.groups;
       Object.assign(doc, next);
     });
-    set({ selectedIds: [], selectedGroupIds: [], backgroundSelected: false });
+    set({
+      selectedIds: [],
+      selectedGroupIds: [],
+      backgroundSelected: false,
+      selectedSceneId: null,
+    });
   },
 
   closeDocument: () => {
@@ -585,6 +659,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       selectedIds: [],
       selectedGroupIds: [],
       backgroundSelected: false,
+      selectedSceneId: null,
       saveStatus: "saved",
       externallyModified: false,
       composeOrigin: undefined,
@@ -614,6 +689,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       selectedGroupIds: s.selectedGroupIds.filter((id) =>
         layerGroups(next).some((group) => group.id === id),
       ),
+      selectedSceneId:
+        s.selectedSceneId &&
+        sceneObjectList(next).some((o) => o.id === s.selectedSceneId)
+          ? s.selectedSceneId
+          : null,
       past: history
         ? [...s.past.slice(1 - historyLimit(current)), clone(current)]
         : s.past,
@@ -665,13 +745,19 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         .filter((node) => !node.element)
         .map((node) => node.id),
       backgroundSelected: false,
+      selectedSceneId: null,
     });
   },
 
   select: (id, add = false) => {
     const doc = get().doc;
     if (!doc || !id) {
-      set({ selectedIds: [], selectedGroupIds: [], backgroundSelected: false });
+      set({
+        selectedIds: [],
+        selectedGroupIds: [],
+        backgroundSelected: false,
+        selectedSceneId: null,
+      });
       return;
     }
     if (add) {
@@ -690,7 +776,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   selectBackground: () =>
-    set({ selectedIds: [], selectedGroupIds: [], backgroundSelected: true }),
+    set({
+      selectedIds: [],
+      selectedGroupIds: [],
+      backgroundSelected: true,
+      selectedSceneId: null,
+    }),
 
   selectMany: (ids, add = false) => {
     const valid = new Set(get().doc?.elements.map((el) => el.id));
@@ -700,7 +791,19 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       ),
       selectedGroupIds: [],
       backgroundSelected: false,
+      selectedSceneId: null,
     }));
+  },
+
+  selectScene: (id) => {
+    const doc = get().doc;
+    if (id && (!doc || !sceneObjectList(doc).some((o) => o.id === id))) return;
+    set({
+      selectedSceneId: id,
+      selectedIds: [],
+      selectedGroupIds: [],
+      backgroundSelected: false,
+    });
   },
 
   renameLayer: (id, value) => {
@@ -1002,6 +1105,225 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     get().mutate((doc) => {
       delete doc.generationSettings!.studioLights;
     });
+  },
+
+  addSceneLight: (kind, at, overrides) => {
+    const doc = get().doc;
+    if (!doc || !canAddLight(doc)) return null;
+    const light = createSceneLight(
+      kind,
+      doc.generationSettings?.studioLights ?? [],
+      at,
+      overrides,
+    );
+    get().mutate((next) => {
+      next.generationSettings ??= {};
+      next.generationSettings.studioLights = [
+        ...(next.generationSettings.studioLights ?? []),
+        light,
+      ];
+      next.promptOptions.lighting = true;
+    });
+    get().selectScene(light.id);
+    return light.id;
+  },
+
+  addSceneCamera: (at) => {
+    const doc = get().doc;
+    if (!doc || !canAddCamera(doc)) return false;
+    const camera = createSceneCamera(at);
+    get().mutate((next) => {
+      next.generationSettings ??= {};
+      next.generationSettings.camera = camera;
+      next.promptOptions.scene = true;
+    });
+    get().selectScene("camera");
+    return true;
+  },
+
+  setCameraFromView: () => {
+    const doc = get().doc;
+    if (!doc) return;
+    const zoom = get().zoom || 1;
+    const focalLength = Math.round(
+      Math.max(14, Math.min(300, 50 / zoom)),
+    );
+    if (doc.generationSettings?.camera) {
+      get().updateSceneCamera({ focalLength });
+      return;
+    }
+    const camera = { ...createSceneCamera(), focalLength };
+    get().mutate((next) => {
+      next.generationSettings ??= {};
+      next.generationSettings.camera = camera;
+      next.promptOptions.scene = true;
+    });
+    get().selectScene("camera");
+  },
+
+  updateSceneLight: (id, patch, history = true) => {
+    const lights = get().doc?.generationSettings?.studioLights;
+    const current = lights?.find((light) => light.id === id);
+    if (!current || !lights) return;
+    const recompute = patch.canvas !== undefined || patch.depth !== undefined;
+    const canvas = patch.canvas ? clampNorm(patch.canvas) : undefined;
+    const depth = patch.depth;
+    const scene = recompute
+      ? canvasToScene(
+          canvas ?? current.canvas ?? { x: 0, y: 0 },
+          depth ?? current.depth ?? "front",
+        )
+      : undefined;
+    const candidate = studioLightSchema.safeParse({
+      ...current,
+      ...patch,
+      id: current.id,
+      ...(canvas ? { canvas } : {}),
+      ...(scene ? { azimuth: scene.azimuth, elevation: scene.elevation } : {}),
+    });
+    if (
+      !candidate.success ||
+      JSON.stringify(candidate.data) === JSON.stringify(current)
+    )
+      return;
+    get().mutate((doc) => {
+      doc.generationSettings!.studioLights = doc.generationSettings!.studioLights!.map(
+        (light) => (light.id === id ? candidate.data : light),
+      );
+    }, history);
+  },
+
+  updateSceneCamera: (patch, history = true) => {
+    const doc = get().doc;
+    const current = doc?.generationSettings?.camera;
+    if (!doc || !current) return;
+    const merged = { ...current, ...patch };
+    const candidate = sceneCameraSchema.safeParse(merged);
+    if (
+      !candidate.success ||
+      JSON.stringify(candidate.data) === JSON.stringify(current)
+    )
+      return;
+    get().mutate((next) => {
+      next.generationSettings!.camera = candidate.data;
+    }, history);
+  },
+
+  updateAmbient: (patch, history = true) => {
+    const doc = get().doc;
+    if (!doc) return;
+    const current = doc.generationSettings?.ambient ?? {
+      enabled: false,
+      intensity: 50,
+      temperature: 5600,
+    };
+    const merged = { ...current, ...patch };
+    const candidate = sceneAmbientSchema.safeParse(merged);
+    if (
+      !candidate.success ||
+      JSON.stringify(candidate.data) === JSON.stringify(doc.generationSettings?.ambient)
+    )
+      return;
+    get().mutate((next) => {
+      next.generationSettings ??= {};
+      next.generationSettings.ambient = candidate.data;
+    }, history);
+  },
+
+  duplicateSceneLight: (id) => {
+    const doc = get().doc;
+    const lights = doc?.generationSettings?.studioLights;
+    const current = lights?.find((light) => light.id === id);
+    if (!doc || !current || !lights || !canAddLight(doc)) return null;
+    const copy: StudioLight = {
+      ...current,
+      id: crypto.randomUUID(),
+      name: `${current.name} copy`.slice(0, 60),
+    };
+    get().mutate((next) => {
+      next.generationSettings!.studioLights = [
+        ...next.generationSettings!.studioLights!,
+        copy,
+      ];
+    });
+    get().selectScene(copy.id);
+    return copy.id;
+  },
+
+  removeSceneObject: (id) => {
+    const doc = get().doc;
+    if (!doc) return;
+    if (id === "camera") {
+      if (!doc.generationSettings?.camera) return;
+      get().mutate((next) => {
+        delete next.generationSettings!.camera;
+      });
+    } else if (id === "ambient") {
+      if (!doc.generationSettings?.ambient?.enabled) return;
+      get().updateAmbient({ enabled: false });
+    } else {
+      const lights = doc.generationSettings?.studioLights;
+      if (!lights?.some((light) => light.id === id)) return;
+      get().mutate((next) => {
+        next.generationSettings!.studioLights = lights.filter(
+          (light) => light.id !== id,
+        );
+      });
+    }
+    if (get().selectedSceneId === id) get().selectScene(null);
+  },
+
+  renameSceneObject: (id, value) => {
+    // Camera and ambient are settings, not named objects; only lights
+    // carry a stored name.
+    if (id === "camera" || id === "ambient") return;
+    const name = value.trim().slice(0, 60);
+    if (!name) return;
+    get().updateSceneLight(id, { name });
+  },
+
+  toggleSceneGuide: (id) => {
+    const doc = get().doc;
+    if (!doc) return;
+    if (id === "camera") {
+      const camera = doc.generationSettings?.camera;
+      if (!camera) return;
+      get().updateSceneCamera({ guideHidden: !camera.guideHidden });
+    } else if (id === "ambient") {
+      return;
+    } else {
+      const light = doc.generationSettings?.studioLights?.find(
+        (item) => item.id === id,
+      );
+      if (!light) return;
+      get().updateSceneLight(id, { guideHidden: !light.guideHidden });
+    }
+  },
+
+  setSceneGuidesVisible: (visible) => set({ sceneGuidesVisible: visible }),
+
+  commitSceneTransform: (id, patch) => {
+    const doc = get().doc;
+    if (!doc) return;
+    if (id === "camera") {
+      const camera = doc.generationSettings?.camera;
+      if (!camera) return;
+      const next: Partial<SceneCamera> = {};
+      if (patch.canvas) next.position = clampNorm(patch.canvas);
+      if (patch.rotation !== undefined) next.rotation = patch.rotation;
+      if (patch.target) next.target = clampNorm(patch.target);
+      get().updateSceneCamera(next, true);
+      return;
+    }
+    if (id === "ambient") return;
+    const light = doc.generationSettings?.studioLights?.find(
+      (item) => item.id === id,
+    );
+    if (!light) return;
+    const next: Partial<StudioLight> = {};
+    if (patch.canvas) next.canvas = clampNorm(patch.canvas);
+    if (patch.rotation !== undefined) next.rotation = patch.rotation;
+    get().updateSceneLight(id, next, true);
   },
   addElement: (kind, x, y, patch, options) => {
     const d = get().doc;
@@ -1473,6 +1795,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       future: [clone(doc), ...s.future].slice(0, historyLimit(doc)),
       selectedIds: [],
       selectedGroupIds: [],
+      selectedSceneId: null,
       saveStatus: "saving",
     }));
     clearTimeout(saveTimer);
@@ -1489,6 +1812,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       future: s.future.slice(1),
       selectedIds: [],
       selectedGroupIds: [],
+      selectedSceneId: null,
       saveStatus: "saving",
     }));
     clearTimeout(saveTimer);

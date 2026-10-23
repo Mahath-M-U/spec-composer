@@ -8,6 +8,7 @@ import {
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AssetsPanel } from "./assets-panel/AssetsPanel";
+import { EnvironmentPanel } from "./environment-panel/EnvironmentPanel";
 import { SceneLightingControls } from "./scene-lighting-controls";
 import { useEditorStore } from "./store";
 import { createStudioLight } from "./studio-lighting";
@@ -39,21 +40,23 @@ const renderSettings = (field: "scene" | "lighting") =>
     createElement(SceneLightingControls, { field, presentation: "inline" }),
   );
 
-function renderEnvironment() {
+type Props = { children?: ReactNode; id?: string; onClick?: () => void };
+const visit = (node: ReactNode): ReactElement<Props>[] =>
+  Array.isArray(node)
+    ? node.flatMap(visit)
+    : isValidElement<Props>(node)
+      ? [node, ...visit(node.props.children)]
+      : [];
+
+/** The Prompt & Environment section (reusing SceneLightingControls) now
+ * lives at the bottom of the Environment panel's Scene tab, not Assets'
+ * old Environment tab; render that tab to exercise it. */
+function renderEnvironmentScene() {
   function Environment() {
     const [opened, setOpened] = useState(false);
-    const tree = AssetsPanel();
+    const tree = EnvironmentPanel();
     if (!opened) {
-      type Props = { children?: ReactNode; id?: string; onClick?: () => void };
-      const visit = (node: ReactNode): ReactElement<Props>[] =>
-        Array.isArray(node)
-          ? node.flatMap(visit)
-          : isValidElement<Props>(node)
-            ? [node, ...visit(node.props.children)]
-            : [];
-      const tab = visit(tree).find((node) =>
-        node.props.id?.endsWith("environment-tab"),
-      );
+      const tab = visit(tree).find((node) => node.props.id?.endsWith("scene-tab"));
       expect(tab).toBeDefined();
       tab!.props.onClick!();
       setOpened(true);
@@ -79,20 +82,12 @@ describe("asset scene and studio controls", () => {
       expect(html).toBe("");
     },
   );
-  it("exposes linked tabs, compact library actions and unchanged Environment controls", () => {
+  it("drops the Library's Environment tab, keeping only the element catalog", () => {
     const html = renderToStaticMarkup(createElement(AssetsPanel));
-    expect(html.match(/role="tab"/g)).toHaveLength(2);
-    expect(html.match(/role="tabpanel"/g)).toHaveLength(2);
-    expect(html).toContain('aria-label="Composition settings"');
-    const environment = renderEnvironment();
-    for (const setting of ["Environment", "Camera angle", "Studio lighting"])
-      expect(environment).toContain(setting);
-    for (const tab of ["add", "environment"]) {
-      expect(html).toContain(`${tab}-tab`);
-      expect(html).toContain(`${tab}-panel`);
-    }
-    expect(html).not.toContain("layers-tab");
-    expect(html).not.toContain("layers-panel");
+    expect(html).not.toContain('role="tab"');
+    expect(html).not.toContain('role="tabpanel"');
+    expect(html).not.toContain("environment-tab");
+    expect(html).not.toContain("environment-panel");
     for (const action of [
       "Creative Purpose",
       "Search elements",
@@ -107,6 +102,20 @@ describe("asset scene and studio controls", () => {
     expect(html).not.toContain('class="asset-text-preview"');
     expect(html).not.toContain('aria-label="Selected element"');
     expect(html).not.toContain("Your images");
+  });
+  it("keeps the Environment panel's Prompt & Environment controls unchanged on the Scene tab", () => {
+    const html = renderToStaticMarkup(createElement(EnvironmentPanel));
+    expect(html.match(/role="tab"/g)).toHaveLength(2);
+    expect(html.match(/role="tabpanel"/g)).toHaveLength(2);
+    expect(html).toContain('aria-label="Environment views"');
+    for (const tab of ["add", "scene"]) {
+      expect(html).toContain(`${tab}-tab`);
+      expect(html).toContain(`${tab}-panel`);
+    }
+    const scene = renderEnvironmentScene();
+    expect(scene).toContain("Prompt &amp; Environment");
+    for (const setting of ["Environment", "Camera angle", "Studio lighting"])
+      expect(scene).toContain(setting);
   });
 
   it("offers clearly named sources with pressed state only outside a studio rig", () => {

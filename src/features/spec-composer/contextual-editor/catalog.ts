@@ -58,6 +58,15 @@ export function isConstraint(element: SpecElement) {
     "layout_constraint"
   );
 }
+/** Catalog ids the environment editor (Environment rail panel) now owns;
+ * hidden from the Library everywhere (recommended, all, and search) without
+ * touching the catalog JSON. Legacy docs that already reference them still
+ * load and compile unchanged. */
+export const HIDDEN_LIBRARY_IDS = new Set([
+  "structure.camera_angle",
+  "structure.lighting",
+]);
+
 export function libraryEntries(
   purposeId: string | undefined,
   view: "recommended" | "all",
@@ -73,6 +82,7 @@ export function libraryEntries(
   return getLibraryGroups().map((group) => ({
     ...group,
     entries: group.elementIds
+      .filter((id) => !HIDDEN_LIBRARY_IDS.has(id))
       .filter((id) => {
         const aliases =
           id === "information.label"

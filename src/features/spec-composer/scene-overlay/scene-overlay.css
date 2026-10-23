@@ -1,0 +1,27 @@
+.scene-overlay {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.scene-handle-hit {
+  fill: transparent;
+  cursor: grab;
+}
+.scene-handle.is-selected .scene-handle-hit {
+  fill: color-mix(in oklab, var(--editor-action) 12%, transparent);
+}
+.scene-handle-rotate {
+  fill: var(--editor-action);
+  cursor: grab;
+}
+.scene-handle-anchor {
+  fill: none;
+  stroke: none;
+  pointer-events: none;
+}
+.scene-guide-marker {
+  fill: color-mix(in oklab, var(--color-editor-muted) 30%, transparent);
+}
+.scene-guide {
+  stroke-width: 1.5;
+}

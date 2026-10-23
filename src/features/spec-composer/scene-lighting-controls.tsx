@@ -113,7 +113,10 @@ export function SceneLightingControls({
   if (!d) return null;
   const settings = d.generationSettings ?? {};
   const settingSelect = <
-    K extends Exclude<keyof GenerationSettings, "studioLights">,
+    K extends Exclude<
+      keyof GenerationSettings,
+      "studioLights" | "camera" | "ambient" | "scenePreset"
+    >,
   >(
     label: string,
     key: K,

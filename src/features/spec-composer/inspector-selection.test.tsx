@@ -110,6 +110,7 @@ afterEach(() => {
 describe("intentional inspector navigation", () => {
   const panels: PanelMode[] = [
     "assets",
+    "environment",
     "layers",
     "templates",
     "brandKit",

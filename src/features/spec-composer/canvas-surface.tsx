@@ -34,6 +34,9 @@ import { addCatalogAsset } from "./assets-panel/add-asset";
 import { SelectionContextBar } from "./selection-context-bar";
 import { FloatingContextualToolbar } from "./contextual-editor/FloatingContextualToolbar";
 import { CATALOG_DRAG_TYPE, parseCatalogDrag, isConstraint } from "./contextual-editor/catalog";
+import { SceneOverlay } from "./scene-overlay/SceneOverlay";
+import { SCENE_DRAG_TYPE, parseSceneDrag } from "./scene-objects";
+import { docToNorm } from "./scene-space";
 import {
   ELEMENT_KINDS,
   isTextKind,
@@ -378,6 +381,7 @@ export function CanvasWorkspace({
         onDragOver={(e) => {
           if (
             e.dataTransfer.types.includes(CATALOG_DRAG_TYPE) ||
+            e.dataTransfer.types.includes(SCENE_DRAG_TYPE) ||
             e.dataTransfer.types.includes("application/x-spec-asset-preset") ||
             e.dataTransfer.types.includes("spec/shape") ||
             e.dataTransfer.types.includes("spec/asset") ||
@@ -391,6 +395,19 @@ export function CanvasWorkspace({
         onDrop={(e) => {
           e.preventDefault();
           const point = viewport.toDoc(e.clientX, e.clientY);
+          const sceneData = e.dataTransfer.getData(SCENE_DRAG_TYPE);
+          if (sceneData) {
+            const payload = parseSceneDrag(sceneData);
+            if (!payload) return;
+            const norm = docToNorm(point, doc.format);
+            if (payload.type === "camera") s.addSceneCamera(norm);
+            else if (payload.kind)
+              s.addSceneLight(payload.kind, norm, {
+                ...(payload.role ? { role: payload.role } : {}),
+                ...(payload.depth ? { depth: payload.depth } : {}),
+              });
+            return;
+          }
           const contextualData = e.dataTransfer.getData(CATALOG_DRAG_TYPE);
           if (contextualData) {
             const payload = parseCatalogDrag(contextualData);
@@ -551,6 +568,7 @@ export function CanvasWorkspace({
             )}
           </div>
         )}
+        <SceneOverlay />
         {editingEl && (
           <CanvasCaret
             key={editingEl.id}

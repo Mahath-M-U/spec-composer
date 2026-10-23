@@ -17,6 +17,7 @@ import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { CanvasWorkspace } from "./canvas-surface";
 import { AssetsPanel } from "./assets-panel/AssetsPanel";
+import { EnvironmentPanel } from "./environment-panel/EnvironmentPanel";
 import { LayersPanel } from "./layers-panel";
 import { ResizePanel } from "./resize-panel";
 import { ToolRail } from "./tool-rail";
@@ -688,6 +689,8 @@ function ContextPanel({ onCollapse }: { onCollapse: () => void }) {
       <PanelCollapseProvider onCollapse={onCollapse}>
         {panel === "assets" ? (
           <AssetsPanel />
+        ) : panel === "environment" ? (
+          <EnvironmentPanel />
         ) : panel === "style" ? (
           <StylePanel />
         ) : panel === "layers" ? (

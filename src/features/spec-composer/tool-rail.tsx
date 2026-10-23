@@ -10,6 +10,7 @@ import {
   PanelLeftOpen,
   Plug,
   Scaling,
+  Sun,
 } from "lucide-react";
 import { useEditorStore } from "./store";
 import { DesignKitSummary } from "./design-kit-card";
@@ -26,6 +27,12 @@ const NAVIGATION = [
     icon: Image,
     label: "Assets",
     description: "Add images, shapes, and text",
+  },
+  {
+    id: "environment",
+    icon: Sun,
+    label: "Environment",
+    description: "Set up the camera, lights, and ambient",
   },
   {
     id: "style",
