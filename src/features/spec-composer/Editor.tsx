@@ -193,9 +193,19 @@ import { ChatComingSoonSplash } from "./coming-soon-lazy";
 import { EditorSkeleton } from "./editor-skeleton";
 import { hasPlaceholderArt, PLACEHOLDER_ART_OPTIONS } from "./illustrations";
 import { backgroundStyle, StaticDocument } from "./static-render";
+import { CommitInput } from "./committed-input";
+import { SceneIcon } from "./environment-panel/scene-icons";
+import { controlsForSceneObject, sceneControlValue } from "./scene-controls";
+import {
+  applySceneControl,
+  resolveSceneObject,
+  sceneObjectIconId,
+  sceneObjectLabel,
+} from "./scene-controls-store";
 import {
   isImageKind,
   isTextKind,
+  SCENE_DEPTHS,
   type ElementKind,
   type ExternalToolRequirement,
   type Format,
@@ -1068,8 +1078,12 @@ export function StylePanel() {
       !unit.locked &&
       unit.ids.every((id) => d.elements.find((el) => el.id === id)?.visible),
   );
+  // Scene objects (environment editor) are mutually exclusive with
+  // element/background selection; selecting one does not auto-switch panels,
+  // but it does keep the Style tab available, like any other selection.
+  const sceneRef = s.selectedSceneId ? resolveSceneObject(d, s.selectedSceneId) : undefined;
   // Keep the stored tab so selecting something returns to Style.
-  const canStyle = !!firstElement || s.backgroundSelected;
+  const canStyle = !!firstElement || s.backgroundSelected || !!sceneRef;
   const tab = canStyle ? storedTab : "layout";
 
   return (
@@ -1081,9 +1095,11 @@ export function StylePanel() {
         meta={
           s.backgroundSelected
             ? "Background"
-            : s.selectedIds.length
-              ? `${selectedElements.length} selected`
-              : "Nothing selected"
+            : sceneRef
+              ? `${sceneObjectLabel(sceneRef)} selected`
+              : s.selectedIds.length
+                ? `${selectedElements.length} selected`
+                : "Nothing selected"
         }
       />
       <div className="style-dock">
@@ -2103,6 +2119,141 @@ export function StylePanel() {
                         })
                       }
                     />
+                  )}
+                </div>
+              )}
+              {sceneRef && (
+                <div className="style-dock-section">
+                  <h3 className="style-dock-section-title">
+                    <SceneIcon id={sceneObjectIconId(sceneRef)} />
+                    {sceneObjectLabel(sceneRef)}
+                  </h3>
+                  {controlsForSceneObject(sceneRef).map((descriptor) => {
+                    const value = sceneControlValue(sceneRef, descriptor);
+                    const commit = (next: unknown) =>
+                      applySceneControl(s.selectedSceneId!, descriptor, next);
+                    if (descriptor.type === "slider")
+                      return (
+                        <CommitInput
+                          key={descriptor.key}
+                          label={descriptor.label}
+                          numeric
+                          required
+                          min={descriptor.min ?? 0}
+                          max={descriptor.max ?? 100}
+                          step={descriptor.step ?? 1}
+                          value={String(
+                            typeof value === "number" ? value : descriptor.min ?? 0,
+                          )}
+                          onCommit={(next) => commit(Number(next))}
+                        />
+                      );
+                    if (descriptor.type === "select")
+                      return (
+                        <label key={descriptor.key} className="se-field">
+                          <span>{descriptor.label}</span>
+                          <select
+                            className="se-input"
+                            value={typeof value === "string" ? value : ""}
+                            onChange={(event) => commit(event.target.value)}
+                          >
+                            {descriptor.options?.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      );
+                    if (descriptor.type === "color")
+                      return (
+                        <OpaqueColorControl
+                          key={descriptor.key}
+                          label={descriptor.label}
+                          value={typeof value === "string" ? value : undefined}
+                          onChange={(hex) => commit(hex)}
+                          onRemove={() => commit(undefined)}
+                        />
+                      );
+                    if (descriptor.type === "toggle")
+                      return (
+                        <label key={descriptor.key} className="scene-include">
+                          <input
+                            type="checkbox"
+                            checked={!!value}
+                            onChange={(event) => commit(event.target.checked)}
+                          />
+                          {descriptor.label}
+                        </label>
+                      );
+                    return (
+                      <button
+                        key={descriptor.key}
+                        type="button"
+                        className="inspector-action"
+                        onClick={() => commit(undefined)}
+                      >
+                        {descriptor.label}
+                      </button>
+                    );
+                  })}
+                  {sceneRef.type === "light" && (
+                    <details className="studio-advanced">
+                      <summary>Advanced</summary>
+                      <label className="se-field">
+                        <span>Depth</span>
+                        <select
+                          className="se-input"
+                          value={sceneRef.light.depth ?? "front"}
+                          onChange={(event) =>
+                            s.updateSceneLight(s.selectedSceneId!, {
+                              depth: event.target.value as (typeof SCENE_DEPTHS)[number],
+                            })
+                          }
+                        >
+                          {SCENE_DEPTHS.map((depth) => (
+                            <option key={depth} value={depth}>
+                              {depth.charAt(0).toUpperCase() + depth.slice(1)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </details>
+                  )}
+                  {sceneRef.type === "camera" && (
+                    <details className="studio-advanced">
+                      <summary>Advanced</summary>
+                      <div className="se-row">
+                        <CommitInput
+                          label="Target X"
+                          numeric
+                          required
+                          min={-1.5}
+                          max={1.5}
+                          step={0.05}
+                          value={String(sceneRef.camera.target.x)}
+                          onCommit={(next) =>
+                            s.updateSceneCamera({
+                              target: { ...sceneRef.camera.target, x: Number(next) },
+                            })
+                          }
+                        />
+                        <CommitInput
+                          label="Target Y"
+                          numeric
+                          required
+                          min={-1.5}
+                          max={1.5}
+                          step={0.05}
+                          value={String(sceneRef.camera.target.y)}
+                          onCommit={(next) =>
+                            s.updateSceneCamera({
+                              target: { ...sceneRef.camera.target, y: Number(next) },
+                            })
+                          }
+                        />
+                      </div>
+                    </details>
                   )}
                 </div>
               )}

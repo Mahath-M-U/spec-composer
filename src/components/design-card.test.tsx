@@ -188,6 +188,10 @@ describe("design card styles", () => {
     fileURLToPath(new URL("./design-card.css", import.meta.url)),
     "utf8",
   );
+  const globalCss = readFileSync(
+    fileURLToPath(new URL("../styles.css", import.meta.url)),
+    "utf8",
+  );
 
   it("uses only theme tokens, never hardcoded brand colors", () => {
     expect(css).not.toMatch(/#[0-9a-fA-F]{3,8}/);
@@ -219,6 +223,20 @@ describe("design card styles", () => {
   it("matches the resize card's surface and hover border treatment", () => {
     expect(css).toContain("border-color: var(--card-border-hover)");
     expect(css).toContain("white 7%");
+  });
+
+  it("defines the shared whole-card scale for hover-capable devices with motion enabled", () => {
+    expect(globalCss).toMatch(
+      /\.card-hover-scale\s*\{[^}]*transform:\s*scale\(1\);/,
+    );
+    expect(globalCss).toMatch(/\.card-hover-scale\s*\{[^}]*transform-origin: center;/);
+    expect(css).toContain(
+      "transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1)",
+    );
+    expect(globalCss).toContain(
+      "@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)",
+    );
+    expect(globalCss).toMatch(/z-index:\s*1;\s*transform:\s*scale\(1\.015\);/);
   });
 
   it("keeps the copy button transparent at rest", () => {

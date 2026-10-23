@@ -16,7 +16,8 @@
   background: var(--design-card-surface);
   transition:
     background-color 200ms ease-out,
-    border-color 200ms ease-out;
+    border-color 200ms ease-out,
+    transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .design-card-media {
@@ -109,6 +110,9 @@
     opacity: 0;
     transition: opacity 200ms ease-out;
   }
+  .design-card-badge:has(.recent-design-edited-chip) {
+    opacity: 1;
+  }
   .design-card:is(:hover, :focus-within, [data-menu-open]) .design-card-badge,
   .design-card:is(:hover, :focus-within, [data-menu-open]) .design-card-more {
     opacity: 1;
@@ -117,7 +121,7 @@
     border-color: var(--card-border-hover);
   }
 
-  .design-card:is(:hover, [data-menu-open]) .design-card-copy,
+  .design-card-copy,
   .design-card .design-card-copy:focus-visible {
     background: var(--color-primary);
     color: var(--color-primary-foreground);

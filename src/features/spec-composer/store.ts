@@ -41,6 +41,7 @@ import {
   sceneObjectList,
 } from "./scene-objects";
 import { canvasToScene, clampNorm } from "./scene-space";
+import { ENVIRONMENT_PRESETS, mergeEnvironmentPreset } from "./environment-presets";
 import {
   generationSettingsSchema,
   sceneCameraSchema,
@@ -247,6 +248,15 @@ interface EditorState {
     id: string,
     patch: { canvas?: SceneVec2; rotation?: number; target?: SceneVec2 },
   ) => void;
+  /** Applies an environment preset (environment-presets.ts) in one history
+   * entry: "replace" overwrites the camera/lights/ambient; "merge" appends
+   * lights up to the cap and keeps the existing camera. Returns whether a
+   * matching preset was found and how many of its lights were skipped at
+   * the cap, so the UI can toast. */
+  applyEnvironmentPreset: (
+    id: string,
+    mode: "replace" | "merge",
+  ) => { applied: boolean; skipped: number };
   addElement: (
     k: ElementKind,
     x?: number,
@@ -1325,6 +1335,36 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     if (patch.rotation !== undefined) next.rotation = patch.rotation;
     get().updateSceneLight(id, next, true);
   },
+
+  applyEnvironmentPreset: (id, mode) => {
+    const doc = get().doc;
+    const preset = ENVIRONMENT_PRESETS.find((p) => p.id === id);
+    if (!doc || !preset) return { applied: false, skipped: 0 };
+    let skipped = 0;
+    get().mutate((next) => {
+      next.generationSettings ??= {};
+      const settings = next.generationSettings;
+      if (mode === "replace") {
+        settings.camera = { ...preset.camera };
+        settings.studioLights = preset.lights.map((light) => ({
+          ...light,
+          id: crypto.randomUUID(),
+        }));
+        settings.ambient = { ...preset.ambient };
+      } else {
+        const merged = mergeEnvironmentPreset(settings, preset);
+        settings.studioLights = merged.studioLights;
+        settings.ambient = merged.ambient;
+        skipped = merged.skipped;
+      }
+      settings.scenePreset = preset.id;
+      if (mode === "replace" || !next.scene?.trim()) next.scene = preset.scene;
+      next.promptOptions.scene = true;
+      next.promptOptions.lighting = true;
+    });
+    return { applied: true, skipped };
+  },
+
   addElement: (kind, x, y, patch, options) => {
     const d = get().doc;
     if (!d) return;

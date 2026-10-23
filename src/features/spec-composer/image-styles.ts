@@ -185,7 +185,8 @@ export function imageStyleLine(
   const style = resolveImageStyle(doc);
   if (!style) return "";
   const explicit =
-    (doc.promptOptions?.scene && doc.generationSettings?.cameraAngle) ||
+    (doc.promptOptions?.scene &&
+      (doc.generationSettings?.cameraAngle || doc.generationSettings?.camera)) ||
     (doc.promptOptions &&
       hasExplicitLighting({
         generationSettings: doc.generationSettings,

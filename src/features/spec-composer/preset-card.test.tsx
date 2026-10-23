@@ -42,7 +42,7 @@ describe("shared preset cards", () => {
       expect(footer.indexOf('class="preset-card-title"')).toBeLessThan(
         footer.indexOf('class="preset-card-metadata"'),
       );
-      expect(html).toContain('class="preset-card"');
+      expect(html).toContain('class="preset-card card-hover-scale"');
       expect(html.match(/class="preset-card-metadata"/g)).toHaveLength(1);
       expect(html).toContain(`title="${preset.width} × ${preset.height} px"`);
       expect(html).toContain(`viewBox="0 0 ${preset.width} ${preset.height}"`);
@@ -97,7 +97,7 @@ describe("shared preset cards", () => {
       html.indexOf('class="preset-card-metadata"'),
     );
     expect(html).toContain('disabled=""');
-    expect(html).toContain('class="preset-card test-layout"');
+    expect(html).toContain('class="preset-card card-hover-scale test-layout"');
   });
 
   it.each([
@@ -128,7 +128,9 @@ describe("shared preset cards", () => {
       expect(onClick).toHaveBeenCalledOnce();
       const html = renderToStaticMarkup(tree);
       expect(html.match(/<button/g)).toHaveLength(1);
-      expect(html).toContain('class="preset-card preset-card--create"');
+      expect(html).toContain(
+        'class="preset-card card-hover-scale preset-card--create"',
+      );
       expect(html).toContain(`aria-label="${ariaLabel}"`);
       expect(html).toContain(`title="${title}"`);
       expect(html).toContain(`title="${description}"`);

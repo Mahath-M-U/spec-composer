@@ -1,5 +1,11 @@
 import type { SpecDocument, SpecElement } from "./types.ts";
 import { compileStudioLighting } from "./studio-lighting";
+import {
+  compileCameraPhrase,
+  compileSceneLighting,
+  hasStructuredCamera,
+  hasStructuredSceneLighting,
+} from "./scene-prompt";
 
 export type ArtFieldKey = "scene" | "lighting";
 export const ART_FIELD_KEYS = ["scene", "lighting"] as const;
@@ -124,10 +130,23 @@ export function artLine(
 ): string {
   const settings = doc.generationSettings;
   const phrases = [artValue(doc[key])];
-  if (key === "scene" && settings?.cameraAngle)
-    phrases.push(`Camera angle: ${settings.cameraAngle}`);
+  if (key === "scene") {
+    // The environment editor's camera (new field) compiles to a natural-
+    // language phrase; a document without one keeps the legacy labeled
+    // line, byte-identically.
+    if (hasStructuredCamera(settings)) phrases.push(compileCameraPhrase(settings!.camera!));
+    else if (settings?.cameraAngle)
+      phrases.push(`Camera angle: ${settings.cameraAngle}`);
+  }
   if (key === "lighting" && settings) {
-    if (settings.studioLights !== undefined) {
+    // Likewise, any scene-editor light/ambient field (new) compiles to
+    // natural language; a rig or simple settings with none of those fields
+    // keep their legacy text, byte-identically.
+    if (hasStructuredSceneLighting(settings)) {
+      phrases.push(
+        compileSceneLighting(settings.studioLights ?? [], settings.ambient),
+      );
+    } else if (settings.studioLights !== undefined) {
       phrases.push(compileStudioLighting(settings.studioLights));
     } else {
       if (settings.lightType) phrases.push(`Light type: ${settings.lightType}`);

@@ -282,6 +282,7 @@ export function RecentDesignCard({ doc }: { doc: SpecDocument }) {
   return (
     <>
       <DesignCard
+        className="card-hover-scale"
         title={doc.name}
         category={doc.format.label}
         dimensions={`${doc.format.width} × ${doc.format.height}`}

@@ -51,27 +51,32 @@ export function synchronizeStructuredOutput(
     keys.add("skill:elevation");
   }
   for (const field of ["scene", "lighting"] as const) {
-    const settingKeys =
+    const primitiveKeys =
       field === "scene"
-        ? (["cameraAngle"] as const)
+        ? (["cameraAngle", "scenePreset"] as const)
         : ([
             "lightType",
             "lightDirection",
             "lightIntensity",
             "shadows",
           ] as const);
+    // Camera/studioLights/ambient are objects (and, for lights, an array of
+    // them): compare by value so any environment-editor field change
+    // (position, kind, color, …) invalidates the compiled output too.
+    const objectKeys = field === "scene" ? (["camera"] as const) : (["studioLights", "ambient"] as const);
     if (
       previous[field] !== next[field] ||
       previous.promptOptions[field] !== next.promptOptions[field] ||
-      settingKeys.some(
+      primitiveKeys.some(
         (key) =>
           previous.generationSettings?.[key] !== next.generationSettings?.[key],
       ) ||
-      (field === "lighting" &&
+      objectKeys.some((key) =>
         changed(
-          previous.generationSettings?.studioLights,
-          next.generationSettings?.studioLights,
-        ))
+          previous.generationSettings?.[key],
+          next.generationSettings?.[key],
+        ),
+      )
     ) {
       keys.add(field);
       keys.add(`skill:${field}`);

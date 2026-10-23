@@ -3,10 +3,11 @@ import { useEditorStore } from "../store";
 import { canAddCamera, canAddLight, SCENE_ASSETS } from "../scene-objects";
 import type { SceneDragPayload } from "../scene-objects";
 import { SceneAssetCard } from "./SceneAssetCard";
+import { PresetSection } from "./PresetSection";
 
 /** Add tab: Camera, Set from View, one card per light kind (Rim is a
- * role/depth variant of Spotlight), the Ambient setting row, and a Presets
- * placeholder (Step C). */
+ * role/depth variant of Spotlight), the Ambient setting row, and the
+ * Presets section. */
 export function AddTab({ onLocateScene }: { onLocateScene?: () => void }) {
   const s = useEditorStore();
   const doc = s.doc;
@@ -103,10 +104,7 @@ export function AddTab({ onLocateScene }: { onLocateScene?: () => void }) {
           </div>
         )}
       </div>
-      <div className="environment-presets-section">
-        <h3>Presets</h3>
-        <p className="workflow-hint">Environment presets are coming soon.</p>
-      </div>
+      <PresetSection />
     </div>
   );
 }

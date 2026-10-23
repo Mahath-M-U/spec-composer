@@ -50,7 +50,7 @@ export function PresetCard(props: PresetCardProps) {
   return (
     <button
       type="button"
-      className={`preset-card${create ? " preset-card--create" : ""}${props.className ? ` ${props.className}` : ""}`}
+      className={`preset-card card-hover-scale${create ? " preset-card--create" : ""}${props.className ? ` ${props.className}` : ""}`}
       onClick={props.onClick}
       aria-label={
         props.ariaLabel ??

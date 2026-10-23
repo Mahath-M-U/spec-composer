@@ -432,6 +432,36 @@ button:disabled {
   margin-top: auto;
   text-align: left;
 }
+.sidebar-tour-card,
+.sidebar-mcp-card {
+  width: 100%;
+  min-height: 50px;
+  grid-template-columns: 27px minmax(0, 1fr) auto;
+  gap: 0.52rem;
+  padding: 0.52rem;
+}
+.sidebar-tour-card .sidebar-brandkit-icon,
+.sidebar-mcp-card .sidebar-brandkit-icon {
+  width: 27px;
+  height: 27px;
+}
+.sidebar-tour-card .sidebar-brandkit-icon svg,
+.sidebar-mcp-card .sidebar-brandkit-icon svg {
+  width: 12px;
+  height: 12px;
+}
+.sidebar-tour-card .sidebar-brandkit-copy b,
+.sidebar-mcp-card .sidebar-brandkit-copy b {
+  font-size: 9.6px;
+}
+.sidebar-tour-card .sidebar-brandkit-copy small,
+.sidebar-mcp-card .sidebar-brandkit-copy small {
+  font-size: 7.2px;
+}
+.sidebar-mcp-card .sidebar-soon-badge {
+  padding: 0.12rem 0.36rem;
+  font-size: 7.2px;
+}
 .sidebar-soon-badge {
   border-radius: 999px;
   background: color-mix(in oklab, var(--color-primary) 16%, transparent);
@@ -2505,6 +2535,20 @@ button:disabled {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 1.5rem 1rem;
+}
+.card-hover-scale {
+  position: relative;
+  transform: scale(1);
+  transform-origin: center;
+}
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .card-hover-scale:hover {
+    z-index: 1;
+    transform: scale(1.015);
+  }
+  .editor-shell :is(.context-panel, .right-panel) .card-hover-scale:hover {
+    transform: scale(1.01);
+  }
 }
 /* Home starters are shuffled after hydration; fade in once picked. */
 .template-strip--starters {
@@ -4843,7 +4887,7 @@ button:disabled {
   pointer-events: none;
   container-type: size;
   --bk-leaves-w: clamp(30px, 32cqw, 60px);
-  --bk-curve-w: min(100cqw - var(--bk-leaves-w) - 4px, 100cqh * 412 / 620);
+  --bk-curve-w: min(calc(100cqw - var(--bk-leaves-w) - 4px), 66.45cqh);
 }
 .bk-preview-art {
   position: absolute;

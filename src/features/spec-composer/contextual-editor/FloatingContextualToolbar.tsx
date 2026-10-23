@@ -14,7 +14,8 @@ import type { SpecElement } from "../types";
 import { ContextualField } from "./ContextualField";
 import { toolbarControls, formatValue } from "./toolbar-controls";
 import { mixedProperty } from "./store";
-import { contextualPopoverPlacement, toolbarPlacement } from "./toolbar-placement";
+import { contextualPopoverPlacement } from "./toolbar-placement";
+import { ToolbarShell } from "./ToolbarShell";
 import type { Field } from "./schema";
 import "./contextual-editor.css";
 import { UserRound, Accessibility, Move, Shirt, Palette } from "lucide-react";
@@ -210,11 +211,6 @@ export function FloatingContextualToolbar({
     [dismissed, setDismissed] = useState(false);
   const bar = useRef<HTMLDivElement>(null);
   const [workspace, setWorkspace] = useState<HTMLElement | null>(null);
-  const { left, top, width, height } = screenBox;
-  const [position, setPosition] = useState({
-    left: screenBox.left,
-    top: Math.max(8, screenBox.top - 64),
-  });
   const context = inspectorContext();
   const { primary, overflow } = toolbarControls(elements);
   const model=elements.every(element=>inferCatalogId(element)==="subjects.person");
@@ -226,28 +222,8 @@ export function FloatingContextualToolbar({
       fields: fields.filter((field) => field.group === group),
     }));
   useLayoutEffect(() => {
-    const node = bar.current,
-      workspace = node?.closest<HTMLElement>(".workspace");
-    if (!node || !workspace) return;
-    setWorkspace(workspace);
-    const place = () =>
-      setPosition(
-        toolbarPlacement(
-          { left, top, width, height },
-          { width: node.offsetWidth, height: node.offsetHeight },
-          { width: workspace.clientWidth, height: workspace.clientHeight },
-        ),
-      );
-    place();
-    const observer = new ResizeObserver(place);
-    observer.observe(workspace);
-    observer.observe(node);
-    window.addEventListener("resize", place);
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", place);
-    };
-  }, [left, top, width, height, primary.length, dismissed]);
+    setWorkspace(bar.current?.closest<HTMLElement>(".workspace") ?? null);
+  }, []);
   if (dismissed || !primary.length) return null;
   const fieldsContent = (fields: Field[]) =>
     groupFields(fields).map(({ group, fields }) => (
@@ -264,46 +240,12 @@ export function FloatingContextualToolbar({
       </section>
     ));
   return (
-    <div
+    <ToolbarShell
       ref={bar}
-      data-canvas-ui
-      className="floating-contextual-toolbar ui-toolbar"
-      role="toolbar"
-      aria-label="Element contextual controls"
-      style={{ left: position.left, top: position.top }}
-      onPointerDown={(event) => event.stopPropagation()}
-      onKeyDown={(event) => {
-        event.stopPropagation();
-        if (event.key === "Escape" && !open) {
-          setDismissed(true);
-          return;
-        }
-        if (
-          (event.key === "ArrowLeft" ||
-            event.key === "ArrowRight" ||
-            event.key === "Home" ||
-            event.key === "End") &&
-          event.target instanceof HTMLButtonElement &&
-          event.currentTarget.contains(event.target)
-        ) {
-          const buttons = [
-            ...event.currentTarget.querySelectorAll<HTMLButtonElement>(
-              ":scope > button, :scope > [data-radix-popper-content-wrapper] button",
-            ),
-          ];
-          const current = buttons.indexOf(event.target);
-          const next =
-            event.key === "Home"
-              ? 0
-              : event.key === "End"
-                ? buttons.length - 1
-                : (current +
-                    (event.key === "ArrowRight" ? 1 : -1) +
-                    buttons.length) %
-                  buttons.length;
-          event.preventDefault();
-          buttons[next]?.focus();
-        }
+      anchor={screenBox}
+      ariaLabel="Element contextual controls"
+      onEscape={() => {
+        if (!open) setDismissed(true);
       }}
     >
       {primary.map((control) => {
@@ -410,6 +352,6 @@ export function FloatingContextualToolbar({
       >
         <SlidersHorizontal size={16} />
       </button>
-    </div>
+    </ToolbarShell>
   );
 }

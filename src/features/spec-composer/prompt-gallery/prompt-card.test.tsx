@@ -76,7 +76,9 @@ describe("prompt card", () => {
     const article = view.find((node) => node.type === "article");
     const title = view.find((node) => node.type === "h2");
     expect(article.props["aria-labelledby"]).toBe(title.props["id"]);
-    expect(view.html).toContain('class="preview-card prompt-gallery-card"');
+    expect(view.html).toContain(
+      'class="preview-card prompt-gallery-card card-hover-scale"',
+    );
     expect(view.html).toContain(prompt.title);
     expect(view.html).toContain(prompt.category);
     expect(view.html).not.toContain(prompt.summary);

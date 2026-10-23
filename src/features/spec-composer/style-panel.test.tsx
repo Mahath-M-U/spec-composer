@@ -19,6 +19,7 @@ import { TextColorControl } from "./text-color-control";
 import { OpaqueColorControl } from "./color-control";
 import { COMPOSE_LAYOUTS } from "./compose-layouts";
 import { SegmentedTab, SegmentedTabs } from "./segmented-tabs";
+import { createSceneCamera, createSceneLight } from "./scene-objects";
 
 vi.mock("./store", async (importOriginal) => {
   const original = await importOriginal<typeof import("./store")>();
@@ -955,5 +956,75 @@ describe("inspector field and selection interactions", () => {
     expect(doc().elements[0]!.material).toBe("Clear glass");
     expect(doc().elements[1]!.material).toBeUndefined();
     expect(state().past).toHaveLength(0);
+  });
+});
+
+describe("Scene object inspector section", () => {
+  function setupScene() {
+    setup([]);
+    const light = createSceneLight("sun", []);
+    doc().generationSettings = { studioLights: [light] };
+    useEditorStore.setState({
+      selectedIds: [],
+      backgroundSelected: false,
+      selectedSceneId: light.id,
+      styleTab: "style",
+    });
+    return light;
+  }
+  it("shows the scene section only when a scene object is selected, hiding element sections", () => {
+    setupScene();
+    const { html } = capture(StylePanel);
+    expect(html).toContain("Sunlight selected");
+    for (const label of ["Type", "Intensity", "Temperature", "Direction", "Shadows", "Elevation", "Softness"])
+      expect(html).toContain(`<span>${label}</span>`);
+    expect(html).not.toContain("Element details");
+    expect(html).not.toContain("Nothing selected");
+    useEditorStore.setState({ selectedSceneId: null });
+    expect(capture(StylePanel).html).not.toContain("Sunlight");
+  });
+
+  it("enables the Style tab for a scene selection but does not auto-switch away from Layout", () => {
+    setupScene();
+    useEditorStore.setState({ styleTab: "layout" });
+    const view = capture(StylePanel);
+    const style = view.find(
+      (node) =>
+        node.type === SegmentedTab && node.props["id"] === "inspector-tab-style",
+    );
+    expect(style.props["disabled"]).toBe(false);
+    expect(state().styleTab).toBe("layout");
+    expect(view.html).toContain('id="inspector-style" role="tabpanel" aria-labelledby="inspector-tab-style" class="inspector-sections" hidden=""');
+  });
+
+  it("commits a scene edit through the shared descriptor and makes it undoable", () => {
+    const light = setupScene();
+    const view = capture(StylePanel);
+    const shadows = view.find(
+      (node) => node.type === "select" && node.props["value"] === light.shadows,
+    );
+    call(shadows, "onChange", { target: { value: "Soft" } });
+    expect(doc().generationSettings?.studioLights?.[0]?.shadows).toBe("Soft");
+    expect(state().past).toHaveLength(1);
+    state().undo();
+    expect(doc().generationSettings?.studioLights?.[0]?.shadows).toBe(light.shadows);
+  });
+
+  it("shows the camera's shared controls plus its advanced target fields", () => {
+    setup([]);
+    const camera = createSceneCamera();
+    doc().generationSettings = { camera };
+    useEditorStore.setState({
+      selectedIds: [],
+      backgroundSelected: false,
+      selectedSceneId: "camera",
+      styleTab: "style",
+    });
+    const { html } = capture(StylePanel);
+    expect(html).toContain("Camera selected");
+    for (const label of ["Focal length", "Angle", "Perspective", "Rotation"])
+      expect(html).toContain(`<span>${label}</span>`);
+    expect(html).toContain("Target X");
+    expect(html).toContain("Target Y");
   });
 });

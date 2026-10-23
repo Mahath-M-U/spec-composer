@@ -71,7 +71,9 @@ export function HomeTemplateCard({
 
   return (
     <DesignCard
-      {...(className !== undefined ? { className } : {})}
+      className={
+        className ? `card-hover-scale ${className}` : "card-hover-scale"
+      }
       title={doc.name}
       category={category ?? doc.format.label}
       media={

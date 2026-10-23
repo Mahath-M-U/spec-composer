@@ -167,7 +167,7 @@ describe("home template card", () => {
     });
     expect(cardProps.copyAction).toBeUndefined();
     expect(cardProps.menuItems).toBeUndefined();
-    expect(cardProps.className).toBe("template-panel-card");
+    expect(cardProps.className).toBe("card-hover-scale template-panel-card");
     expect(
       (cardProps.media as ReactElement<{ image?: unknown }>).props.image,
     ).toBeUndefined();

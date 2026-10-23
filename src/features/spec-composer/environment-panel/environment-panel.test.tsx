@@ -109,6 +109,18 @@ describe("EnvironmentPanel", () => {
     expect(html).toContain("Ambient");
   });
 
+  it("lists all five environment presets on the Add tab", () => {
+    const html = renderToStaticMarkup(<EnvironmentPanel />);
+    for (const label of [
+      "Studio",
+      "Outdoor",
+      "Indoor",
+      "Product photography",
+      "Abstract",
+    ])
+      expect(html).toContain(`aria-label="Apply ${label} preset"`);
+  });
+
   it("switches between the Add and Scene tabs", () => {
     let seenScene = false;
     interact([

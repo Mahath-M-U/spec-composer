@@ -56,7 +56,7 @@ export function PromptCard({ prompt }: { prompt: GalleryPrompt }) {
   return (
     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
       <article
-        className="preview-card prompt-gallery-card"
+        className="preview-card prompt-gallery-card card-hover-scale"
         aria-labelledby={`${id}-title`}
       >
         <div className="prompt-gallery-card-media">

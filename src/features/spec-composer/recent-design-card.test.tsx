@@ -140,7 +140,7 @@ describe("recent design card", () => {
     };
     const html = renderCard(doc);
     expect(html).toContain('href="/design/recent-design"');
-    expect(html).toContain('class="design-card"');
+    expect(html).toContain('class="design-card card-hover-scale"');
     expect(html).not.toContain(">Open<");
     expect(html).toContain('data-full-preview="true"');
     expect(html).toContain("&lt;Long title &amp; &quot;quotes&quot;&gt;");

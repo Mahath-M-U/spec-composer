@@ -616,7 +616,7 @@ export function DesignKitCard({
 
   return (
     <div
-      className={`design-kit-card brandkit-card bk-showcase-card${isStatic ? " is-static" : ""}${isActive ? " active" : ""}`}
+      className={`design-kit-card brandkit-card bk-showcase-card card-hover-scale${isStatic ? " is-static" : ""}${isActive ? " active" : ""}`}
       style={
         activeBorder
           ? ({ "--bk-active-border": activeBorder } as CSSProperties)

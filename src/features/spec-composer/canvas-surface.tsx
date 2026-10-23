@@ -33,6 +33,7 @@ import { findDescriptionTemplate } from "./description-templates";
 import { addCatalogAsset } from "./assets-panel/add-asset";
 import { SelectionContextBar } from "./selection-context-bar";
 import { FloatingContextualToolbar } from "./contextual-editor/FloatingContextualToolbar";
+import { SceneObjectToolbar } from "./contextual-editor/SceneObjectToolbar";
 import { CATALOG_DRAG_TYPE, parseCatalogDrag, isConstraint } from "./contextual-editor/catalog";
 import { SceneOverlay } from "./scene-overlay/SceneOverlay";
 import { SCENE_DRAG_TYPE, parseSceneDrag } from "./scene-objects";
@@ -605,6 +606,16 @@ export function CanvasWorkspace({
         !panning && (
           <FloatingContextualToolbar key={JSON.stringify([doc.id, s.selectedIds])} elements={selected} screenBox={screenBox} onOpenInspector={onCanvasSelect} />
         )}
+      {s.selectedSceneId && !activeKind && !panning && (
+        <SceneObjectToolbar
+          key={`${doc.id}:${s.selectedSceneId}`}
+          id={s.selectedSceneId}
+          format={doc.format}
+          pan={s.pan}
+          zoom={s.zoom}
+          onOpenInspector={onCanvasSelect}
+        />
+      )}
       {children}
       <div
         className="zoom-controls"

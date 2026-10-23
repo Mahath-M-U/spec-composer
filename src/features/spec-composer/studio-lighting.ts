@@ -176,6 +176,7 @@ export function hasExplicitLighting(
       settings.lightType !== undefined ||
       settings.lightDirection !== undefined ||
       settings.lightIntensity !== undefined ||
-      settings.shadows !== undefined)
+      settings.shadows !== undefined ||
+      settings.ambient !== undefined)
   );
 }

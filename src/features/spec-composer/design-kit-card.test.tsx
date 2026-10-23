@@ -114,6 +114,7 @@ describe("shared DesignKitCard", () => {
   it("renders a read-only display card with real artwork and no interactive wrappers", () => {
     const html = renderToStaticMarkup(<DesignKitCard kit={auroraKit} active />);
     expect(html).toContain("bk-preview-illustration");
+    expect(html).toContain("card-hover-scale");
     expect(html).toContain("Get started");
     expect(html).toContain('class="bk-palette-role">Primary<');
     expect(html).toContain(">#112233<");

@@ -20,6 +20,18 @@
   text-transform: uppercase;
   letter-spacing: 0.02em;
 }
+.environment-preset-card {
+  min-height: 48px;
+  cursor: pointer;
+}
+.environment-preset-card .contextual-element-name {
+  white-space: normal;
+}
+.environment-preset-card small {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+}
 .environment-prompt-section {
   margin-top: 12px;
   padding-top: 12px;
