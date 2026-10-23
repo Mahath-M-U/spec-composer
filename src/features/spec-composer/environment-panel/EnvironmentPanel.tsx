@@ -2,9 +2,10 @@ import { useId, useRef, useState } from "react";
 import { Shapes, Sun as SunIcon, Image as ImageIcon } from "lucide-react";
 import { PanelHeader } from "../panel-header";
 import { SegmentedTab, SegmentedTabs } from "../segmented-tabs";
-import { SceneLightingControls } from "../scene-lighting-controls";
 import { AddTab } from "./AddTab";
 import { SceneList } from "./SceneList";
+import { SelectedObjectInspector } from "./SelectedObjectInspector";
+import { AmbientSettings } from "./AmbientSettings";
 import "./environment-panel.css";
 
 const VIEWS = [
@@ -73,10 +74,8 @@ export function EnvironmentPanel() {
         {view === "scene" && (
           <>
             <SceneList />
-            <div className="environment-prompt-section">
-              <h3>Prompt &amp; Environment</h3>
-              <SceneLightingControls />
-            </div>
+            <SelectedObjectInspector />
+            <AmbientSettings />
           </>
         )}
       </div>

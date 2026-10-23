@@ -4,8 +4,8 @@
  * action. Both SceneObjectToolbar and the inspector's scene section go
  * through here so every edit is undoable the same way. */
 import { kindFromLegacy, SCENE_ASSETS } from "./scene-objects";
-import { sceneToCanvas } from "./scene-space";
-import { useEditorStore } from "./store";
+import { canvasToScene, sceneToCanvas } from "./scene-space";
+import { useEditorStore, type SceneTransformPreview } from "./store";
 import type { SceneControlDescriptor } from "./scene-controls";
 import { sceneControlFieldKey, type SceneObjectRef } from "./scene-controls";
 import type {
@@ -19,10 +19,25 @@ import type {
 export function resolveSceneObject(
   doc: Pick<SpecDocument, "generationSettings">,
   id: string,
+  preview?: SceneTransformPreview | null,
 ): SceneObjectRef | undefined {
+  const transform = preview?.id === id ? preview : null;
   if (id === "camera") {
     const camera = doc.generationSettings?.camera;
-    return camera ? { type: "camera", camera } : undefined;
+    return camera
+      ? {
+          type: "camera",
+          camera: transform
+            ? {
+                ...camera,
+                ...(transform.canvas ? { position: transform.canvas } : {}),
+                ...(transform.rotation !== undefined
+                  ? { rotation: transform.rotation }
+                  : {}),
+              }
+            : camera,
+        }
+      : undefined;
   }
   if (id === "ambient")
     return {
@@ -34,7 +49,23 @@ export function resolveSceneObject(
       },
     };
   const light = doc.generationSettings?.studioLights?.find((l) => l.id === id);
-  return light ? { type: "light", light } : undefined;
+  if (!light) return undefined;
+  if (!transform) return { type: "light", light };
+  return {
+    type: "light",
+    light: {
+      ...light,
+      ...(transform.canvas
+        ? {
+            canvas: transform.canvas,
+            ...canvasToScene(transform.canvas, light.depth ?? "front"),
+          }
+        : {}),
+      ...(transform.rotation !== undefined
+        ? { rotation: transform.rotation }
+        : {}),
+    },
+  };
 }
 
 /** `ref`'s screen-anchor position in normalized scene space, or `undefined`
@@ -52,7 +83,7 @@ export function sceneObjectAnchor(ref: SceneObjectRef): SceneVec2 | undefined {
 /** A short label for `ref`, for toolbar/inspector headings; matches the Add
  * tab's own catalog labels. */
 export function sceneObjectLabel(ref: SceneObjectRef): string {
-  if (ref.type === "camera") return "Camera";
+  if (ref.type === "camera") return ref.camera.name ?? "Camera";
   if (ref.type === "ambient") return "Ambient";
   if (ref.light.role === "Rim") return "Rim";
   const kind = ref.light.kind ?? kindFromLegacy(ref.light);

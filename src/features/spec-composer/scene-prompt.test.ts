@@ -81,7 +81,8 @@ describe("compileSceneLighting", () => {
       shadows: "None",
     };
     const text = compileSceneLighting([light], undefined);
-    expect(text).toBe("subtle warm rim lighting from behind");
+    expect(text).toContain("subtle warm rim lighting from behind");
+    expect(text).toContain("degree beam");
     expect(text).not.toContain("spot");
   });
 
@@ -201,4 +202,38 @@ describe("artLine integration (Step C wiring)", () => {
     };
     expect(artLine(doc, "scene")).toBe("Scene: Camera angle: Low angle.");
   });
+  it("omits disabled cameras without reviving legacy camera-angle settings", () => {
+    const camera = { ...createSceneCamera(), enabled: false };
+    const doc = {
+      ...createDocument(),
+      generationSettings: { camera, cameraAngle: "Overhead" as const },
+    };
+    expect(compileCameraPhrase(camera)).toBe("");
+    expect(artLine(doc, "scene")).not.toContain("camera");
+    expect(artLine(doc, "scene")).not.toContain("Overhead");
+  });
+
+  it("compiles editable light color, beam, diffusion, source size and aim without raw coordinates", () => {
+    const light = {
+      ...createSceneLight("spot", []),
+      color: "#ffd8a6",
+      coneAngle: 52,
+      diffusion: 90,
+      rotation: 90,
+    };
+    const phrase = compileSceneLighting([light], undefined);
+    for (const text of [
+      "#FFD8A6",
+      "52 degree beam",
+      "broad soft diffusion",
+      "aimed up",
+    ])
+      expect(phrase).toContain(text);
+    expect(hasCoordinateLikeNumber(phrase)).toBe(false);
+    const area = { ...createSceneLight("area", []), width: 4, height: 1 };
+    expect(compileSceneLighting([area], undefined)).toContain(
+      "wide short source",
+    );
+  });
+
 });

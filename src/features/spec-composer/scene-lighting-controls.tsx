@@ -160,7 +160,7 @@ export function SceneLightingControls({
                   })
                 }
               />
-              Include {key === "scene" ? "scene" : "lighting"} in output
+              Include {key === "scene" ? "scene & camera" : "lighting"} in prompt
             </label>
             {key === "scene" && (
               <CommitInput

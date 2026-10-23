@@ -73,7 +73,8 @@ describe("EnvironmentPanel", () => {
       "Rim",
     ])
       expect(html).toContain(label);
-    expect(html.match(/class="contextual-element-card"/g)).toHaveLength(8);
+    expect(html.match(/class="environment-asset-tile"/g)).toHaveLength(7);
+    expect(html).not.toContain("Ambient fill");
   });
 
   it("shows Added and disables the Camera card once a camera exists", () => {

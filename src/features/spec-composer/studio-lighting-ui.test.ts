@@ -48,15 +48,15 @@ const visit = (node: ReactNode): ReactElement<Props>[] =>
       ? [node, ...visit(node.props.children)]
       : [];
 
-/** The Prompt & Environment section (reusing SceneLightingControls) now
- * lives at the bottom of the Environment panel's Scene tab, not Assets'
- * old Environment tab; render that tab to exercise it. */
+/** Render the Environment panel's Scene tab for integration regression checks. */
 function renderEnvironmentScene() {
   function Environment() {
     const [opened, setOpened] = useState(false);
     const tree = EnvironmentPanel();
     if (!opened) {
-      const tab = visit(tree).find((node) => node.props.id?.endsWith("scene-tab"));
+      const tab = visit(tree).find((node) =>
+        node.props.id?.endsWith("scene-tab"),
+      );
       expect(tab).toBeDefined();
       tab!.props.onClick!();
       setOpened(true);
@@ -103,7 +103,7 @@ describe("asset scene and studio controls", () => {
     expect(html).not.toContain('aria-label="Selected element"');
     expect(html).not.toContain("Your images");
   });
-  it("keeps the Environment panel's Prompt & Environment controls unchanged on the Scene tab", () => {
+  it("removes the Scene & Lighting controls from the Environment panel's Scene tab", () => {
     const html = renderToStaticMarkup(createElement(EnvironmentPanel));
     expect(html.match(/role="tab"/g)).toHaveLength(2);
     expect(html.match(/role="tabpanel"/g)).toHaveLength(2);
@@ -113,9 +113,9 @@ describe("asset scene and studio controls", () => {
       expect(html).toContain(`${tab}-panel`);
     }
     const scene = renderEnvironmentScene();
-    expect(scene).toContain("Prompt &amp; Environment");
-    for (const setting of ["Environment", "Camera angle", "Studio lighting"])
-      expect(scene).toContain(setting);
+    expect(scene).not.toContain("Scene &amp; Lighting");
+    expect(scene).not.toContain("environment-prompt-section");
+    expect(scene).toContain('class="environment-ambient-settings"');
   });
 
   it("offers clearly named sources with pressed state only outside a studio rig", () => {
@@ -149,7 +149,7 @@ describe("asset scene and studio controls", () => {
     for (const label of [
       "Environment",
       "Camera angle",
-      "Include scene in output",
+      "Include scene &amp; camera in prompt",
       "Prompt only",
     ])
       expect(html).toContain(label);

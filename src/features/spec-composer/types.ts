@@ -159,6 +159,7 @@ export type StudioLight = z.infer<typeof studioLightSchema>;
 /** Environment editor camera; presence of this object means the scene has a
  * camera (there's at most one). */
 export const sceneCameraSchema = z.object({
+  name: z.string().trim().min(1).max(60).optional(),
   enabled: z.boolean(),
   position: sceneVec2Schema,
   rotation: z.number().finite().min(-180).max(180),

@@ -6,7 +6,7 @@
  * `hasStructuredSceneLighting`, which gate this path so a document with none
  * of these new fields keeps compiling through the legacy
  * `compileStudioLighting`/`cameraAngle` path, byte-identically. */
-import { describeDirection } from "./scene-space";
+import { canvasToScene, describeDirection } from "./scene-space";
 import { kindFromLegacy } from "./scene-objects";
 import type {
   CameraProjection,
@@ -64,12 +64,26 @@ const PROJECTION_WORDS: Record<CameraProjection, string> = {
 /** "eye-level camera with a 50mm lens perspective", "high-angle camera with
  * a 24mm wide-angle lens perspective", … — never the raw position/target. */
 export function compileCameraPhrase(camera: SceneCamera): string {
+  if (!camera.enabled) return "";
   const angle = ANGLE_WORDS[camera.angle];
   const lens = `${camera.focalLength}mm ${PROJECTION_WORDS[camera.projection]}lens`.replace(
     /\s+/g,
     " ",
   );
-  return `${angle} camera with a ${lens} perspective`;
+  const details: string[] = [];
+  if (camera.position.x !== 0 || camera.position.y !== -0.9) {
+    const view = canvasToScene(camera.position, "front");
+    details.push(`positioned ${describeDirection(view.azimuth, view.elevation)}`);
+  }
+  if (camera.rotation !== 90) details.push(`facing ${aimWord(camera.rotation)}`);
+  if (camera.target.x !== 0 || camera.target.y !== 0)
+    details.push(`framing the ${camera.target.y > 0.2 ? "upper" : camera.target.y < -0.2 ? "lower" : "central"} ${camera.target.x < -0.2 ? "left" : camera.target.x > 0.2 ? "right" : "area"} of the scene`);
+  return [`${angle} camera with a ${lens} perspective`, ...details].join(", ");
+}
+
+function aimWord(rotation: number): string {
+  const directions = ["right", "upper right", "up", "upper left", "left", "lower left", "down", "lower right"];
+  return directions[((Math.round(rotation / 45) % 8) + 8) % 8]!;
 }
 
 function warmthWord(temperature: number): string {
@@ -103,15 +117,17 @@ function lightPhrase(light: StudioLight): string {
   const direction = describeDirection(light.azimuth, light.elevation);
   const intensity = intensityWord(light.intensity);
   const warmth = warmthWord(light.temperature);
-  if (light.role === "Rim")
-    return [intensity, warmth, "rim lighting", direction]
-      .filter(Boolean)
-      .join(" ");
   const kind = light.kind ?? kindFromLegacy(light);
   const role = ROLE_WORDS[light.role] ?? "accent";
-  return [intensity, warmth, kind, `${role} light`, direction]
-    .filter(Boolean)
-    .join(" ");
+  const base = light.role === "Rim" ? [intensity, warmth, "rim lighting", direction] : [intensity, warmth, kind, `${role} light`, direction];
+  const details: string[] = [];
+  if (light.color) details.push(`${light.color.toUpperCase()} light color`);
+  details.push(light.diffusion >= 70 ? "broad soft diffusion" : light.diffusion >= 35 ? "moderate diffusion" : "crisp focused diffusion");
+  if (light.coneAngle !== undefined) details.push(`${Math.round(light.coneAngle)} degree beam`);
+  if (light.radius !== undefined) details.push(`${light.radius < 0.5 ? "local" : light.radius < 1.5 ? "medium" : "wide"} influence`);
+  if (kind === "area" || kind === "diffused") details.push(`${light.width >= 2 ? "wide" : "narrow"} ${light.height >= 2 ? "tall" : "short"} source`);
+  if (light.rotation !== undefined) details.push(`aimed ${aimWord(light.rotation)}`);
+  return [base.filter(Boolean).join(" "), ...details].join(" with ");
 }
 
 /** "controlled ambient fill", "subtle warm ambient fill", … */
@@ -159,11 +175,16 @@ export function compileSceneDescription(
   settings: GenerationSettings | undefined,
 ): { camera?: string; lighting?: string } {
   return {
-    camera: hasStructuredCamera(settings)
-      ? compileCameraPhrase(settings!.camera!)
-      : undefined,
-    lighting: hasStructuredSceneLighting(settings)
-      ? compileSceneLighting(settings!.studioLights ?? [], settings!.ambient)
-      : undefined,
+    ...(hasStructuredCamera(settings)
+      ? { camera: compileCameraPhrase(settings!.camera!) }
+      : {}),
+    ...(hasStructuredSceneLighting(settings)
+      ? {
+          lighting: compileSceneLighting(
+            settings!.studioLights ?? [],
+            settings!.ambient,
+          ),
+        }
+      : {}),
   };
 }

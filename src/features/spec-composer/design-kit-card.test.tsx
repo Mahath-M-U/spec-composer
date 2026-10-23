@@ -159,29 +159,45 @@ describe("shared DesignKitCard", () => {
     expect(inactiveHtml).not.toContain(" active");
   });
 
-  it("gives the active card a border in the kit's own primary color", () => {
-    const activeHtml = renderToStaticMarkup(
-      withTooltips(
-        <DesignKitCard kit={auroraKit} actions={makeActions({ active: true })} />,
-      ),
-    );
-    expect(activeHtml).toContain("--bk-active-border:#112233");
-
-    const inactiveHtml = renderToStaticMarkup(
-      withTooltips(<DesignKitCard kit={auroraKit} actions={makeActions()} />),
-    );
-    expect(inactiveHtml).not.toContain("--bk-active-border");
-
-    const staticActiveHtml = renderToStaticMarkup(
-      <DesignKitCard kit={auroraKit} active />,
-    );
-    expect(staticActiveHtml).toContain("--bk-active-border:#112233");
-
-    const staticInactiveHtml = renderToStaticMarkup(
-      <DesignKitCard kit={auroraKit} />,
-    );
-    expect(staticInactiveHtml).not.toContain("--bk-active-border");
-  });
+  it.each([
+    { mode: "static", active: false },
+    { mode: "static", active: true },
+    { mode: "interactive", active: false },
+    { mode: "interactive", active: true },
+  ])(
+    "binds each $mode card's own primary tint when active=$active",
+    ({ mode, active }) => {
+      const kits = [
+        { kit: auroraKit, primary: "#112233" },
+        {
+          kit: makeKit({
+            id: "kit-coral",
+            colors: [{ ...auroraKit.colors[0]!, hex: "#ff7755" }],
+          }),
+          primary: "#ff7755",
+        },
+        {
+          kit: makeKit({ id: "kit-empty" }),
+          primary: "var(--color-editor-muted)",
+        },
+      ];
+      for (const { kit, primary } of kits) {
+        const html = renderToStaticMarkup(
+          withTooltips(
+            <DesignKitCard
+              kit={kit}
+              active={active}
+              actions={
+                mode === "interactive" ? makeActions({ active }) : undefined
+              }
+            />,
+          ),
+        );
+        const root = html.match(/<div class="design-kit-card\b[^>]*>/)?.[0];
+        expect(root).toContain(`--bk-card-primary:${primary}`);
+      }
+    },
+  );
 
   it("renders the full showcase card with artwork and the interactive palette", () => {
     const actions = makeActions();

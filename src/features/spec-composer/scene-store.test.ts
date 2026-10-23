@@ -2,6 +2,8 @@ import "fake-indexeddb/auto";
 import { beforeAll, beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { useEditorStore } from "./store";
 import { createDocument } from "./templates";
+import { sceneToCanvas } from "./scene-space";
+import { createStudioLight } from "./studio-lighting";
 import { MAX_SCENE_LIGHTS } from "./scene-objects";
 
 beforeAll(() => {
@@ -168,4 +170,40 @@ describe("scene store actions", () => {
     expect(light.depth).toBe("back");
     expect(light.kind).toBe("spot");
   });
+  it("renames cameras with trimming and validation while preserving legacy defaults", () => {
+    state().addSceneCamera();
+    expect(doc().generationSettings?.camera).not.toHaveProperty("name");
+    state().renameSceneObject("camera", "  Product view  ");
+    expect(doc().generationSettings?.camera?.name).toBe("Product view");
+    state().renameSceneObject("camera", "   ");
+    expect(doc().generationSettings?.camera?.name).toBe("Product view");
+    state().renameSceneObject("camera", "a".repeat(70));
+    expect(doc().generationSettings?.camera?.name).toHaveLength(60);
+    state().undo();
+    expect(doc().generationSettings?.camera?.name).toBe("Product view");
+  });
+
+  it("keeps canvas position synchronized with inspector elevation and retains legacy positions on depth changes", () => {
+    const id = state().addSceneLight("sun")!;
+    state().updateSceneLight(id, { elevation: 30 });
+    expect(doc().generationSettings?.studioLights?.[0]?.canvas?.y).toBeCloseTo(
+      30 / 45,
+    );
+    const legacy = createStudioLight({ azimuth: 40, elevation: 20 });
+    useEditorStore.setState({
+      doc: {
+        ...createDocument(),
+        generationSettings: { studioLights: [legacy] },
+      },
+    });
+    state().updateSceneLight(legacy.id, { depth: "back" });
+    expect(doc().generationSettings?.studioLights?.[0]?.elevation).toBeCloseTo(
+      20,
+    );
+    expect(
+      doc().generationSettings?.studioLights?.[0]?.azimuth,
+    ).toBeGreaterThan(120);
+    expect(sceneToCanvas(legacy).canvas.x).toBeGreaterThan(0);
+  });
+
 });

@@ -610,18 +610,13 @@ export function DesignKitCard({
   const [menuOpen, setMenuOpen] = useState(false);
   const isStatic = !actions;
   const isActive = actions?.active ?? active ?? false;
-  const activeBorder = isActive
-    ? brandKitPreviewColors(kit).primary?.hex
-    : undefined;
+  const cardPrimary =
+    brandKitPreviewColors(kit).primary?.hex ?? "var(--color-editor-muted)";
 
   return (
     <div
       className={`design-kit-card brandkit-card bk-showcase-card card-hover-scale${isStatic ? " is-static" : ""}${isActive ? " active" : ""}`}
-      style={
-        activeBorder
-          ? ({ "--bk-active-border": activeBorder } as CSSProperties)
-          : undefined
-      }
+      style={{ "--bk-card-primary": cardPrimary } as CSSProperties}
       data-tour={actions ? "kit-card" : undefined}
     >
       <div className="bk-face">

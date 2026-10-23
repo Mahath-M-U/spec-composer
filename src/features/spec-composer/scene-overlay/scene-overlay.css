@@ -10,9 +10,19 @@
 .scene-handle.is-selected .scene-handle-hit {
   fill: color-mix(in oklab, var(--editor-action) 12%, transparent);
 }
+/* Solid outline, no glow/halo (see AGENTS.md's "no glow borders" rule). */
+.scene-handle-hit:focus-visible,
+.scene-handle-rotate-hit:focus-visible {
+  fill: color-mix(in oklab, var(--editor-action) 16%, transparent);
+  outline: 2px solid var(--editor-action);
+  outline-offset: 1px;
+}
+.scene-handle-rotate-hit {
+  cursor: grab;
+}
 .scene-handle-rotate {
   fill: var(--editor-action);
-  cursor: grab;
+  pointer-events: none;
 }
 .scene-handle-anchor {
   fill: none;
@@ -24,4 +34,14 @@
 }
 .scene-guide {
   stroke-width: 1.5;
+}
+@media (prefers-reduced-motion: reduce) {
+  .scene-handle,
+  .scene-handle-hit,
+  .scene-handle-rotate-hit,
+  .scene-guide,
+  .scene-guide-marker {
+    transition: none !important;
+    animation: none !important;
+  }
 }

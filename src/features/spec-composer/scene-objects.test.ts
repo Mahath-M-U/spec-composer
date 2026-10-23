@@ -99,7 +99,7 @@ describe("scene-objects catalog and derived views", () => {
 
   it("lists camera, lights and an always-present Ambient row", () => {
     expect(sceneObjectList(doc())).toEqual([
-      { id: "ambient", type: "ambient", label: "Ambient", enabled: false, guideHidden: true },
+      { id: "ambient", type: "ambient", iconId: "ambient", label: "Ambient", enabled: false, guideHidden: true },
     ]);
     const camera = createSceneCamera();
     const sun = createSceneLight("sun", []);
@@ -107,9 +107,17 @@ describe("scene-objects catalog and derived views", () => {
       doc({ camera, studioLights: [sun], ambient: { enabled: true, intensity: 40, temperature: 4000 } }),
     );
     expect(list).toEqual([
-      { id: "camera", type: "camera", label: "Camera", enabled: true, guideHidden: false },
-      { id: sun.id, type: "light", label: "Sunlight 1", enabled: true, guideHidden: false },
-      { id: "ambient", type: "ambient", label: "Ambient", enabled: true, guideHidden: true },
+      { id: "camera", type: "camera", iconId: "camera", label: "Camera", enabled: true, guideHidden: false },
+      { id: sun.id, type: "light", iconId: "sun", label: "Sunlight 1", enabled: true, guideHidden: false },
+      { id: "ambient", type: "ambient", iconId: "ambient", label: "Ambient", enabled: true, guideHidden: true },
     ]);
   });
+  it("keeps custom names and resolves icons independently of names", () => {
+    const camera = { ...createSceneCamera(), name: "Product view" };
+    const light = { ...createSceneLight("spot", []), name: "Main key" };
+    const list = sceneObjectList(doc({ camera, studioLights: [light] }));
+    expect(list[0]).toMatchObject({ label: "Product view", iconId: "camera" });
+    expect(list[1]).toMatchObject({ label: "Main key", iconId: "spot" });
+  });
+
 });

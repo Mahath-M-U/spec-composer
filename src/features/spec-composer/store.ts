@@ -40,7 +40,7 @@ import {
   createSceneLight,
   sceneObjectList,
 } from "./scene-objects";
-import { canvasToScene, clampNorm } from "./scene-space";
+import { canvasToScene, clampNorm, sceneToCanvas } from "./scene-space";
 import { ENVIRONMENT_PRESETS, mergeEnvironmentPreset } from "./environment-presets";
 import {
   generationSettingsSchema,
@@ -131,6 +131,12 @@ export interface Guide {
   pos: number;
 }
 
+export interface SceneTransformPreview {
+  id: string;
+  canvas?: SceneVec2;
+  rotation?: number;
+}
+
 interface EditorState {
   setCreativePurpose: (id?: string) => void;
   addContextualElement: (id: string, point?: { x: number; y: number }, preset?: string) => void;
@@ -141,6 +147,8 @@ interface EditorState {
   /** Selected scene object (environment editor): "camera", a light id, or
    * "ambient". Mutually exclusive with element/background selection. */
   selectedSceneId: string | null;
+  scenePreview: SceneTransformPreview | null;
+  setScenePreview: (preview: SceneTransformPreview | null) => void;
   /** UI-only: whether the canvas Scene Overlay renders its guides at all.
    * Not persisted, not part of undo history. */
   sceneGuidesVisible: boolean;
@@ -238,7 +246,7 @@ interface EditorState {
   /** Removes a scene object: deletes a light, deletes the camera, or (for
    * "ambient", which always "exists" as a setting) disables it. */
   removeSceneObject: (id: string) => void;
-  /** Renames a scene light; camera and ambient have no stored name. */
+  /** Renames a scene light or the single camera. */
   renameSceneObject: (id: string, name: string) => void;
   /** Toggles a scene object's canvas guide without disabling it. */
   toggleSceneGuide: (id: string) => void;
@@ -584,7 +592,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   selectedGroupIds: [],
   backgroundSelected: false,
   selectedSceneId: null,
+  scenePreview: null,
   sceneGuidesVisible: true,
+  setScenePreview: (preview) => set({ scenePreview: preview }),
   panel: "assets",
   styleTab: "layout",
   tool: "select",
@@ -625,6 +635,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       selectedGroupIds: [],
       backgroundSelected: false,
       selectedSceneId: null,
+      scenePreview: null,
       saveStatus: "saved",
       externallyModified: false,
       composeOrigin: undefined,
@@ -656,6 +667,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       selectedGroupIds: [],
       backgroundSelected: false,
       selectedSceneId: null,
+      scenePreview: null,
     });
   },
 
@@ -670,6 +682,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       selectedGroupIds: [],
       backgroundSelected: false,
       selectedSceneId: null,
+      scenePreview: null,
       saveStatus: "saved",
       externallyModified: false,
       composeOrigin: undefined,
@@ -693,6 +706,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     withRevision(next);
     set((s) => ({
       doc: next,
+      scenePreview: null,
       selectedIds: s.selectedIds.filter((id) =>
         next.elements.some((el) => el.id === id),
       ),
@@ -756,6 +770,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         .map((node) => node.id),
       backgroundSelected: false,
       selectedSceneId: null,
+      scenePreview: null,
     });
   },
 
@@ -767,6 +782,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         selectedGroupIds: [],
         backgroundSelected: false,
         selectedSceneId: null,
+        scenePreview: null,
       });
       return;
     }
@@ -791,6 +807,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       selectedGroupIds: [],
       backgroundSelected: true,
       selectedSceneId: null,
+      scenePreview: null,
     }),
 
   selectMany: (ids, add = false) => {
@@ -802,6 +819,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       selectedGroupIds: [],
       backgroundSelected: false,
       selectedSceneId: null,
+      scenePreview: null,
     }));
   },
 
@@ -810,6 +828,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     if (id && (!doc || !sceneObjectList(doc).some((o) => o.id === id))) return;
     set({
       selectedSceneId: id,
+      scenePreview: id === get().selectedSceneId ? get().scenePreview : null,
       selectedIds: [],
       selectedGroupIds: [],
       backgroundSelected: false,
@@ -1176,11 +1195,19 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const current = lights?.find((light) => light.id === id);
     if (!current || !lights) return;
     const recompute = patch.canvas !== undefined || patch.depth !== undefined;
-    const canvas = patch.canvas ? clampNorm(patch.canvas) : undefined;
+    const fromDirection =
+      patch.canvas === undefined &&
+      (patch.azimuth !== undefined || patch.elevation !== undefined)
+        ? sceneToCanvas({
+            azimuth: patch.azimuth ?? current.azimuth,
+            elevation: patch.elevation ?? current.elevation,
+          })
+        : undefined;
+    const canvas = patch.canvas ? clampNorm(patch.canvas) : fromDirection?.canvas;
     const depth = patch.depth;
     const scene = recompute
       ? canvasToScene(
-          canvas ?? current.canvas ?? { x: 0, y: 0 },
+          canvas ?? current.canvas ?? sceneToCanvas(current).canvas,
           depth ?? current.depth ?? "front",
         )
       : undefined;
@@ -1189,6 +1216,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       ...patch,
       id: current.id,
       ...(canvas ? { canvas } : {}),
+      ...(fromDirection && patch.depth === undefined
+        ? { depth: fromDirection.depth }
+        : {}),
       ...(scene ? { azimuth: scene.azimuth, elevation: scene.elevation } : {}),
     });
     if (
@@ -1284,12 +1314,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   renameSceneObject: (id, value) => {
-    // Camera and ambient are settings, not named objects; only lights
-    // carry a stored name.
-    if (id === "camera" || id === "ambient") return;
+    if (id === "ambient") return;
     const name = value.trim().slice(0, 60);
     if (!name) return;
-    get().updateSceneLight(id, { name });
+    if (id === "camera") get().updateSceneCamera({ name });
+    else get().updateSceneLight(id, { name });
   },
 
   toggleSceneGuide: (id) => {
@@ -1836,6 +1865,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       selectedIds: [],
       selectedGroupIds: [],
       selectedSceneId: null,
+      scenePreview: null,
       saveStatus: "saving",
     }));
     clearTimeout(saveTimer);
@@ -1853,6 +1883,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       selectedIds: [],
       selectedGroupIds: [],
       selectedSceneId: null,
+      scenePreview: null,
       saveStatus: "saving",
     }));
     clearTimeout(saveTimer);

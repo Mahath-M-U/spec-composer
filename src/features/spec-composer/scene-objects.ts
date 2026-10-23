@@ -20,7 +20,7 @@ type StudioLightRole = StudioLight["role"];
 
 export { MAX_SCENE_LIGHTS } from "./types";
 
-type SceneDisplayKind = SceneLightKind | "rim";
+export type SceneDisplayKind = SceneLightKind | "rim";
 
 const KIND_LABELS: Record<SceneDisplayKind, string> = {
   sun: "Sunlight",
@@ -124,22 +124,22 @@ export interface SceneAssetDef {
  * with Rim as a role/depth variant of Spotlight. Ambient is a global
  * setting row, not a card (see AddTab.tsx). */
 export const SCENE_ASSETS: readonly SceneAssetDef[] = [
-  { id: "camera", label: "Camera", hint: "Frames the scene for the generated image.", kind: "camera" },
+  { id: "camera", label: "Camera", hint: "Add a camera", kind: "camera" },
   {
     id: "camera-from-view",
     label: "Set from View",
     hint: "Matches the camera to your current canvas view.",
     kind: "cameraFromView",
   },
-  { id: "sun", label: "Sunlight", hint: "Strong directional light with hard shadows.", kind: "sun" },
-  { id: "diffused", label: "Diffused", hint: "Broad, soft light with gentle shadows.", kind: "diffused" },
-  { id: "spot", label: "Spotlight", hint: "A focused cone of light.", kind: "spot" },
-  { id: "point", label: "Point", hint: "Omnidirectional light from a single source.", kind: "point" },
-  { id: "area", label: "Area", hint: "Soft light from a rectangular source.", kind: "area" },
+  { id: "sun", label: "Sunlight", hint: "Directional light", kind: "sun" },
+  { id: "diffused", label: "Diffused", hint: "Soft, even light", kind: "diffused" },
+  { id: "spot", label: "Spotlight", hint: "Focused cone light", kind: "spot" },
+  { id: "point", label: "Point", hint: "Omnidirectional", kind: "point" },
+  { id: "area", label: "Area", hint: "Rectangular light", kind: "area" },
   {
     id: "rim",
     label: "Rim",
-    hint: "Edge light from behind for separation.",
+    hint: "Edge light",
     kind: "spot",
     roleOverride: "Rim",
     depthOverride: "back",
@@ -158,7 +158,7 @@ export function kindFromLegacy(
   return "area";
 }
 
-function displayKind(light: StudioLight): SceneDisplayKind {
+export function displayKind(light: StudioLight): SceneDisplayKind {
   if (light.role === "Rim") return "rim";
   return light.kind ?? kindFromLegacy(light);
 }
@@ -232,11 +232,12 @@ export interface SceneObjectSummary {
   id: string;
   type: "camera" | "light" | "ambient";
   label: string;
+  iconId: string;
   enabled: boolean;
   guideHidden: boolean;
 }
 
-/** The Scene tab's flat list: camera (if any), every light, then Ambient â€”
+/** The Scene tab's flat list: camera (if any), every light, then Ambient —
  * always present so it can be toggled on even before anyone else set it. */
 export function sceneObjectList(
   doc: Pick<SpecDocument, "generationSettings">,
@@ -247,7 +248,8 @@ export function sceneObjectList(
     list.push({
       id: "camera",
       type: "camera",
-      label: "Camera",
+      label: settings.camera.name ?? "Camera",
+      iconId: "camera",
       enabled: settings.camera.enabled,
       guideHidden: !!settings.camera.guideHidden,
     });
@@ -259,7 +261,8 @@ export function sceneObjectList(
     list.push({
       id: light.id,
       type: "light",
-      label: `${KIND_LABELS[display]} ${next}`,
+      label: light.name || `${KIND_LABELS[display]} ${next}`,
+      iconId: display,
       enabled: light.enabled,
       guideHidden: !!light.guideHidden,
     });
@@ -268,6 +271,7 @@ export function sceneObjectList(
     id: "ambient",
     type: "ambient",
     label: "Ambient",
+    iconId: "ambient",
     enabled: settings?.ambient?.enabled ?? false,
     guideHidden: true,
   });

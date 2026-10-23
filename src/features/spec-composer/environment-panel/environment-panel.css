@@ -1,122 +1,486 @@
-.environment-add-tab {
+.environment-panel {
+  --environment-surface: color-mix(
+    in oklab,
+    var(--color-editor-foreground) 4%,
+    var(--color-editor-surface)
+  );
+  --environment-hover: color-mix(
+    in oklab,
+    var(--color-editor-foreground) 8%,
+    var(--color-editor-surface)
+  );
+  --environment-selected: color-mix(
+    in oklab,
+    var(--editor-action) 10%,
+    var(--color-editor-surface)
+  );
+}
+.environment-panel .asset-workflow-tabs {
+  margin-bottom: 12px;
+}
+.environment-panel > [role="tabpanel"] {
+  padding-inline: 16px;
+}
+.environment-panel .environment-add-tab {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
 }
-.environment-ambient-row {
+.environment-panel .environment-asset-grid,
+.environment-panel .environment-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.environment-panel .environment-asset-tile {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  align-content: start;
+  gap: 6px 2px;
+  min-width: 0;
+  min-height: 76px;
+  padding: 8px;
+  border-radius: 10px;
+  background: var(--environment-surface);
+}
+.environment-panel .environment-asset-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  height: 44px;
+  border: 0;
+  padding: 0;
+  color: var(--color-editor-foreground);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.environment-panel .environment-asset-tile[data-disabled="true"] {
+  opacity: 0.45;
+}
+.environment-panel .environment-asset-main:disabled {
+  cursor: default;
+}
+.environment-panel .contextual-element-thumb {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-editor-muted);
+}
+.environment-panel .contextual-element-thumb svg {
+  width: 24px;
+  height: 24px;
+}
+.environment-panel .thumb-accent {
+  stroke: var(--editor-action);
+}
+.environment-panel .environment-tile-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  text-align: left;
+}
+.environment-panel .environment-tile-text strong {
+  display: block;
+  overflow: hidden;
+  color: var(--color-editor-foreground);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.environment-panel .environment-tile-text small {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--color-editor-muted);
+  font-size: 10px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.environment-panel .environment-circle-action {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 50%;
+  padding: 0;
+  color: var(--color-editor-muted);
+  background: color-mix(
+    in oklab,
+    var(--color-editor-foreground) 5%,
+    transparent
+  );
+  cursor: pointer;
+}
+.environment-panel .environment-circle-action svg {
+  width: 15px;
+  height: 15px;
+}
+.environment-panel .environment-circle-action:hover:not(:disabled) {
+  color: var(--color-editor-foreground);
+  background: var(--environment-hover);
+}
+.environment-panel .environment-circle-action[aria-pressed="true"] {
+  color: var(--editor-action);
+}
+.environment-panel .environment-circle-action:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.environment-panel .environment-set-view {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 26px;
+  border: 0;
+  border-radius: 6px;
+  padding: 4px 6px;
+  color: var(--editor-action);
+  background: var(--environment-selected);
+  font-size: 10px;
+  cursor: pointer;
+}
+.environment-panel .environment-set-view:hover {
+  background: color-mix(
+    in oklab,
+    var(--editor-action) 16%,
+    var(--color-editor-surface)
+  );
+}
+.environment-panel .environment-presets-section {
+  padding-top: 12px;
+  border-top: 1px solid
+    color-mix(in oklab, var(--color-editor-foreground) 8%, transparent);
+}
+.environment-panel .environment-presets-section h3 {
+  margin: 0 0 8px;
+  color: var(--color-editor-muted);
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.environment-panel .environment-preset-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 74px;
+  border: 0;
+  border-radius: 10px;
+  padding: 8px;
+  background: var(--environment-surface);
+  cursor: pointer;
+}
+.environment-panel .environment-preset-card:hover {
+  background: var(--environment-hover);
+}
+.environment-panel .environment-preset-card[aria-pressed="true"] {
+  background: var(--environment-selected);
+  box-shadow: inset 0 0 0 1px
+    color-mix(in oklab, var(--editor-action) 45%, transparent);
+}
+.environment-panel .environment-preset-preview {
+  flex-shrink: 0;
+  width: 40px;
+  height: 48px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+.environment-panel .environment-preset-card strong {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+.environment-panel .scene-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 10px 12px;
-  border-radius: 9px;
-  background: color-mix(in oklab, var(--color-editor-foreground) 4%, var(--color-editor-surface));
-}
-.environment-presets-section h3,
-.environment-prompt-section h3 {
-  margin: 0 0 4px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-editor-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-}
-.environment-preset-card {
-  min-height: 48px;
-  cursor: pointer;
-}
-.environment-preset-card .contextual-element-name {
-  white-space: normal;
-}
-.environment-preset-card small {
-  white-space: normal;
-  overflow: visible;
-  text-overflow: unset;
-}
-.environment-prompt-section {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid color-mix(in oklab, var(--color-editor-foreground) 10%, transparent);
-}
-.scene-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
   margin: 0 0 12px;
   padding: 0;
   list-style: none;
 }
-.scene-list-row {
+.environment-panel .scene-list-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  border-radius: 9px;
-  border: 1px solid transparent;
+  gap: 6px;
+  min-width: 0;
+  min-height: 48px;
+  border: 0;
+  border-radius: 10px;
+  padding: 8px;
+  background: var(--environment-surface);
+  cursor: pointer;
 }
-.scene-list-row[data-selected="true"] {
-  border-color: var(--editor-action);
+.environment-panel .scene-list-row[data-selected="true"] {
+  background: var(--environment-selected);
 }
-.scene-list-select {
+.environment-panel .scene-list-select {
   display: grid;
   place-items: center;
   flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: 0;
   padding: 0;
-  border: none;
+  border-radius: 6px;
   background: transparent;
-  color: var(--color-editor-muted);
   cursor: pointer;
 }
-.scene-list-select[aria-pressed="true"] {
+.environment-panel
+  .scene-list-row[data-selected="true"]
+  .contextual-element-thumb {
   color: var(--editor-action);
 }
-.scene-list-name {
+.environment-panel .scene-list-name {
   flex: 1;
   min-width: 0;
+}
+.environment-panel .scene-list-name .se-input {
+  width: 100%;
+  height: 28px;
+  border: 1px solid transparent;
+  padding: 4px 2px;
+  background: transparent;
   font-size: 12px;
-  font-weight: 500;
-  overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
-.scene-list-row .se-field {
-  flex: 1;
-  min-width: 0;
+.environment-panel .scene-list-name .se-input:focus {
+  border-color: var(--editor-action);
+  background: var(--color-editor-surface);
 }
-/* The rename CommitInput's visible label is redundant next to the row's own
- * icon; keep it for screen readers without showing it twice. */
-.scene-list-row .se-field > span {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-}
-.scene-list-actions {
+.environment-panel .scene-list-actions {
   display: flex;
-  align-items: center;
   gap: 2px;
   flex-shrink: 0;
 }
-.scene-list-icon-button {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
+.environment-panel .scene-list-name .se-field > span,
+.environment-panel .environment-slider-property .se-field > span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
   padding: 0;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--color-editor-muted);
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.environment-panel .environment-inspector {
+  margin-bottom: 12px;
+  padding: 10px;
+  border-radius: 10px;
+  background: var(--environment-surface);
+}
+.environment-panel .environment-inspector-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding-bottom: 8px;
+}
+.environment-panel .environment-inspector-heading .contextual-element-thumb {
+  width: 32px;
+  height: 36px;
+}
+.environment-panel
+  .environment-inspector-heading
+  .environment-tile-text
+  strong {
+  font-size: 13px;
+}
+.environment-panel .environment-property {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 10px 0;
+  border-top: 1px solid
+    color-mix(in oklab, var(--color-editor-foreground) 7%, transparent);
+  color: var(--color-editor-foreground);
+  font-size: 11px;
+}
+.environment-panel .environment-slider-property {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 62px;
+  gap: 8px;
+}
+.environment-panel .environment-slider-property > input[type="range"] {
+  grid-column: 1 / -1;
+  width: 100%;
+  height: 4px;
+  margin: 3px 0;
+  accent-color: var(--editor-action);
   cursor: pointer;
 }
-.scene-list-icon-button:hover {
-  background: color-mix(in oklab, var(--color-editor-foreground) 10%, transparent);
+.environment-panel .environment-property .se-input,
+.environment-panel .environment-coordinate-grid .se-input {
+  width: 100%;
+  height: 26px;
+  min-width: 0;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: 6px;
   color: var(--color-editor-foreground);
+  background: var(--color-editor-surface);
+  font-size: 11px;
 }
-.scene-list-icon-button[aria-pressed="true"] {
+.environment-panel .environment-color-inputs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  width: 130px;
+  border-radius: 6px;
+  padding: 3px 5px;
+  background: var(--color-editor-surface);
+}
+.environment-panel .environment-color-inputs input[type="color"] {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.environment-panel .environment-color-inputs input[type="text"] {
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  padding: 2px;
+  background: transparent;
+  color: var(--color-editor-foreground);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+.environment-panel .environment-color-inputs input[aria-invalid="true"] {
+  outline: 1px solid var(--editor-action);
+}
+.environment-panel .environment-shadow-options {
+  display: flex;
+  gap: 2px;
+  border-radius: 7px;
+  padding: 2px;
+  background: var(--color-editor-surface);
+}
+.environment-panel .environment-shadow-options button {
+  border: 0;
+  border-radius: 5px;
+  padding: 5px 10px;
+  background: transparent;
+  color: var(--color-editor-muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+.environment-panel .environment-shadow-options button[aria-pressed="true"] {
+  background: var(--environment-selected);
   color: var(--editor-action);
 }
-.scene-list-delete:hover {
-  color: var(--color-editor-danger, #d64545);
+.environment-panel .environment-select-property select {
+  max-width: 60%;
+  min-width: 0;
+  height: 26px;
+  border: 0;
+  border-radius: 6px;
+  padding: 3px 6px;
+  background: var(--color-editor-surface);
+  color: var(--color-editor-foreground);
+  font-size: 11px;
+}
+.environment-panel .environment-transform-controls {
+  display: grid;
+  gap: 8px;
+  padding: 10px 0;
+  border-top: 1px solid
+    color-mix(in oklab, var(--color-editor-foreground) 7%, transparent);
+  font-size: 11px;
+}
+.environment-panel .environment-coordinate-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.environment-panel .environment-coordinate-grid .se-field {
+  min-width: 0;
+}
+.environment-panel .environment-coordinate-grid .se-field > span {
+  font-size: 10px;
+  color: var(--color-editor-muted);
+}
+.environment-panel .environment-ambient-settings {
+  margin: 0 0 12px;
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: var(--environment-surface);
+}
+.environment-panel .environment-ambient-settings summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  list-style: none;
+  cursor: pointer;
+}
+.environment-panel .environment-status {
+  color: var(--color-editor-muted);
+  font-size: 10px;
+}
+.environment-panel .environment-prompt-section {
+  margin: 0;
+  padding-top: 8px;
+  border-top: 1px solid
+    color-mix(in oklab, var(--color-editor-foreground) 8%, transparent);
+}
+.environment-panel .scene-lighting-controls {
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+}
+.environment-panel .scene-lighting-controls > summary {
+  padding: 8px 0;
+  font-size: 12px;
+}
+.environment-panel .scene-lighting-controls > summary > span {
+  font-size: 9px;
+}
+.environment-panel .environment-empty {
+  margin: 0 0 12px;
+  padding: 12px 8px;
+  color: var(--color-editor-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.environment-panel button:focus-visible,
+.environment-panel summary:focus-visible,
+.environment-panel input:focus-visible,
+.environment-panel select:focus-visible {
+  outline: 2px solid var(--editor-action);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .environment-panel button,
+  .environment-panel input {
+    transition: none !important;
+  }
 }
