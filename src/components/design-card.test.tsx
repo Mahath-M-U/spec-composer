@@ -239,8 +239,68 @@ describe("design card styles", () => {
     expect(globalCss).toMatch(/z-index:\s*1;\s*transform:\s*scale\(1\.015\);/);
   });
 
-  it("keeps the copy button transparent at rest", () => {
-    expect(css).toMatch(/\.design-card-copy\s*\{[^}]*background:\s*transparent/);
+  it("keeps the copy button legible on the card surface at rest", () => {
+    const base = css.match(/\.design-card-copy\s*\{([^}]+)\}/);
+    expect(base).toBeTruthy();
+    expect(base![1]).toContain("background: var(--design-card-surface)");
+    expect(base![1]).toContain("color: var(--color-primary)");
+  });
+
+  it("uses contrasting primary colors for card and button interaction states", () => {
+    const interaction = css.match(
+      /\.design-card:is\(:hover, :focus-within, \[data-menu-open\]\) \.design-card-copy,\s*\.design-card-copy:is\(:hover, :active, :focus-visible\)\s*\{([^}]+)\}/,
+    );
+    expect(interaction).toBeTruthy();
+    expect(interaction![1]).toContain("background: var(--color-primary)");
+    expect(interaction![1]).toContain("color: var(--color-primary-foreground)");
+    expect(interaction!.index).toBeGreaterThan(
+      css.indexOf(".design-card-copy {"),
+    );
+    const copyBlocks = css.match(/\.design-card-copy\s*\{[^}]*\}/g) ?? [];
+    expect(
+      copyBlocks.filter((block) => /\bbackground:/.test(block)),
+    ).toHaveLength(1);
+  });
+
+  it("reserves normal-width, naturally aligned tracks for homepage rows", () => {
+    const row = globalCss.match(
+      /\.home-page-content \.template-strip--starters,\s*\.home-page-content \.template-strip--recent\s*\{([^}]+)\}/,
+    );
+    expect(row).toBeTruthy();
+    expect(row![1]).toContain("--home-card-min-width: 210px");
+    expect(row![1]).toContain("align-items: start");
+    expect(row![1]).toMatch(/grid-template-columns:\s*repeat\(\s*auto-fill,/);
+  });
+
+  it("uses a full-width ordered grid for My designs masonry with intrinsic item heights", () => {
+    const fallback = globalCss.match(
+      /\.projects-page \.project-masonry\s*\{([^}]+)\}/,
+    );
+    expect(fallback).toBeTruthy();
+    expect(fallback![1]).toContain("display: grid");
+    expect(fallback![1]).toContain("width: 100%");
+    expect(fallback![1]).toMatch(
+      /grid-template-columns:\s*repeat\(\s*auto-fit,/,
+    );
+    const measured = globalCss.match(
+      /\.projects-page \.project-masonry\[data-project-masonry\]\s*\{([^}]+)\}/,
+    );
+    expect(measured).toBeTruthy();
+    expect(measured![1]).toContain("repeat(var(--project-masonry-columns)");
+    expect(measured![1]).toContain("grid-auto-flow: row");
+    expect(measured![1]).toContain("grid-auto-rows: 1px");
+    expect(measured![1]).toContain("row-gap: 0");
+    expect(measured![1]).not.toMatch(/(?:height|overflow[^:]*):/);
+    expect(globalCss).toMatch(
+      /\.projects-page \.project-masonry > \.project-masonry-item\s*\{[^}]*align-self: start/,
+    );
+    expect(globalCss).toMatch(
+      /\.projects-page \.project-masonry\s*\{\s*--project-masonry-max-columns: 2;/,
+    );
+    expect(globalCss).toMatch(
+      /\.projects-page \.project-masonry\s*\{\s*--project-masonry-max-columns: 1;/,
+    );
+    expect(globalCss).not.toContain(".projects-page .template-masonry");
   });
 
   it("gives the chip a primary-tinted border with light, legible text", () => {

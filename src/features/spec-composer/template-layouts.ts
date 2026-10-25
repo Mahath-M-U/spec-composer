@@ -1,4 +1,11 @@
-import type { ImageKind, SpecElement } from "./types";
+import { libraryVisual } from "./template-assets";
+import {
+  isImageKind,
+  isTextKind,
+  type Format,
+  type ImageKind,
+  type SpecElement,
+} from "./types";
 
 /**
  * Compositions for starter templates. Boxes are [x, y, width, height]
@@ -16,6 +23,8 @@ export interface Palette {
 /** One element of an authored layout; `box` is [x, y, width, height] as fractions of the format. */
 export interface SlotSpec {
   kind: SpecElement["kind"];
+  assetId?: string;
+  constraint?: SpecElement["constraint"];
   /** For ±90° rotation this is the rotated (visual) extent; the builder derives the element box. */
   box: [number, number, number, number];
   rotation?: number;
@@ -140,6 +149,25 @@ function fitSize(
   return 8;
 }
 
+/** Recheck wrapping against the actual native pixel box after layout and scaling. */
+export function fitTemplateText(element: SpecElement): void {
+  if (!isTextKind(element.kind) || !element.content || !element.style.fontSize)
+    return;
+  const { fontSize, fontFamily, lineHeight, letterSpacing } = element.style;
+  element.style.fontSize = fitSize(
+    element.content,
+    element.width,
+    element.height,
+    fontFamily ?? FONT.sans,
+    {
+      max: fontSize,
+      lh: lineHeight ?? 1.1,
+      tracking: (letterSpacing ?? 0) / fontSize,
+      lines: 20,
+    },
+  );
+}
+
 function luminance(hex: string) {
   const value = Number.parseInt(hex.replace("#", "").slice(0, 6), 16);
   const r = (value >> 16) & 255;
@@ -202,6 +230,14 @@ function type(
       );
   return {
     kind,
+    ...(kind === "cta" ? { assetId: "promo-cta-pill" } : {}),
+    ...(kind === "cta"
+      ? {
+          constraint: {
+            positiveConstraint: `Editable call to action with the exact label "${content}", ${o.background ?? "transparent"} fill, ${o.color} text, ${o.align ?? "left"} alignment and ${o.radius ?? 0}px corner radius.`,
+          },
+        }
+      : {}),
     box,
     content,
     ...(o.rotate ? { rotation: o.rotate } : {}),
@@ -251,8 +287,8 @@ const body = (
     weight: 500,
     color,
     max: size,
-    fixed: true,
-    lh: 1.4,
+    lines: Math.max(3, content.split("\n").length),
+    lh: 1.35,
     align,
   });
 
@@ -275,8 +311,12 @@ const rect = (
   o: { name?: string; opacity?: number; radius?: number } = {},
 ): SlotSpec => ({
   kind: "shape",
+  assetId: o.radius ? "shapes-rounded-card" : "shapes-rectangle",
   box,
   name: o.name ?? "Shape",
+  constraint: {
+    positiveConstraint: `Rectangle panel with background ${background}, opacity ${o.opacity ?? 1} and ${o.radius ?? 0}px corner radius; preserve its authored geometry and gradient stops.`,
+  },
   style: {
     background,
     borderRadius: o.radius ?? 0,
@@ -286,8 +326,12 @@ const rect = (
 
 const disc = (box: Box, background: string, name = "Disc"): SlotSpec => ({
   kind: "shape",
+  assetId: "shapes-circle",
   box,
   name,
+  constraint: {
+    positiveConstraint: `Circular accent with ${background} fill at full opacity; keep the authored circle perfectly round.`,
+  },
   style: {
     background,
     shapeType: "circle",
@@ -298,11 +342,16 @@ const disc = (box: Box, background: string, name = "Disc"): SlotSpec => ({
 
 const rule = (box: Box, color: string, opacity = 1): SlotSpec => ({
   kind: "divider",
+  assetId: "lines-hairline",
   box,
+  constraint: {
+    positiveConstraint: `Fine ${color} divider at ${opacity} opacity; preserve the authored thickness and orientation.`,
+  },
   style: { background: color, opacity, borderRadius: 0 },
 });
 
 export interface Visual {
+  assetId?: string;
   kind: ImageKind;
   art: string;
   ai: string;
@@ -342,6 +391,7 @@ function photo(
   const [focalX, focalY] = v.focal ?? defaults.focal ?? [0.5, 0.5];
   return {
     kind: v.kind,
+    ...(v.assetId ? { assetId: v.assetId } : {}),
     box,
     placeholderArt: v.art,
     aiDescription: v.ai,
@@ -409,6 +459,7 @@ export function sceneSlots(
 /** Logo slots are image kinds: they hold the user's logo, shown as a generic mark until one is added. */
 export const logoSlot = (box: Box): SlotSpec => ({
   kind: "logo",
+  assetId: "brand-logo",
   box,
   placeholderArt: "logo-mark",
   style: { objectFit: "contain" },
@@ -444,17 +495,17 @@ export function megaType(
     return [
       meta([0.05, 0.028, 0.5, 0.03], copy.eyebrow ?? "", c.ink),
       meta([0.45, 0.028, 0.5, 0.03], copy.note ?? "", c.ink, "right"),
-      type("title", [0.03, 0.06, 0.94, 0.25], copy.title, {
+      type("title", [0.05, 0.075, 0.9, 0.22], copy.title, {
         font,
         color: c.ink,
-        max: 380,
+        max: 320,
         lh: 0.86,
         lines: 2,
         align: "center",
       }),
       o.scene
         ? photo(v, [0, 0.3, 1, 0.42], { fit: "cover" })
-        : photo(v, [0.08, 0.1, 0.84, 0.9], {
+        : photo(v, [0.12, 0.2, 0.76, 0.62], {
             fit: "cover",
             focal: [0.5, 0],
           }),
@@ -490,7 +541,7 @@ export function boldBlock(copy: Copy, v: Visual, o: { font?: string } = {}) {
       type("title", [0.03, 0.06, 0.94, 0.24], copy.title, {
         font,
         color: c.ink,
-        max: 300,
+        max: 260,
         lh: 0.9,
         lines: 2,
         align: "center",
@@ -538,7 +589,7 @@ export function editorialSerif(
   o: { font?: string; radius?: number } = {},
 ) {
   return (c: Palette): SlotSpec[] => {
-    const radius = o.radius ?? 0;
+    const radius = o.radius ?? 24;
     const slots: SlotSpec[] = [
       meta([0.06, 0.035, 0.5, 0.03], copy.eyebrow ?? "", c.ink),
       meta([0.44, 0.035, 0.5, 0.03], copy.note ?? "", c.ink, "right"),
@@ -546,7 +597,7 @@ export function editorialSerif(
       type("title", [0.06, 0.09, 0.88, 0.2], copy.title, {
         font: o.font ?? FONT.serif,
         color: c.ink,
-        max: 190,
+        max: 172,
         lh: 0.95,
         lines: 2,
       }),
@@ -597,9 +648,9 @@ export function collage(
 ) {
   return (c: Palette): SlotSpec[] => {
     const frames: Box[] = [
-      [0.05, 0.04, 0.54, 0.56],
-      [0.62, 0.04, 0.33, 0.27],
-      [0.62, 0.33, 0.33, 0.27],
+      [0.05, 0.055, 0.56, 0.53],
+      [0.635, 0.055, 0.315, 0.25],
+      [0.635, 0.33, 0.315, 0.255],
     ];
     const slots: SlotSpec[] = frames.flatMap((box, i) => [
       rect(box, c.accent, { name: "Photo backdrop", opacity: 0.22 }),
@@ -818,8 +869,8 @@ export function spotlight(
           `radial-gradient(closest-side, ${c.accent}8C, ${c.accent}00)`,
           { name: "Floor glow" },
         ),
-        photo(v, [0.2, 0.1, 0.6, 0.57], { fit: "contain", focal: [0.5, 1] }),
-        type("title", [0.06, 0.7, 0.88, 0.12], copy.title, {
+        photo(v, [0.24, 0.12, 0.52, 0.52], { fit: "contain", focal: [0.5, 1] }),
+        type("title", [0.08, 0.68, 0.84, 0.13], copy.title, {
           font,
           color: c.ink,
           max: 150,
@@ -858,12 +909,11 @@ export function ornamentFrame(
     const slots: SlotSpec[] = [
       {
         ...photo(
-          visual(
-            "supportingImage",
-            o.ornament,
+          libraryVisual(
+            o.ornament === "gold-frame" ? "frames-gold" : "frames-floral",
             o.ornament === "gold-frame"
-              ? "Thin ornamental gold border with corner flourishes"
-              : "Hand-painted floral corners framing the page",
+              ? "Fine champagne-gold corner rules with generous unprinted space around the invitation"
+              : "Airy watercolor olive branches and blush flowers at opposite corners; keep the invitation copy unobstructed",
           ),
           [0.02, 0.015, 0.96, 0.97],
           { fit: "contain" },
@@ -1141,4 +1191,287 @@ export function voucher(copy: Copy & { offer: string }) {
     slots.push(meta([0.1, 0.9, 0.8, 0.03], copy.note ?? "", c.ink, "center"));
     return slots;
   };
+}
+
+/** Recompose the authored family for its destination; geometry is never stretched from a portrait. */
+export function layoutForFormat(
+  authored: SlotSpec[],
+  colors: Palette,
+  format: Format,
+  family: string,
+): SlotSpec[] {
+  const slots = authored.filter(
+    (slot) => !isTextKind(slot.kind) || slot.content,
+  );
+  const ratio = format.width / format.height;
+  const image = (slot: SlotSpec) =>
+    isImageKind(slot.kind) && slot.kind !== "logo";
+  // Text-led starters still carry an intentional, replaceable Library illustration.
+  if (!slots.some(image) && family !== "businessCard") {
+    const assetId =
+      family === "spotlight" ? "abstract-glass-cards" : "icons-sticker-arrow";
+    slots.unshift(
+      photo(
+        libraryVisual(
+          assetId,
+          family === "spotlight"
+            ? "Small sculptural translucent glass cards catching cool blue light; keep the central headline clear"
+            : "Small hand-cut upward arrow in the accent color, a quiet reminder of steady progress",
+          { fit: "contain" },
+        ),
+        family === "spotlight"
+          ? [0.38, 0.13, 0.24, 0.15]
+          : [0.76, 0.75, 0.13, 0.1],
+        { fit: "contain" },
+      ),
+    );
+  }
+  if (ratio > 1.25) return landscapeLayout(slots, colors, format, family);
+  if (ratio > 0.95) return squareLayout(slots, colors, family);
+  if (ratio < 0.7) {
+    // Leave room for status/story UI above and below every authored frame, including scenes.
+    return slots.map((slot) => ({
+      ...slot,
+      box: [
+        slot.box[0] * 0.92 + 0.025,
+        0.1 + slot.box[1] * 0.74,
+        slot.box[2] * 0.92,
+        slot.box[3] * 0.74,
+      ],
+      style: {
+        ...slot.style,
+        ...(slot.kind === "title" ? { letterSpacing: 0 } : {}),
+      },
+    }));
+  }
+  return slots;
+}
+
+function squareLayout(
+  slots: SlotSpec[],
+  c: Palette,
+  family: string,
+): SlotSpec[] {
+  if (family === "voucher") return slots;
+  if (family === "newsprint") {
+    const portrait = slots.find((slot) => isImageKind(slot.kind));
+    const quote = slots.find((slot) => slot.kind === "subheading");
+    const attribution = slots.find((slot) => slot.kind === "body");
+    const credit = slots.find(
+      (slot) => slot.kind === "body" && slot !== attribution,
+    );
+    return [
+      rule([0.07, 0.09, 0.86, 0.003], c.accent),
+      meta([0.07, 0.125, 0.8, 0.04], "STUDIO NOTES / 018", c.accent),
+      ...(portrait
+        ? [
+            {
+              ...portrait,
+              box: [0.72, 0.71, 0.2, 0.2] as Box,
+              style: { ...portrait.style, borderRadius: 999 },
+            },
+          ]
+        : []),
+      ...(quote
+        ? [
+            type("title", [0.07, 0.25, 0.86, 0.37], quote.content ?? "", {
+              font: FONT.serif,
+              color: c.ink,
+              max: 118,
+              lines: 4,
+              lh: 1.08,
+            }),
+          ]
+        : []),
+      body(
+        [0.07, 0.73, 0.59, 0.09],
+        attribution?.content ?? "Studio Notes",
+        c.ink,
+        "left",
+        25,
+      ),
+      body(
+        [0.07, 0.85, 0.59, 0.07],
+        credit?.content ?? "Less noise. More meaning.",
+        c.accent,
+        "left",
+        22,
+      ),
+    ];
+  }
+  if (family === "collage") {
+    // One clear quotation and author instead of three competing portrait captions.
+    return slots
+      .filter((slot) => slot.kind !== "body" && slot.kind !== "cta")
+      .map((slot) => {
+        if (slot.kind === "title")
+          return {
+            ...slot,
+            box: [0.06, 0.61, 0.88, 0.22] as Box,
+            style: { ...slot.style, fontSize: 85, lineHeight: 1.05 },
+          };
+        if (slot.kind === "subheading")
+          return {
+            ...slot,
+            box: [0.06, 0.86, 0.88, 0.08] as Box,
+            style: { ...slot.style, fontSize: 30 },
+          };
+        return {
+          ...slot,
+          box: [
+            slot.box[0],
+            slot.box[1],
+            slot.box[2],
+            slot.box[3] * 0.92,
+          ] as Box,
+        };
+      });
+  }
+  return slots
+    .filter((slot) => slot.kind !== "subheading")
+    .map((slot) => {
+      if (slot.kind === "title" && family === "retroSticker")
+        return {
+          ...slot,
+          rotation: 0,
+          box: [0.075, 0.16, 0.85, 0.42] as Box,
+          style: {
+            ...slot.style,
+            fontSize: Math.min(slot.style?.fontSize ?? 100, 108),
+            lineHeight: 1.1,
+          },
+        };
+      return slot;
+    });
+}
+
+function landscapeLayout(
+  slots: SlotSpec[],
+  c: Palette,
+  format: Format,
+  family: string,
+): SlotSpec[] {
+  const thumbnail = format.id === "youtube-thumbnail";
+  const menu = family === "promoSplit";
+  const newspaper = family === "newsprint";
+  const images = slots.filter(
+    (slot) => isImageKind(slot.kind) && slot.kind !== "logo",
+  );
+  const frame: Box = menu
+    ? [0, 0, 0.47, 1]
+    : newspaper
+      ? [0.6, 0.32, 0.35, 0.58]
+      : [0.6, 0.08, 0.35, 0.84];
+  const minX = Math.min(...images.map((slot) => slot.box[0]));
+  const minY = Math.min(...images.map((slot) => slot.box[1]));
+  const extentX =
+    Math.max(...images.map((slot) => slot.box[0] + slot.box[2])) - minX;
+  const extentY =
+    Math.max(...images.map((slot) => slot.box[1] + slot.box[3])) - minY;
+  const result: SlotSpec[] = [
+    rect(
+      menu ? [0.49, 0.09, 0.004, 0.82] : [0.565, 0.08, 0.004, 0.84],
+      c.accent,
+      { name: "Column accent" },
+    ),
+    ...images.map((slot) => ({
+      ...slot,
+      box: [
+        frame[0] + ((slot.box[0] - minX) / extentX) * frame[2],
+        frame[1] + ((slot.box[1] - minY) / extentY) * frame[3],
+        (slot.box[2] / extentX) * frame[2],
+        (slot.box[3] / extentY) * frame[3],
+      ] as Box,
+      style: { ...slot.style, borderRadius: menu ? 0 : 24 },
+    })),
+  ];
+  const x = menu ? 0.535 : 0.055;
+  const width = menu ? 0.405 : 0.47;
+  const index: Record<string, number> = {};
+  const bodyCount = slots.filter((slot) => slot.kind === "body").length;
+  let labelIndex = 0;
+  for (const slot of slots.filter(
+    (slot) => isTextKind(slot.kind) || slot.kind === "logo",
+  )) {
+    const n = index[slot.kind] ?? 0;
+    index[slot.kind] = n + 1;
+    let box: Box;
+    let size: number;
+    if (slot.kind === "title") {
+      box = newspaper
+        ? [x, 0.14, 0.89, 0.15]
+        : [x, 0.21, width, thumbnail ? 0.43 : menu ? 0.22 : 0.34];
+      size = fitSize(
+        slot.content ?? "",
+        box[2] * BASE_WIDTH,
+        box[3] * BASE_HEIGHT,
+        slot.style?.fontFamily ?? FONT.sans,
+        {
+          max: thumbnail ? 174 : menu ? 120 : 160,
+          lh: 1.02,
+          lines: 3,
+          tracking: 0,
+        },
+      );
+    } else if (slot.kind === "eyebrow") {
+      if (n > 1 || (thumbnail && n > 0)) continue;
+      box =
+        n === 0
+          ? [x, newspaper ? 0.045 : 0.08, width, 0.055]
+          : [x, 0.945, width, 0.035];
+      size = 36;
+    } else if (slot.kind === "subheading") {
+      box = [
+        x,
+        newspaper ? 0.35 : thumbnail ? 0.69 : menu ? 0.445 : 0.59,
+        width,
+        newspaper ? 0.19 : 0.105,
+      ];
+      size = thumbnail ? 48 : 42;
+    } else if (slot.kind === "body") {
+      if (thumbnail) continue;
+      if (newspaper && n === 0 && bodyCount > 1) continue;
+      if (!menu && !newspaper && n > 0) continue;
+      box = menu
+        ? bodyCount > 2
+          ? [x, 0.58 + n * 0.068, width * 0.78, 0.062]
+          : n === 0
+            ? [x, 0.445, width, 0.12]
+            : [x, 0.6, width, 0.22]
+        : [x, newspaper ? 0.61 : 0.73, width, newspaper ? 0.14 : 0.1];
+      size = menu ? 34 : 38;
+    } else if (slot.kind === "price" && menu) {
+      box =
+        n === 0 && slots.some((s) => s.name === "Price tag")
+          ? [0.19, 0.08, 0.23, 0.1]
+          : [0.86, 0.58 + n * 0.068, 0.08, 0.062];
+      size = 34;
+    } else if (slot.kind === "cta") {
+      if (thumbnail) continue;
+      box = [x, 0.85, Math.min(width, 0.28), 0.075];
+      size = 32;
+    } else if (["offer", "badge", "price"].includes(slot.kind)) {
+      box = [0.65, 0.76 - labelIndex++ * 0.16, 0.25, 0.13];
+      size = 48;
+    } else if (slot.kind === "logo") {
+      box = [0.66, 0.27, 0.23, 0.35];
+      size = 30;
+    } else continue;
+    result.push({
+      ...slot,
+      rotation: 0,
+      box,
+      style: {
+        ...slot.style,
+        fontSize: size,
+        letterSpacing: 0,
+        lineHeight: slot.kind === "title" ? 1.02 : 1.18,
+        ...(slot.kind === "title" ? { alignment: "left" } : {}),
+        ...(["offer", "badge", "price"].includes(slot.kind)
+          ? { background: c.accent, color: onColor(c.accent), borderRadius: 16 }
+          : {}),
+      },
+    });
+  }
+  return result;
 }

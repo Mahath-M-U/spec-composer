@@ -286,6 +286,7 @@ export function RecentDesignCard({ doc }: { doc: SpecDocument }) {
         title={doc.name}
         category={doc.format.label}
         dimensions={`${doc.format.width} × ${doc.format.height}`}
+        aspectRatio={`${doc.format.width} / ${doc.format.height}`}
         media={<DocumentPreview doc={doc} />}
         previewLabel={`Open ${doc.name}`}
         renderLink={renderOpenLink}

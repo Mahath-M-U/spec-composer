@@ -120,15 +120,6 @@
   .design-card:is(:hover, [data-menu-open]) {
     border-color: var(--card-border-hover);
   }
-
-  .design-card-copy,
-  .design-card .design-card-copy:focus-visible {
-    background: var(--color-primary);
-    color: var(--color-primary-foreground);
-  }
-  .design-card .design-card-copy:hover {
-    background: color-mix(in oklab, var(--color-primary) 90%, var(--color-foreground));
-  }
 }
 
 .design-card-footer {
@@ -172,12 +163,17 @@
   height: 36px;
   border: 0;
   border-radius: 999px;
-  background: transparent;
+  background: var(--design-card-surface);
   color: var(--color-primary);
   cursor: pointer;
   transition:
     background-color 200ms ease-out,
     color 200ms ease-out;
+}
+.design-card:is(:hover, :focus-within, [data-menu-open]) .design-card-copy,
+.design-card-copy:is(:hover, :active, :focus-visible) {
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
 }
 .design-card-copy:focus-visible {
   outline: 2px solid var(--color-ring);

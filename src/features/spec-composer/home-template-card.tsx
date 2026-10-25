@@ -75,11 +75,16 @@ export function HomeTemplateCard({
         className ? `card-hover-scale ${className}` : "card-hover-scale"
       }
       title={doc.name}
-      category={category ?? doc.format.label}
+      category={
+        category ? `${category} / ${doc.format.label}` : doc.format.label
+      }
+      aspectRatio={`${doc.format.width} / ${doc.format.height}`}
       media={
         <TemplateCardMedia
           doc={doc}
-          image={templatePhoto ? templateImageFor(doc.name) : undefined}
+          image={
+            templatePhoto ? templateImageFor(doc.name, doc.format) : undefined
+          }
           priority={priority}
         />
       }

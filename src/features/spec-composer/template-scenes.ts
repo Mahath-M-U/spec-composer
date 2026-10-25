@@ -1,4 +1,5 @@
-import { visual, type SceneLayer } from "./template-layouts.ts";
+import { libraryVisual } from "./template-assets";
+import { type SceneLayer } from "./template-layouts.ts";
 
 /**
  * The Street Style Fit Check scene: a quiet city street built from separate
@@ -18,9 +19,8 @@ import { visual, type SceneLayer } from "./template-layouts.ts";
  */
 export const SEE_THROUGH_ART = ["street-sunbeams", "street-shadows"];
 
-export const STREET_STYLE_MODEL = visual(
-  "humanModelImage",
-  "person-walking",
+export const STREET_STYLE_MODEL = libraryVisual(
+  "people-woman-walking",
   "Candid full-body street-style photo of a fictional adult woman with a short bob in a relaxed cream blazer, white tee, and wide-leg jeans, walking across a quiet city street in late afternoon light; natural unposed movement, no logos",
 );
 
@@ -28,9 +28,8 @@ export const STREET_STYLE_SCENE: SceneLayer[] = [
   {
     name: "Street scene",
     box: [0, 0, 1, 1],
-    visual: visual(
-      "heroImage",
-      "street-crossing",
+    visual: libraryVisual(
+      "scenes-city-street",
       "Quiet European city street in warm late-afternoon light, pale stone pavement and kerb in the middle distance, dark asphalt road with a white crossing stripe in the foreground",
       { fit: "cover", focal: [0.5, 1] },
     ),
@@ -38,9 +37,8 @@ export const STREET_STYLE_SCENE: SceneLayer[] = [
   {
     name: "Tree shadows",
     box: [0, 700 / 1350, 1, 650 / 1350],
-    visual: visual(
-      "supportingImage",
-      "street-shadows",
+    visual: libraryVisual(
+      "scenes-tree-shadows",
       "Long soft diagonal shadows of trees and lamp posts falling across the road",
       { fit: "cover", focal: [0.5, 1] },
     ),
@@ -48,9 +46,8 @@ export const STREET_STYLE_SCENE: SceneLayer[] = [
   {
     name: "Back street",
     box: [560 / 1080, 0, 520 / 1080, 560 / 1350],
-    visual: visual(
-      "supportingImage",
-      "street-shopfront",
+    visual: libraryVisual(
+      "scenes-cafe-street",
       "Receding row of cream stone buildings with a dark-glazed corner cafe front and small potted shrubs, softly out of focus",
       { fit: "cover", focal: [1, 1] },
     ),
@@ -58,9 +55,8 @@ export const STREET_STYLE_SCENE: SceneLayer[] = [
   {
     name: "Stone facade",
     box: [0, 0, 600 / 1080, 600 / 1350],
-    visual: visual(
-      "supportingImage",
-      "street-facade",
+    visual: libraryVisual(
+      "scenes-stone-facade",
       "Pale limestone building facade with tall black-barred windows and a heavy stone plinth, lit by low warm sun",
       { fit: "cover", focal: [0, 1] },
     ),
@@ -68,9 +64,8 @@ export const STREET_STYLE_SCENE: SceneLayer[] = [
   {
     name: "Sunlight",
     box: [0, 0, 1, 1080 / 1350],
-    visual: visual(
-      "supportingImage",
-      "street-sunbeams",
+    visual: libraryVisual(
+      "scenes-sunbeams",
       "Low golden sunlight streaming in from the upper right as soft translucent beams and a warm glow",
       { fit: "cover", focal: [1, 0] },
     ),
@@ -78,9 +73,8 @@ export const STREET_STYLE_SCENE: SceneLayer[] = [
   {
     name: "Street lamp, far",
     box: [735 / 1080, 50 / 1350, 64 / 1080, 333 / 1350],
-    visual: visual(
-      "supportingImage",
-      "street-lamp",
+    visual: libraryVisual(
+      "scenes-street-lamp",
       "Slim black cast-iron street lamp post in the middle distance",
       { fit: "contain", focal: [0.5, 1] },
     ),
@@ -88,9 +82,8 @@ export const STREET_STYLE_SCENE: SceneLayer[] = [
   {
     name: "Plane tree",
     box: [590 / 1080, 0, 490 / 1080, 560 / 1350],
-    visual: visual(
-      "supportingImage",
-      "street-tree",
+    visual: libraryVisual(
+      "scenes-plane-tree",
       "Plane tree with a mottled trunk and an autumn canopy of yellow-green leaves",
       { fit: "contain", focal: [0.5, 1] },
     ),
@@ -98,9 +91,8 @@ export const STREET_STYLE_SCENE: SceneLayer[] = [
   {
     name: "Street lamp",
     box: [870 / 1080, 60 / 1350, 100 / 1080, 520 / 1350],
-    visual: visual(
-      "supportingImage",
-      "street-lamp",
+    visual: libraryVisual(
+      "scenes-street-lamp",
       "Tall black cast-iron street lamp post with a lantern head at the kerb",
       { fit: "contain", focal: [0.5, 1] },
     ),
@@ -108,9 +100,8 @@ export const STREET_STYLE_SCENE: SceneLayer[] = [
   {
     name: "Iron railing",
     box: [310 / 1080, 420 / 1350, 110 / 1080, 170 / 1350],
-    visual: visual(
-      "supportingImage",
-      "street-railing",
+    visual: libraryVisual(
+      "scenes-iron-railing",
       "Short black wrought-iron railing section along the pavement",
       { fit: "contain", focal: [0.5, 1] },
     ),
@@ -118,9 +109,8 @@ export const STREET_STYLE_SCENE: SceneLayer[] = [
   {
     name: "Planter",
     box: [630 / 1080, 365 / 1350, 150 / 1080, 240 / 1350],
-    visual: visual(
-      "supportingImage",
-      "street-planter",
+    visual: libraryVisual(
+      "scenes-planter",
       "Dark rectangular street planter holding a rounded green shrub",
       { fit: "contain", focal: [0.5, 1] },
     ),
@@ -128,9 +118,8 @@ export const STREET_STYLE_SCENE: SceneLayer[] = [
   {
     name: "Cast shadow",
     box: [60 / 1080, 990 / 1350, 560 / 1080, 150 / 1350],
-    visual: visual(
-      "supportingImage",
-      "street-cast-shadow",
+    visual: libraryVisual(
+      "scenes-cast-shadow",
       "Soft elongated shadow of the walking woman stretching toward the lower left",
       { fit: "contain", focal: [0.5, 0.5] },
     ),
@@ -149,9 +138,8 @@ export const STREET_STYLE_SCENE: SceneLayer[] = [
  * docs/template-vectors/sources/everyday-skincare.webp (864 x 1080) through
  * the caption frame's crop (cover, focal y 0.35).
  */
-export const EVERYDAY_SKINCARE_MODEL = visual(
-  "humanModelImage",
-  "bust-skincare",
+export const EVERYDAY_SKINCARE_MODEL = libraryVisual(
+  "people-skincare-woman",
   "Natural candid portrait of a fictional adult woman with freckles and curly hair applying moisturizer to her cheek by a sunlit bathroom window, bare shoulders, gentle expression, unbranded skincare routine",
 );
 
@@ -159,9 +147,8 @@ export const EVERYDAY_SKINCARE_SCENE: SceneLayer[] = [
   {
     name: "Bathroom",
     box: [0, 0, 1, 1],
-    visual: visual(
-      "heroImage",
-      "bathroom-wall",
+    visual: libraryVisual(
+      "scenes-bathroom",
       "Bright bathroom with a near-white wall, a shower recess on the left, a black-framed window with a green view at the top right and a wooden vanity counter at the bottom right",
       { fit: "cover", focal: [0.5, 0.5] },
     ),
@@ -169,9 +156,8 @@ export const EVERYDAY_SKINCARE_SCENE: SceneLayer[] = [
   {
     name: "Towel hook",
     box: [0.01, 0.18, 0.13, 0.48],
-    visual: visual(
-      "supportingImage",
-      "bathroom-towel",
+    visual: libraryVisual(
+      "scenes-towel-hook",
       "White bath towel hanging from a small hook on the left wall",
       { fit: "contain", focal: [0.5, 0] },
     ),
@@ -179,9 +165,8 @@ export const EVERYDAY_SKINCARE_SCENE: SceneLayer[] = [
   {
     name: "Eucalyptus vase",
     box: [0.79, 0.19, 0.21, 0.47],
-    visual: visual(
-      "supportingImage",
-      "plant-vase",
+    visual: libraryVisual(
+      "scenes-plant-vase",
       "Eucalyptus stems in a pale speckled ceramic vase in front of the window",
       { fit: "contain", focal: [0.5, 1] },
     ),
@@ -189,9 +174,8 @@ export const EVERYDAY_SKINCARE_SCENE: SceneLayer[] = [
   {
     name: "Pump bottle",
     box: [0.95, 0.56, 0.05, 0.18],
-    visual: visual(
-      "productImage",
-      "skincare-pump",
+    visual: libraryVisual(
+      "fashion-skincare-pump",
       "Unbranded skincare pump bottle with a blank label on the vanity",
       { fit: "contain", focal: [0.5, 1] },
     ),
@@ -199,9 +183,8 @@ export const EVERYDAY_SKINCARE_SCENE: SceneLayer[] = [
   {
     name: "Window light",
     box: [0.35, 0, 0.65, 0.7],
-    visual: visual(
-      "supportingImage",
-      "street-sunbeams",
+    visual: libraryVisual(
+      "scenes-sunbeams",
       "Soft morning sunlight streaming in from the window at the top right as a warm glow and a single beam",
       { fit: "cover", focal: [1, 0] },
     ),
@@ -218,9 +201,8 @@ export const EVERYDAY_SKINCARE_SCENE: SceneLayer[] = [
  * docs/template-vectors/sources/cafe-morning.webp through the framed variant's
  * crop (cover, focal y 0.36).
  */
-export const CAFE_MORNING_MODEL = visual(
-  "humanModelImage",
-  "person-cafe",
+export const CAFE_MORNING_MODEL = libraryVisual(
+  "people-cafe-man",
   "Candid lifestyle photo of a fictional adult man in a soft rust knit seated by a cafe window with a ceramic coffee mug, looking outside, natural morning light, cozy lived-in interior, no visible logos",
 );
 
@@ -228,9 +210,8 @@ export const CAFE_MORNING_SCENE: SceneLayer[] = [
   {
     name: "Cafe interior",
     box: [0, 0, 1, 1],
-    visual: visual(
-      "heroImage",
-      "cafe-interior",
+    visual: libraryVisual(
+      "scenes-cafe-interior",
       "Cozy cafe window seat with a dark back wall on the left, a pale wall panel, a blank chalkboard, a bright black-framed window at the top right and a wooden table along the bottom",
       { fit: "cover", focal: [0.5, 0.4] },
     ),
@@ -238,9 +219,8 @@ export const CAFE_MORNING_SCENE: SceneLayer[] = [
   {
     name: "Hanging plant",
     box: [0.2, 0, 0.2, 0.38],
-    visual: visual(
-      "supportingImage",
-      "hanging-plant",
+    visual: libraryVisual(
+      "scenes-hanging-plant",
       "Green trailing plant hanging from the ceiling beside the window",
       { fit: "contain", focal: [0.5, 0] },
     ),
@@ -248,9 +228,8 @@ export const CAFE_MORNING_SCENE: SceneLayer[] = [
   {
     name: "Window light",
     box: [0.25, 0, 0.75, 1],
-    visual: visual(
-      "supportingImage",
-      "street-sunbeams",
+    visual: libraryVisual(
+      "scenes-sunbeams",
       "Warm morning sunlight coming through the window from the upper right as a soft glow and a single beam",
       { fit: "cover", focal: [1, 0] },
     ),
@@ -264,9 +243,8 @@ export const CAFE_MORNING_SCENE: SceneLayer[] = [
   {
     name: "Coffee mug",
     box: [0.53, 0.44, 0.15, 0.15],
-    visual: visual(
-      "supportingImage",
-      "mug-ceramic",
+    visual: libraryVisual(
+      "food-ceramic-mug",
       "Speckled cream ceramic coffee mug held in one hand",
       { fit: "contain", focal: [0.5, 0.5] },
     ),
@@ -275,9 +253,8 @@ export const CAFE_MORNING_SCENE: SceneLayer[] = [
   {
     name: "Table flowers",
     box: [0.83, 0.64, 0.13, 0.3],
-    visual: visual(
-      "supportingImage",
-      "plant-vase",
+    visual: libraryVisual(
+      "scenes-plant-vase",
       "Small vase of greenery on the table by the window",
       { fit: "contain", focal: [0.5, 1] },
     ),
@@ -290,15 +267,13 @@ export const CAFE_MORNING_SCENE: SceneLayer[] = [
  * docs/template-vectors/sources/movement-club-main.webp and
  * movement-club-detail.webp through each frame's crop (cover, focal 0.5).
  */
-export const MOVEMENT_CLUB_MODEL = visual(
-  "humanModelImage",
-  "person-stretch",
+export const MOVEMENT_CLUB_MODEL = libraryVisual(
+  "people-stretching-athlete",
   "Candid full-body photo of a fictional adult woman in simple sage activewear stretching in a city park at dawn, natural athletic build and relaxed posture, soft green background, no logos",
 );
 
-export const MOVEMENT_CLUB_DETAIL = visual(
-  "humanModelImage",
-  "bust-athlete",
+export const MOVEMENT_CLUB_DETAIL = libraryVisual(
+  "people-athlete-close",
   "Closer candid crop of the same fictional adult athlete smiling between stretches in the park, matching sage activewear and morning light",
 );
 
@@ -306,9 +281,8 @@ export const MOVEMENT_CLUB_SCENE: SceneLayer[] = [
   {
     name: "Park backdrop",
     box: [0, 0, 1, 1],
-    visual: visual(
-      "heroImage",
-      "park-lakeside",
+    visual: libraryVisual(
+      "scenes-park-lakeside",
       "Lakeside city park at sunrise with a pale skyline, a far tree line, a lake with a sun glint, a pale lawn, a gravel path and leaves overhead in both top corners",
       { fit: "cover", focal: [0.5, 0.5] },
     ),
@@ -316,9 +290,8 @@ export const MOVEMENT_CLUB_SCENE: SceneLayer[] = [
   {
     name: "Sunlight",
     box: [0.2, 0, 0.8, 0.55],
-    visual: visual(
-      "supportingImage",
-      "street-sunbeams",
+    visual: libraryVisual(
+      "scenes-sunbeams",
       "Low warm sunrise light from the upper right as a soft glow and a single beam",
       { fit: "cover", focal: [1, 0] },
     ),
@@ -326,9 +299,8 @@ export const MOVEMENT_CLUB_SCENE: SceneLayer[] = [
   {
     name: "Park tree",
     box: [0.07, 0.33, 0.27, 0.24],
-    visual: visual(
-      "supportingImage",
-      "street-tree",
+    visual: libraryVisual(
+      "scenes-plane-tree",
       "Rounded park tree with a sage canopy beside the lake",
       { fit: "contain", focal: [0.5, 1] },
     ),
@@ -336,9 +308,8 @@ export const MOVEMENT_CLUB_SCENE: SceneLayer[] = [
   {
     name: "Lamp post",
     box: [0.85, 0.47, 0.035, 0.12],
-    visual: visual(
-      "supportingImage",
-      "street-lamp",
+    visual: libraryVisual(
+      "scenes-street-lamp",
       "Slim black park lamp post by the water",
       { fit: "contain", focal: [0.5, 1] },
     ),
@@ -346,9 +317,8 @@ export const MOVEMENT_CLUB_SCENE: SceneLayer[] = [
   {
     name: "Stone wall",
     box: [0, 0.57, 1, 0.28],
-    visual: visual(
-      "supportingImage",
-      "park-stone-wall",
+    visual: libraryVisual(
+      "scenes-hedge-wall",
       "Dark hedge above a low stone wall along the path",
       { fit: "cover", focal: [0.5, 1] },
     ),
@@ -356,9 +326,8 @@ export const MOVEMENT_CLUB_SCENE: SceneLayer[] = [
   {
     name: "Cast shadow",
     box: [0.33, 0.85, 0.4, 0.07],
-    visual: visual(
-      "supportingImage",
-      "street-cast-shadow",
+    visual: libraryVisual(
+      "scenes-cast-shadow",
       "Soft ground shadow under the athlete",
       { fit: "contain" },
     ),
@@ -376,9 +345,8 @@ export const MOVEMENT_CLUB_DETAIL_SCENE: SceneLayer[] = [
   {
     name: "Park backdrop, detail",
     box: [0, 0, 1, 1],
-    visual: visual(
-      "heroImage",
-      "park-lakeside",
+    visual: libraryVisual(
+      "scenes-park-lakeside",
       "Lakeside city park at sunrise seen closer, with the lake glint and leaves overhead",
       { fit: "cover", focal: [0.75, 0.5] },
     ),
@@ -386,9 +354,8 @@ export const MOVEMENT_CLUB_DETAIL_SCENE: SceneLayer[] = [
   {
     name: "Sunlight, detail",
     box: [0.3, 0, 0.7, 0.45],
-    visual: visual(
-      "supportingImage",
-      "street-sunbeams",
+    visual: libraryVisual(
+      "scenes-sunbeams",
       "Low warm sunrise light from the upper right as a soft glow and a single beam",
       { fit: "cover", focal: [1, 0] },
     ),
@@ -396,9 +363,8 @@ export const MOVEMENT_CLUB_DETAIL_SCENE: SceneLayer[] = [
   {
     name: "Park tree, detail",
     box: [0, 0.23, 0.3, 0.32],
-    visual: visual(
-      "supportingImage",
-      "street-tree",
+    visual: libraryVisual(
+      "scenes-plane-tree",
       "Rounded park tree with a sage canopy at the left edge",
       { fit: "cover", focal: [1, 1] },
     ),
@@ -406,9 +372,8 @@ export const MOVEMENT_CLUB_DETAIL_SCENE: SceneLayer[] = [
   {
     name: "Stone wall, detail",
     box: [0, 0.68, 1, 0.26],
-    visual: visual(
-      "supportingImage",
-      "park-stone-wall",
+    visual: libraryVisual(
+      "scenes-hedge-wall",
       "Dark hedge above a low stone wall behind the athlete",
       { fit: "cover", focal: [0.3, 1] },
     ),
@@ -426,9 +391,8 @@ export const MOVEMENT_CLUB_DETAIL_SCENE: SceneLayer[] = [
  * coastal-weekend.webp through the diary frame's crop (cover, focal y 0.4).
  * The woman is drawn full length; the frame crops her at the shin.
  */
-export const COASTAL_WEEKEND_MODEL = visual(
-  "humanModelImage",
-  "person-linen-dress",
+export const COASTAL_WEEKEND_MODEL = libraryVisual(
+  "people-linen-dress-woman",
   "Unposed travel photograph of a fictional adult Black woman in a breezy linen dress walking along a quiet seaside promenade at golden hour, ocean and pale stone in the background, natural wind in her hair, no logos",
 );
 
@@ -436,9 +400,8 @@ export const COASTAL_WEEKEND_SCENE: SceneLayer[] = [
   {
     name: "Coast backdrop",
     box: [0, 0, 1, 1],
-    visual: visual(
-      "heroImage",
-      "coast-promenade",
+    visual: libraryVisual(
+      "scenes-coast-promenade",
       "Quiet seaside promenade at golden hour with a peach sky, a headland on the right, a dark sea with three rocks, warm stone paving and a pale stone parapet",
       { fit: "cover", focal: [0.5, 0.4] },
     ),
@@ -446,9 +409,8 @@ export const COASTAL_WEEKEND_SCENE: SceneLayer[] = [
   {
     name: "Hillside town",
     box: [0.08, 0, 0.66, 0.27],
-    visual: visual(
-      "supportingImage",
-      "coast-town",
+    visual: libraryVisual(
+      "travel-coast-town",
       "Cream hillside seaside town with terracotta roofs and a bell tower",
       { fit: "cover", focal: [0.5, 1] },
     ),
@@ -456,9 +418,8 @@ export const COASTAL_WEEKEND_SCENE: SceneLayer[] = [
   {
     name: "Sunset glow",
     box: [0.3, 0, 0.7, 0.55],
-    visual: visual(
-      "supportingImage",
-      "street-sunbeams",
+    visual: libraryVisual(
+      "scenes-sunbeams",
       "Golden sunset light from the upper right as a warm glow and a single beam",
       { fit: "cover", focal: [1, 0] },
     ),
@@ -466,9 +427,8 @@ export const COASTAL_WEEKEND_SCENE: SceneLayer[] = [
   {
     name: "Stone terrace",
     box: [0, 0.03, 0.19, 0.65],
-    visual: visual(
-      "supportingImage",
-      "coast-terrace",
+    visual: libraryVisual(
+      "scenes-stone-terrace",
       "Limestone terrace wall on the left with green shrubs and a few pink flowers",
       { fit: "cover", focal: [0, 0.5] },
     ),
@@ -476,9 +436,8 @@ export const COASTAL_WEEKEND_SCENE: SceneLayer[] = [
   {
     name: "Street lamp",
     box: [0.11, 0.03, 0.05, 0.22],
-    visual: visual(
-      "supportingImage",
-      "street-lamp",
+    visual: libraryVisual(
+      "scenes-street-lamp",
       "Slim black street lamp on the terrace",
       { fit: "contain", focal: [0.5, 1] },
     ),

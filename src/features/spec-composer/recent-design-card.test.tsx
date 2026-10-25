@@ -131,6 +131,20 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("recent design card", () => {
+  it.each([
+    [1280, 720],
+    [1080, 1080],
+    [1080, 1920],
+  ])("preserves the native %i by %i preview aspect ratio", (width, height) => {
+    const doc = createDocument();
+    const html = renderCard({
+      ...doc,
+      format: { ...doc.format, width, height },
+    });
+    expect(designCard().aspectRatio).toBe(`${width} / ${height}`);
+    expect(html).toContain(`--design-card-aspect:${width} / ${height}`);
+  });
+
   it("passes the full preview and safe metadata to the shared DesignCard", () => {
     const doc = {
       ...createDocument(),

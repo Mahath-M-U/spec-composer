@@ -74,7 +74,8 @@ describe("home template card", () => {
     expect(html).toContain('aria-label="More actions for Product Launch"');
     expect(html).toContain('data-template-preview="true"');
     expect(html).toContain("Product Launch");
-    expect(html).toContain("Marketing");
+    expect(html).toContain("Marketing / Instagram Post");
+    expect(cardProps.aspectRatio).toBe("1080 / 1350");
     expect(html).not.toContain("Cinematic");
     expect(html).not.toContain("<time");
     expect(html).not.toContain("recent-design-edited-chip");

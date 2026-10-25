@@ -1,4 +1,7 @@
+import { TemplateCardMedia } from "./template-card-media";
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { useVisibleHomeCardCount } from "./use-visible-home-card-count";
+import { useProjectMasonry } from "./use-project-masonry";
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -411,7 +414,9 @@ export function BrandKitsPage() {
               Default for designs{" "}
               <i
                 className={
-                  globalKit ? "brandkit-hero-live is-live" : "brandkit-hero-live"
+                  globalKit
+                    ? "brandkit-hero-live is-live"
+                    : "brandkit-hero-live"
                 }
                 aria-hidden="true"
               />
@@ -499,38 +504,6 @@ function useFeaturedTemplates() {
   };
 }
 
-function useVisibleHomeCardCount(refreshKey?: boolean) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [visibleCount, setVisibleCount] = useState(1);
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const updateVisibleCount = () => {
-      const styles = getComputedStyle(container);
-      const minCardWidth =
-        Number.parseFloat(styles.getPropertyValue("--home-card-min-width")) ||
-        210;
-      const columnGap = Number.parseFloat(styles.columnGap) || 0;
-      const count = Math.max(
-        1,
-        Math.floor(
-          (container.clientWidth + columnGap) / (minCardWidth + columnGap),
-        ),
-      );
-      setVisibleCount((current) => (current === count ? current : count));
-    };
-
-    updateVisibleCount();
-    const observer = new ResizeObserver(updateVisibleCount);
-    observer.observe(container);
-    return () => observer.disconnect();
-  }, [refreshKey]);
-
-  return { containerRef, visibleCount };
-}
-
 export function HomePage() {
   const navigate = useNavigate();
   const [platform, setPlatform] = useState<PlatformFilter>("Popular");
@@ -541,7 +514,7 @@ export function HomePage() {
   );
   const recent = projects;
   const featured = useFeaturedTemplates();
-  const recentCards = useVisibleHomeCardCount(projectsPending);
+  const recentCards = useVisibleHomeCardCount();
   const starterCards = useVisibleHomeCardCount();
   const popularFormatCards = useVisibleHomeCardCount();
   const openNewProject = useOpenNewProject();
@@ -753,15 +726,13 @@ export function HomePage() {
   );
 }
 
-function HomeHero({ onCreate }: { onCreate: () => void }) {
+export function HomeHero({ onCreate }: { onCreate: () => void }) {
   const previews = useMemo(
     () =>
-      starterTemplates.flatMap((template) => {
-        const image = templateImageFor(template.name);
-        return image?.status === "approved"
-          ? [{ doc: template.document, image }]
-          : [];
-      }),
+      starterTemplates.map((template) => ({
+        doc: template.document,
+        image: templateImageFor(template.name, template.document.format),
+      })),
     [],
   );
   const [preview, setPreview] = useState(
@@ -904,7 +875,12 @@ function HomeHero({ onCreate }: { onCreate: () => void }) {
               <ArrowLeftRight size={10} />
             </span>
           </div>
-          <div className="home-hero-canvas-stage">
+          <div
+            className="home-hero-canvas-stage"
+            style={{
+              aspectRatio: `${preview.doc.format.width} / ${preview.doc.format.height}`,
+            }}
+          >
             <DocumentPreview doc={preview.doc} />
             <span className="home-hero-selection">
               <i />
@@ -938,14 +914,11 @@ function HomeHero({ onCreate }: { onCreate: () => void }) {
         <div
           className="home-hero-preview home-hero-preview--image"
           key={`image:${preview.doc.name}`}
+          style={{
+            aspectRatio: `${preview.doc.format.width} / ${preview.doc.format.height}`,
+          }}
         >
-          <img
-            src={preview.image.src}
-            alt=""
-            width={preview.image.width}
-            height={preview.image.height}
-            decoding="async"
-          />
+          <TemplateCardMedia doc={preview.doc} image={preview.image} priority />
         </div>
       </div>
     </section>
@@ -1357,7 +1330,12 @@ export function TemplatesPage() {
         const inCategory = category === "All" || template.category === category;
         return (
           inCategory &&
-          matchesTemplateQuery(template.name, template.category, query)
+          matchesTemplateQuery(
+            template.name,
+            template.category,
+            query,
+            template.document.format,
+          )
         );
       }),
     [category, query],
@@ -1369,8 +1347,7 @@ export function TemplatesPage() {
         <p className="eyebrow">STRUCTURED STARTING POINTS</p>
         <h1 className="font-extrabold">Templates</h1>
         <p className="mt-2 text-muted-foreground">
-          Previews are AI-rendered examples. Every template opens as editable
-          semantic JSON.
+          AI-generated previews. Every template opens as editable layers.
         </p>
 
         <label className="discovery-search">
@@ -1378,7 +1355,7 @@ export function TemplatesPage() {
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search templates by name or category…"
+            placeholder="Search templates by name, category, or platform…"
             aria-label="Search templates"
           />
           {query ? (
@@ -1403,7 +1380,7 @@ export function TemplatesPage() {
         </div>
 
         {shown.length ? (
-          <div className="templates-grid mt-4 grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="templates-grid template-masonry mt-4">
             {shown.map((template, index) => (
               <TemplateCard
                 key={template.name}
@@ -1461,6 +1438,9 @@ export function ProjectsPage() {
           : new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
       );
   }, [projects, query, sort]);
+  const projectMasonryRef = useProjectMasonry(
+    JSON.stringify([ready, shownProjects.map((project) => project.id)]),
+  );
 
   const formatCount = new Set(projects.map((project) => project.format.id))
     .size;
@@ -1614,25 +1594,29 @@ export function ProjectsPage() {
 
           {!ready ? (
             <div
-              className="projects-loading-grid"
+              className="projects-loading-grid project-masonry"
+              ref={projectMasonryRef}
               role="status"
               aria-busy="true"
               aria-label="Loading designs"
             >
-              <i>
-                <MediaSkeleton />
-              </i>
-              <i>
-                <MediaSkeleton />
-              </i>
-              <i>
-                <MediaSkeleton />
-              </i>
+              {[0, 1, 2].map((index) => (
+                <div key={index} className="project-masonry-item">
+                  <i>
+                    <MediaSkeleton />
+                  </i>
+                </div>
+              ))}
             </div>
           ) : shownProjects.length ? (
-            <div className="project-library-grid">
+            <div
+              className="project-library-grid project-masonry"
+              ref={projectMasonryRef}
+            >
               {shownProjects.map((document) => (
-                <RecentDesignCard key={document.id} doc={document} />
+                <div key={document.id} className="project-masonry-item">
+                  <RecentDesignCard doc={document} />
+                </div>
               ))}
             </div>
           ) : (
