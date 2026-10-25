@@ -18,7 +18,7 @@ export function modelSource(element: SpecElement): ModelSource {
   return ["reference_only","uploaded_photo","uploaded_svg","generated_image"].includes(String(modelValue(element, "item.personMode"))) ? "reference_only" : "editable_vector";
 }
 export function isEditableModel(element: SpecElement) {
-  return (element.catalogElementId ? element.catalogElementId === "subjects.person" : element.kind === "humanModelImage" || element.semanticRole === "subject") && modelSource(element) === "editable_vector";
+  return (element.catalogElementId ? element.catalogElementId === "subjects.person" : element.kind === "humanModelImage") && modelSource(element) === "editable_vector";
 }
 export interface ModelGeometry {
   joints: Record<"head" | "neck" | "leftShoulder" | "rightShoulder" | "leftElbow" | "rightElbow" | "leftHand" | "rightHand" | "leftHip" | "rightHip" | "leftKnee" | "rightKnee" | "leftFoot" | "rightFoot", Point>;

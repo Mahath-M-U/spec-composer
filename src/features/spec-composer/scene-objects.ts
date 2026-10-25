@@ -237,7 +237,7 @@ export interface SceneObjectSummary {
   guideHidden: boolean;
 }
 
-/** The Scene tab's flat list: camera (if any), every light, then Ambient —
+/** The Scene tab's flat list: camera (if any), every light, then Ambient â€”
  * always present so it can be toggled on even before anyone else set it. */
 export function sceneObjectList(
   doc: Pick<SpecDocument, "generationSettings">,

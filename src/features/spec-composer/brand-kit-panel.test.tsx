@@ -26,7 +26,6 @@ function renderPanel(
   props: Partial<{
     standalone: boolean;
     pageView: boolean;
-    cardVariant: "portrait" | "row";
   }> = {},
 ) {
   function Capture() {
@@ -144,18 +143,23 @@ beforeEach(() => {
 });
 
 describe("BrandKitPanel", () => {
-  it("renders compact DesignKitCard rows on Home with standalone default-kit actions", () => {
+  it("renders Home showcase cards with standalone default-kit actions", () => {
     useEditorStore.setState({
       brandKits: [auroraKit],
       defaultBrandKitId: auroraKit.id,
     });
-    const html = renderPanel({ standalone: true, cardVariant: "row" });
-    expect(html).toContain("design-kit-card--row");
-    expect(html).not.toContain("bk-showcase-card");
-    expect(html).not.toContain("bk-preview-illustration");
-    expect(html).not.toContain("bk-palette-slot");
+    const html = renderPanel({ standalone: true });
+    expect(html).not.toContain("design-kit-card--row");
+    expect(html).toContain("bk-showcase-card");
+    expect(html).toContain("bk-preview-illustration");
+    expect(html).toContain("bk-preview-type-specimen");
+    expect(html).toContain('aria-label="Copy Primary #112233"');
+    expect(html.match(/class="bk-palette-slot(?: is-empty)?"/g)).toHaveLength(
+      5,
+    );
     expect(html).toContain("Aurora");
-    expect(html).toContain("Fraunces · Minimal");
+    expect(html).toContain("Fraunces");
+    expect(html).toContain("Minimal");
     expect(html).toContain('aria-label="Remove Aurora as default"');
     expect(html).toContain('aria-label="Edit Aurora"');
     expect(html).toContain('aria-label="More actions for Aurora"');
@@ -197,7 +201,7 @@ describe("BrandKitPanel", () => {
       brandKits: [auroraKit],
       defaultBrandKitId: undefined,
     });
-    const html = renderPanel({ standalone: true, cardVariant: "row" });
+    const html = renderPanel({ standalone: true });
     expect(html).toContain(">Apply<");
     expect(html).toContain('aria-label="Apply Aurora as default"');
   });

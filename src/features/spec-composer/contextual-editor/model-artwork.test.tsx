@@ -21,7 +21,7 @@ it("composes reviewed source heads/faces at their original offsets without losin
 });
 it("applies skin/hair through escaped styles while retaining white teeth and source artwork", () => {
   const subject = element();
-  const html = renderToStaticMarkup(createElement(ModelHeadArtwork, { element: subject, expression: "happy", skin: "#815236", hair: '#123456\"><script>bad</script>' }));
+  const html = renderToStaticMarkup(createElement(ModelHeadArtwork, { element: subject, expression: "happy", skin: "#815236", hair: '#123456"><script>bad</script>' }));
   expect(html).toContain("--model-skin:#815236");
   expect(html).toContain('fill="var(--model-skin)"');
   expect(html).toContain('fill="var(--model-hair)"');

@@ -15,6 +15,35 @@ export const RELEASE_CADENCE = "Updates ship every two weeks.";
 
 // Prepend new versions; keep package.json version in sync; older entries
 // automatically appear under Previous versions.
+const v060: ReleaseNote = {
+  version: "0.6.0",
+  date: "2026-10-26",
+  features: [
+    {
+      emoji: "🎬",
+      text: "Scene editing: shape your environment with lighting and camera guides, shared object controls, and ready-made environment presets.",
+    },
+    {
+      emoji: "🧍",
+      text: "Editable model artwork: adjust portrait framing and model details with contextual controls alongside your design.",
+    },
+    {
+      emoji: "📐",
+      text: "More formats: explore expanded social media and resize presets with visual previews before choosing a canvas size.",
+    },
+  ],
+  improvements: [
+    {
+      emoji: "🖼️",
+      text: "Redesigned asset, template, and design cards with refreshed template previews and a masonry layout for your projects.",
+    },
+    {
+      emoji: "🎨",
+      text: "Clearer layers, inspector, tool rail, brand kit, and text color controls help you refine designs with fewer distractions.",
+    },
+  ],
+};
+
 const v053: ReleaseNote = {
   version: "0.5.3",
   date: "2026-10-11",
@@ -54,6 +83,6 @@ const v053: ReleaseNote = {
     "Your designs stay in this browser and are never uploaded. You can back up your designs to a JSON file anytime from My designs. Spec Composer is in Beta, so some features may still change.",
 };
 
-export const RELEASES: readonly ReleaseNote[] = [v053];
-export const LATEST_RELEASE = v053;
+export const RELEASES: readonly ReleaseNote[] = [v060, v053];
+export const LATEST_RELEASE = v060;
 export const PREVIOUS_RELEASES: readonly ReleaseNote[] = RELEASES.slice(1);
