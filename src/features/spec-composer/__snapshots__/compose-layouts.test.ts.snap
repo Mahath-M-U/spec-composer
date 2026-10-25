@@ -1644,7 +1644,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, no selecti
     null,
     null,
     {
-      "height": 162,
+      "height": 176,
       "width": 928,
       "x": 76,
       "y": 974,
@@ -1653,13 +1653,13 @@ exports[`compose regression snapshot > instagram-post Product Launch, no selecti
       "height": 68,
       "width": 928,
       "x": 76,
-      "y": 1177,
+      "y": 1191,
     },
     {
       "height": 81,
       "width": 346,
       "x": 76,
-      "y": 1286,
+      "y": 1300,
     },
   ],
   "copy-left": [
@@ -1684,7 +1684,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, no selecti
       "y": 162,
     },
     {
-      "height": 162,
+      "height": 176,
       "width": 410,
       "x": 76,
       "y": 379,
@@ -1693,13 +1693,13 @@ exports[`compose regression snapshot > instagram-post Product Launch, no selecti
       "height": 68,
       "width": 410,
       "x": 76,
-      "y": 582,
+      "y": 596,
     },
     {
       "height": 81,
       "width": 346,
       "x": 76,
-      "y": 690,
+      "y": 704,
     },
   ],
   "copy-right": [
@@ -1724,7 +1724,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, no selecti
       "y": 203,
     },
     {
-      "height": 162,
+      "height": 176,
       "width": 378,
       "x": 626,
       "y": 379,
@@ -1733,13 +1733,13 @@ exports[`compose regression snapshot > instagram-post Product Launch, no selecti
       "height": 68,
       "width": 378,
       "x": 626,
-      "y": 582,
+      "y": 596,
     },
     {
       "height": 81,
       "width": 346,
       "x": 626,
-      "y": 690,
+      "y": 704,
     },
   ],
   "corner-badge": [
@@ -1759,7 +1759,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, no selecti
     null,
     null,
     {
-      "height": 162,
+      "height": 176,
       "width": 756,
       "x": 162,
       "y": 581,
@@ -1768,7 +1768,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, no selecti
       "height": 68,
       "width": 756,
       "x": 162,
-      "y": 770,
+      "y": 784,
     },
     {
       "height": 81,
@@ -1793,28 +1793,28 @@ exports[`compose regression snapshot > instagram-post Product Launch, no selecti
     },
     null,
     {
-      "height": 769,
-      "width": 648,
+      "height": 702,
+      "width": 562,
       "x": 206,
       "y": 352,
     },
     {
-      "height": 162,
-      "width": 950,
+      "height": 176,
+      "width": 907,
       "x": 270,
-      "y": 1189,
+      "y": 1122,
     },
     {
       "height": 68,
       "width": 864,
       "x": 335,
-      "y": 1418,
+      "y": 1365,
     },
     {
       "height": 81,
       "width": 346,
       "x": 400,
-      "y": 1554,
+      "y": 1501,
     },
   ],
   "framed": [
@@ -1823,13 +1823,13 @@ exports[`compose regression snapshot > instagram-post Product Launch, no selecti
       "height": 41,
       "width": 928,
       "x": 76,
-      "y": 717,
+      "y": 703,
     },
     {
       "height": 41,
       "width": 928,
       "x": 76,
-      "y": 799,
+      "y": 785,
     },
     null,
     {
@@ -1839,10 +1839,10 @@ exports[`compose regression snapshot > instagram-post Product Launch, no selecti
       "y": 76,
     },
     {
-      "height": 162,
+      "height": 176,
       "width": 928,
       "x": 76,
-      "y": 881,
+      "y": 867,
     },
     {
       "height": 68,
@@ -1863,13 +1863,13 @@ exports[`compose regression snapshot > instagram-post Product Launch, no selecti
       "height": 41,
       "width": 928,
       "x": 76,
-      "y": 773,
+      "y": 759,
     },
     {
       "height": 41,
       "width": 928,
       "x": 76,
-      "y": 841,
+      "y": 827,
     },
     null,
     {
@@ -1879,10 +1879,10 @@ exports[`compose regression snapshot > instagram-post Product Launch, no selecti
       "y": 0,
     },
     {
-      "height": 162,
+      "height": 176,
       "width": 928,
       "x": 76,
-      "y": 909,
+      "y": 895,
     },
     {
       "height": 68,
@@ -1919,7 +1919,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, no selecti
       "y": 0,
     },
     {
-      "height": 162,
+      "height": 176,
       "width": 389,
       "x": 626,
       "y": 406,
@@ -1928,13 +1928,13 @@ exports[`compose regression snapshot > instagram-post Product Launch, no selecti
       "height": 68,
       "width": 389,
       "x": 626,
-      "y": 609,
+      "y": 623,
     },
     {
       "height": 81,
       "width": 346,
       "x": 626,
-      "y": 717,
+      "y": 731,
     },
   ],
   "layered-card": [
@@ -1959,7 +1959,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, no selecti
       "y": 0,
     },
     {
-      "height": 162,
+      "height": 176,
       "width": 778,
       "x": 151,
       "y": 582,
@@ -1968,13 +1968,13 @@ exports[`compose regression snapshot > instagram-post Product Launch, no selecti
       "height": 68,
       "width": 778,
       "x": 151,
-      "y": 777,
+      "y": 791,
     },
     {
       "height": 81,
       "width": 346,
       "x": 151,
-      "y": 879,
+      "y": 893,
     },
   ],
   "overlay-top": [
@@ -1999,7 +1999,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, no selecti
       "y": 0,
     },
     {
-      "height": 162,
+      "height": 176,
       "width": 928,
       "x": 76,
       "y": 258,
@@ -2008,13 +2008,13 @@ exports[`compose regression snapshot > instagram-post Product Launch, no selecti
       "height": 68,
       "width": 928,
       "x": 76,
-      "y": 453,
+      "y": 467,
     },
     {
       "height": 81,
       "width": 346,
       "x": 76,
-      "y": 555,
+      "y": 569,
     },
   ],
   "sidebar-left": [
@@ -2039,7 +2039,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, no selecti
       "y": 0,
     },
     {
-      "height": 162,
+      "height": 176,
       "width": 302,
       "x": 76,
       "y": 352,
@@ -2048,13 +2048,13 @@ exports[`compose regression snapshot > instagram-post Product Launch, no selecti
       "height": 68,
       "width": 302,
       "x": 76,
-      "y": 555,
+      "y": 569,
     },
     {
       "height": 81,
       "width": 302,
       "x": 76,
-      "y": 663,
+      "y": 677,
     },
   ],
   "split-bottom": [
@@ -2079,7 +2079,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, no selecti
       "y": 608,
     },
     {
-      "height": 162,
+      "height": 176,
       "width": 928,
       "x": 76,
       "y": 258,
@@ -2088,13 +2088,13 @@ exports[`compose regression snapshot > instagram-post Product Launch, no selecti
       "height": 68,
       "width": 928,
       "x": 76,
-      "y": 453,
+      "y": 467,
     },
     {
       "height": 81,
       "width": 346,
       "x": 76,
-      "y": 555,
+      "y": 569,
     },
   ],
   "split-top": [
@@ -2103,13 +2103,13 @@ exports[`compose regression snapshot > instagram-post Product Launch, no selecti
       "height": 41,
       "width": 928,
       "x": 76,
-      "y": 746,
+      "y": 732,
     },
     {
       "height": 41,
       "width": 928,
       "x": 76,
-      "y": 821,
+      "y": 807,
     },
     null,
     {
@@ -2119,10 +2119,10 @@ exports[`compose regression snapshot > instagram-post Product Launch, no selecti
       "y": 0,
     },
     {
-      "height": 162,
+      "height": 176,
       "width": 928,
       "x": 76,
-      "y": 896,
+      "y": 882,
     },
     {
       "height": 68,
@@ -2159,7 +2159,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, no selecti
       "y": 351,
     },
     {
-      "height": 162,
+      "height": 176,
       "width": 756,
       "x": 162,
       "y": 226,
@@ -2193,28 +2193,28 @@ exports[`compose regression snapshot > instagram-post Product Launch, no selecti
     },
     null,
     {
-      "height": 769,
-      "width": 648,
-      "x": 216,
+      "height": 702,
+      "width": 562,
+      "x": 259,
       "y": 312,
     },
     {
-      "height": 162,
-      "width": 950,
-      "x": 65,
-      "y": 1114,
+      "height": 176,
+      "width": 907,
+      "x": 87,
+      "y": 1047,
     },
     {
       "height": 68,
       "width": 864,
       "x": 108,
-      "y": 1310,
+      "y": 1257,
     },
     {
       "height": 81,
       "width": 346,
       "x": 367,
-      "y": 1412,
+      "y": 1359,
     },
   ],
   "visual-band": [
@@ -2223,13 +2223,13 @@ exports[`compose regression snapshot > instagram-post Product Launch, no selecti
       "height": 41,
       "width": 928,
       "x": 76,
-      "y": 94,
+      "y": 80,
     },
     {
       "height": 41,
       "width": 928,
       "x": 76,
-      "y": 168,
+      "y": 154,
     },
     null,
     {
@@ -2239,10 +2239,10 @@ exports[`compose regression snapshot > instagram-post Product Launch, no selecti
       "y": 405,
     },
     {
-      "height": 162,
+      "height": 176,
       "width": 928,
       "x": 76,
-      "y": 243,
+      "y": 229,
     },
     {
       "height": 68,
@@ -2279,7 +2279,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, no selecti
       "y": 405,
     },
     {
-      "height": 162,
+      "height": 176,
       "width": 648,
       "x": 76,
       "y": 226,
@@ -2309,7 +2309,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, title + ct
     null,
     null,
     {
-      "height": 162,
+      "height": 176,
       "width": 928,
       "x": 76,
       "y": 851,
@@ -2319,7 +2319,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, title + ct
       "height": 81,
       "width": 346,
       "x": 76,
-      "y": 1054,
+      "y": 1068,
     },
   ],
   "copy-left": [
@@ -2329,7 +2329,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, title + ct
     null,
     null,
     {
-      "height": 162,
+      "height": 176,
       "width": 410,
       "x": 76,
       "y": 216,
@@ -2339,7 +2339,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, title + ct
       "height": 81,
       "width": 346,
       "x": 76,
-      "y": 419,
+      "y": 433,
     },
   ],
   "copy-right": [
@@ -2349,7 +2349,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, title + ct
     null,
     null,
     {
-      "height": 162,
+      "height": 176,
       "width": 378,
       "x": 626,
       "y": 216,
@@ -2359,7 +2359,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, title + ct
       "height": 81,
       "width": 346,
       "x": 626,
-      "y": 419,
+      "y": 433,
     },
   ],
   "corner-badge": [
@@ -2369,7 +2369,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, title + ct
     null,
     null,
     {
-      "height": 162,
+      "height": 176,
       "width": 756,
       "x": 162,
       "y": 513,
@@ -2389,8 +2389,8 @@ exports[`compose regression snapshot > instagram-post Product Launch, title + ct
     null,
     null,
     {
-      "height": 162,
-      "width": 950,
+      "height": 176,
+      "width": 907,
       "x": 76,
       "y": 135,
     },
@@ -2399,7 +2399,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, title + ct
       "height": 81,
       "width": 346,
       "x": 141,
-      "y": 365,
+      "y": 379,
     },
   ],
   "framed": [
@@ -2409,7 +2409,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, title + ct
     null,
     null,
     {
-      "height": 162,
+      "height": 176,
       "width": 928,
       "x": 76,
       "y": 860,
@@ -2419,7 +2419,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, title + ct
       "height": 81,
       "width": 346,
       "x": 76,
-      "y": 1063,
+      "y": 1077,
     },
   ],
   "full-bleed-overlay": [
@@ -2429,7 +2429,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, title + ct
     null,
     null,
     {
-      "height": 162,
+      "height": 176,
       "width": 928,
       "x": 76,
       "y": 918,
@@ -2439,7 +2439,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, title + ct
       "height": 81,
       "width": 346,
       "x": 76,
-      "y": 1107,
+      "y": 1121,
     },
   ],
   "grid-2up": [
@@ -2449,7 +2449,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, title + ct
     null,
     null,
     {
-      "height": 162,
+      "height": 176,
       "width": 389,
       "x": 626,
       "y": 243,
@@ -2459,7 +2459,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, title + ct
       "height": 81,
       "width": 346,
       "x": 626,
-      "y": 446,
+      "y": 460,
     },
   ],
   "layered-card": [
@@ -2469,7 +2469,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, title + ct
     null,
     null,
     {
-      "height": 162,
+      "height": 176,
       "width": 778,
       "x": 151,
       "y": 432,
@@ -2479,7 +2479,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, title + ct
       "height": 81,
       "width": 346,
       "x": 151,
-      "y": 628,
+      "y": 642,
     },
   ],
   "overlay-top": [
@@ -2489,7 +2489,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, title + ct
     null,
     null,
     {
-      "height": 162,
+      "height": 176,
       "width": 928,
       "x": 76,
       "y": 108,
@@ -2499,7 +2499,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, title + ct
       "height": 81,
       "width": 346,
       "x": 76,
-      "y": 304,
+      "y": 318,
     },
   ],
   "sidebar-left": [
@@ -2509,7 +2509,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, title + ct
     null,
     null,
     {
-      "height": 162,
+      "height": 176,
       "width": 302,
       "x": 76,
       "y": 189,
@@ -2519,7 +2519,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, title + ct
       "height": 81,
       "width": 302,
       "x": 76,
-      "y": 392,
+      "y": 406,
     },
   ],
   "split-bottom": [
@@ -2529,7 +2529,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, title + ct
     null,
     null,
     {
-      "height": 162,
+      "height": 176,
       "width": 928,
       "x": 76,
       "y": 108,
@@ -2539,7 +2539,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, title + ct
       "height": 81,
       "width": 346,
       "x": 76,
-      "y": 304,
+      "y": 318,
     },
   ],
   "split-top": [
@@ -2549,7 +2549,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, title + ct
     null,
     null,
     {
-      "height": 162,
+      "height": 176,
       "width": 928,
       "x": 76,
       "y": 837,
@@ -2559,7 +2559,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, title + ct
       "height": 81,
       "width": 346,
       "x": 76,
-      "y": 1033,
+      "y": 1047,
     },
   ],
   "spotlight": [
@@ -2569,7 +2569,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, title + ct
     null,
     null,
     {
-      "height": 162,
+      "height": 176,
       "width": 756,
       "x": 162,
       "y": 76,
@@ -2589,9 +2589,9 @@ exports[`compose regression snapshot > instagram-post Product Launch, title + ct
     null,
     null,
     {
-      "height": 162,
-      "width": 950,
-      "x": 65,
+      "height": 176,
+      "width": 907,
+      "x": 87,
       "y": 162,
     },
     null,
@@ -2599,7 +2599,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, title + ct
       "height": 81,
       "width": 346,
       "x": 367,
-      "y": 358,
+      "y": 372,
     },
   ],
   "visual-band": [
@@ -2609,7 +2609,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, title + ct
     null,
     null,
     {
-      "height": 162,
+      "height": 176,
       "width": 928,
       "x": 76,
       "y": 95,
@@ -2629,7 +2629,7 @@ exports[`compose regression snapshot > instagram-post Product Launch, title + ct
     null,
     null,
     {
-      "height": 162,
+      "height": 176,
       "width": 648,
       "x": 76,
       "y": 76,

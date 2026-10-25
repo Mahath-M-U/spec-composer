@@ -1,16 +1,15 @@
+import { OpaqueColorControl } from "./color-control";
+import { ShapeControls } from "./scene-lighting-controls";
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link2, Type, X } from "lucide-react";
 import { sectionTarget, type Target } from "./section-target";
 import { FEATURED_FONTS, MORE_FONTS } from "./fonts";
 import { useEditorStore } from "./store";
 import {
-  ART_FIELDS,
   BRAND_TONES,
   MATERIAL_PRESETS,
   hasPreset,
-  setArtField,
   togglePreset,
-  type ArtFieldKey,
 } from "./art-direction";
 import {
   isImageKind,
@@ -49,16 +48,6 @@ const KIND_LABEL: Record<ElementKind, string> = {
 };
 const FONTS: string[] = [...FEATURED_FONTS, ...MORE_FONTS];
 const WEIGHTS = [100, 200, 300, 400, 500, 600, 700, 800, 900];
-const HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
-/** `<input type="color">` only takes #rrggbb. */
-const toColorInput = (v: string | undefined, fallback = "#000000") => {
-  const hex = v?.trim() ?? "";
-  if (!HEX.test(hex)) return fallback;
-  return hex.length === 4
-    ? `#${[...hex.slice(1)].map((c) => c + c).join("")}`.toLowerCase()
-    : hex.toLowerCase();
-};
-
 /** Coalesces rapid changes (a color picker drag, typing) into one commit a
  * moment later; anything pending is committed when the editor closes. */
 function useDebouncedCommit<T>(commit: (value: T) => void, delay = 150) {
@@ -102,29 +91,21 @@ function ColorControl({
   onChange: (hex: string) => void;
   linked?: boolean;
 }) {
-  const [local, setLocal] = useState(() => toColorInput(value));
-  useEffect(() => setLocal(toColorInput(value)), [value]);
+  const [local, setLocal] = useState(value);
+  useEffect(() => setLocal(value), [value]);
   const commit = useDebouncedCommit(onChange);
   return (
-    <label className="se-color">
-      <span className="se-color-chip" style={{ background: local }}>
-        <input
-          type="color"
-          value={local}
-          onChange={(e) => {
-            setLocal(e.target.value);
-            commit(e.target.value);
-          }}
-        />
-      </span>
-      <span className="se-color-meta">
-        <small>
-          {label}
-          {linked && <Linked />}
-        </small>
-        <code>{local}</code>
-      </span>
-    </label>
+    <div className="se-color">
+      <OpaqueColorControl
+        label={label}
+        value={local}
+        onChange={(hex) => {
+          setLocal(hex);
+          commit(hex);
+        }}
+      />
+      {linked && <Linked />}
+    </div>
   );
 }
 
@@ -443,7 +424,7 @@ function useBindings(lineKey: string) {
   const styleOf = (ids: string[]) => (patch: Partial<SpecElement["style"]>) =>
     edit((doc) =>
       doc.elements.forEach((e) => {
-        if (ids.includes(e.id)) Object.assign(e.style, patch);
+        if (ids.includes(e.id) && !e.locked) Object.assign(e.style, patch);
       }),
     );
 
@@ -629,27 +610,6 @@ function MoodControls({ b }: { b: Bindings }) {
   );
 }
 
-/** The Scene / Lighting section's controls: free text plus preset chips.
- * No debounce, so a chip click's immediate write never races a pending
- * keystroke commit. */
-function ArtFieldControls({ b, field }: { b: Bindings; field: ArtFieldKey }) {
-  const meta = ART_FIELDS[field];
-  const value = b.d[field] ?? "";
-  const set = (next: string) => b.edit((doc) => setArtField(doc, field, next));
-  return (
-    <>
-      <TextControl
-        label={meta.label}
-        value={value}
-        multiline={field === "scene"}
-        placeholder={meta.placeholder}
-        onChange={set}
-      />
-      <PresetChips label={meta.label} presets={meta.presets} value={value} onChange={set} />
-    </>
-  );
-}
-
 /** An element's Material and texture field: free text plus preset chips. */
 function MaterialControls({
   value,
@@ -694,7 +654,7 @@ function ElementControls({
   const setEl = (patch: Partial<SpecElement>) =>
     b.edit((doc) =>
       doc.elements.forEach((e) => {
-        if (ids.includes(e.id)) Object.assign(e, patch);
+        if (ids.includes(e.id) && !e.locked) Object.assign(e, patch);
       }),
     );
   if (isTextKind(el.kind)) {
@@ -817,6 +777,9 @@ function ElementControls({
   const fillLinked = !!b.primary;
   return (
     <Fragment>
+      {single && el.kind === "shape" && (
+        <ShapeControls key={el.id} element={el} />
+      )}
       <div className="se-row se-row-color">
         <ColorControl
           label={fillLinked ? "Fill (brand primary)" : "Fill"}
@@ -828,14 +791,16 @@ function ElementControls({
               : setStyle({ background: hex })
           }
         />
-        {el.kind === "shape" && (
-          <NumberControl
-            label="Radius"
-            value={st.borderRadius ?? 0}
-            max={500}
-            onChange={(borderRadius) => setStyle({ borderRadius })}
-          />
-        )}
+        {el.kind === "shape" &&
+          !single &&
+          el.style.shapeType === "rounded rectangle" && (
+            <NumberControl
+              label="Radius"
+              value={st.borderRadius ?? 0}
+              max={500}
+              onChange={(borderRadius) => setStyle({ borderRadius })}
+            />
+          )}
       </div>
       {single && (
         <MaterialControls
@@ -994,9 +959,6 @@ function hasLinked(target: Target, b: Bindings) {
       return false;
     case "components":
       return !!(b.typography.linked || b.text || b.primary);
-    case "scene":
-    case "lighting":
-      return false;
     case "typography":
       return b.typography.linked;
     case "element": {
@@ -1063,10 +1025,6 @@ export function SectionEditor({
       break;
     case "imagery":
       body = <ImageryControls b={b} />;
-      break;
-    case "scene":
-    case "lighting":
-      body = <ArtFieldControls b={b} field={target.type} />;
       break;
     case "typography":
       body = (

@@ -90,6 +90,43 @@ export function brandKitTileForeground(hex: string): "#111311" | "#FFFFFF" {
   return luminance > 0.58 ? "#111311" : "#FFFFFF";
 }
 
+/** WCAG relative luminance of a hex color (sRGB linearised), or 0 if invalid. */
+export function relativeLuminance(hex: string): number {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return 0;
+  const linear = rgb.map((channel) => {
+    const srgb = channel / 255;
+    return srgb <= 0.03928 ? srgb / 12.92 : ((srgb + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * linear[0]! + 0.7152 * linear[1]! + 0.0722 * linear[2]!;
+}
+
+/** WCAG contrast ratio between two hex colors, from 1 (no contrast) to 21. */
+export function contrastRatio(a: string, b: string): number {
+  const luminanceA = relativeLuminance(a);
+  const luminanceB = relativeLuminance(b);
+  const lighter = Math.max(luminanceA, luminanceB);
+  const darker = Math.min(luminanceA, luminanceB);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+/**
+ * Picks the most readable text color for `backgroundHex`: `preferredHex` if
+ * it's a valid color with at least `min` contrast against the background,
+ * otherwise falls back to `brandKitTileForeground(backgroundHex)`.
+ */
+export function readableTextOn(
+  backgroundHex: string,
+  preferredHex?: string,
+  min = 4.5,
+): string {
+  if (preferredHex && hexToRgb(preferredHex)) {
+    const ratio = contrastRatio(backgroundHex, preferredHex);
+    if (ratio >= min) return preferredHex;
+  }
+  return brandKitTileForeground(backgroundHex);
+}
+
 /** Returns the closest named color to a hex value, or "Custom" if the hex is invalid. */
 export function nearestColorName(hex: string): string {
   const rgb = hexToRgb(hex);

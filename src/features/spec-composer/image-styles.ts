@@ -1,4 +1,5 @@
 import type { SpecDocument } from "./types.ts";
+import { hasExplicitLighting } from "./studio-lighting";
 
 export type ImageStyleGroup =
   "Photographic & 3D" | "Illustration" | "UI surfaces" | "Mood & era";
@@ -177,10 +178,21 @@ export function resolveImageStyle(
  * illustration: … Apply it to the whole image without changing the
  * specified text, colors or layout." A missing id means the default
  * (Photorealistic); "none" or an unknown id yields "". */
-export function imageStyleLine(doc: Pick<SpecDocument, "imageStyle">): string {
+export function imageStyleLine(
+  doc: Pick<SpecDocument, "imageStyle" | "generationSettings"> &
+    Partial<Pick<SpecDocument, "promptOptions">>,
+): string {
   const style = resolveImageStyle(doc);
   if (!style) return "";
-  return `Image style: ${style.prompt} Apply it to the whole image without changing the specified text, colors or layout.`;
+  const explicit =
+    (doc.promptOptions?.scene &&
+      (doc.generationSettings?.cameraAngle || doc.generationSettings?.camera)) ||
+    (doc.promptOptions &&
+      hasExplicitLighting({
+        generationSettings: doc.generationSettings,
+        promptOptions: doc.promptOptions,
+      }));
+  return `Image style: ${style.prompt} Apply it to the whole image without changing the specified text, colors or layout.${explicit ? " Explicit Scene and Lighting settings take precedence over this style's camera and lighting defaults." : ""}`;
 }
 
 /** Sets the document's image style, clearing a stale text override so it

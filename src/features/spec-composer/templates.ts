@@ -1,3 +1,4 @@
+import { templateAssetPatch, libraryVisual } from "./template-assets";
 import { applyDefaultBrandKit } from "./brand-kits";
 import { formats } from "./formats";
 import { generateMaterialColorKit, tone } from "./material-kits";
@@ -17,6 +18,8 @@ import {
   STREET_STYLE_SCENE,
 } from "./template-scenes";
 import {
+  layoutForFormat,
+  fitTemplateText,
   BASE_HEIGHT,
   BASE_WIDTH,
   boldBlock,
@@ -32,7 +35,6 @@ import {
   retroSticker,
   spotlight,
   verticalType,
-  visual,
   voucher,
   type Palette,
   type SlotSpec,
@@ -60,12 +62,15 @@ export type TemplateCategory = (typeof templateCategoryKeys)[number];
 
 interface TemplateConfig {
   name: string;
+  formatId: string;
+  layoutFamily: string;
+  imageBrief: string;
   category: Exclude<TemplateCategory, "All">;
   colors: [string, string, string];
   /** Present for Material 3 templates: the seed color their tonal palette was generated from. */
   styleKitSeed?: string;
   /** Prompt Editor image style assigned to this starter template. */
-  imageStyle?: string;
+  imageStyle: string;
   layout: (c: Palette) => SlotSpec[];
 }
 
@@ -78,9 +83,13 @@ function m3Colors(seedHex: string): [string, string, string] {
 const configs: TemplateConfig[] = [
   {
     name: "Product Launch",
-    imageStyle: "retro-vintage",
+    formatId: "instagram-post",
+    imageBrief:
+      "Premium skincare launch with frosted glass, a softly lit plum pedestal, and restrained oversized serif type.",
+    imageStyle: "photorealistic",
     category: "Marketing",
-    colors: ["#0F0E13", "#F4F1EA", "#A78BFA"],
+    colors: ["#181126", "#FAF4E9", "#CDA9E8"],
+    layoutFamily: "spotlight",
     layout: spotlight(
       {
         eyebrow: "New arrival",
@@ -89,18 +98,21 @@ const configs: TemplateConfig[] = [
         sub: "Plant-powered hydration that lasts all day.",
         cta: "Shop the launch",
       },
-      visual(
-        "productImage",
-        "product-bottle",
+      libraryVisual(
+        "fashion-product-bottle",
         "Frosted glass serum bottle with a dropper cap on a stone plinth, lit by a single soft spotlight",
       ),
     ),
   },
   {
     name: "Flash Sale",
-    imageStyle: "flat-illustration",
+    formatId: "instagram-square",
+    imageBrief:
+      "Punchy square sale creative: coral field, lemon offer sticker, and one expressive fashion portrait.",
+    imageStyle: "photorealistic",
     category: "Marketing",
-    colors: ["#E11D2E", "#FFF4E6", "#FFD23F"],
+    colors: ["#EF493D", "#FFF7E9", "#F8D74D"],
+    layoutFamily: "boldBlock",
     layout: boldBlock(
       {
         eyebrow: "Moda · Summer edit",
@@ -111,18 +123,21 @@ const configs: TemplateConfig[] = [
         body: "Ends Sunday midnight\nFree returns on every order",
         cta: "Shop the sale",
       },
-      visual(
-        "humanModelImage",
-        "bust-curly",
+      libraryVisual(
+        "people-half-body-curly",
         "Half-body portrait of a smiling model in a bright yellow top against a red backdrop",
       ),
     ),
   },
   {
     name: "Fashion Editorial",
-    imageStyle: "watercolor",
+    formatId: "instagram-post",
+    imageBrief:
+      "Quiet fashion cover with warm ivory, rust tailoring, layered condensed type, and generous magazine margins.",
+    imageStyle: "photorealistic",
     category: "Social",
-    colors: ["#E9E4DC", "#141414", "#B4532A"],
+    colors: ["#EEE8DD", "#252521", "#B45E3D"],
+    layoutFamily: "megaType",
     layout: megaType(
       {
         eyebrow: "Issue 07",
@@ -132,18 +147,21 @@ const configs: TemplateConfig[] = [
         body: "Layered neutrals and soft tailoring\nfor the colder months",
         cta: "Read the issue",
       },
-      visual(
-        "humanModelImage",
-        "bust-woman",
+      libraryVisual(
+        "people-half-body-woman",
         "Editorial half-body portrait of a woman in a rust knit, soft studio light, neutral backdrop",
       ),
     ),
   },
   {
     name: "Event Announcement",
-    imageStyle: "paper-cut",
+    formatId: "x-post",
+    imageBrief:
+      "Wide summit announcement: condensed title at left, amber conference stage at right, crisp date and registration strip.",
+    imageStyle: "photorealistic",
     category: "Events",
-    colors: ["#0E1220", "#F5F3EE", "#F5A524"],
+    colors: ["#121D2C", "#FFF7E8", "#EDAC55"],
+    layoutFamily: "megaType",
     layout: megaType(
       {
         eyebrow: "Live · 14 Nov 2026",
@@ -153,9 +171,8 @@ const configs: TemplateConfig[] = [
         body: "Pier 27 · 9 AM – 6 PM\n40 speakers, 12 workshops",
         cta: "Reserve a seat",
       },
-      visual(
-        "heroImage",
-        "event-stage",
+      libraryVisual(
+        "events-stage",
         "Audience facing a lit conference stage, warm amber spotlights, wide shot from the back of the room",
       ),
       { font: FONT.bebas, scene: true },
@@ -163,38 +180,49 @@ const configs: TemplateConfig[] = [
   },
   {
     name: "Minimal Quote",
-    imageStyle: "claymorphism",
+    formatId: "instagram-square",
+    imageBrief:
+      "A quiet square editorial quote with one monochrome portrait, fine ink rules and ample cream negative space.",
+    imageStyle: "photorealistic",
     category: "Quotes",
-    colors: ["#F2EDE3", "#1A1A1A", "#B91C1C"],
+    colors: ["#F7F1E6", "#202322", "#BA523D"],
+    layoutFamily: "newsprint",
     layout: newsprint(
       {
         eyebrow: "Vol. 18 · Studio Notes · Free",
         title: "The Daily Quote",
         sub: "“Make it simple, then make it matter.”",
         note: "Mara Ellison, designer and writer",
-        body: "Good design is rarely loud. It removes what distracts, keeps what serves, and leaves room for the idea to breathe.\n\nThis week: five studios that treat restraint as a feature, and what their process teaches about clarity.",
+        body: "Less noise. More meaning.",
         cta: "Read more",
         badge: "Every Friday",
       },
-      visual(
-        "supportingImage",
-        "bust-woman-2",
+      libraryVisual(
+        "people-half-body-glasses",
         "Black-and-white portrait of a designer with glasses at her desk",
       ),
     ),
   },
   {
     name: "Business Card",
-    imageStyle: "3d-render",
+    formatId: "linkedin-post",
+    imageBrief:
+      "Professional landscape introduction with a small studio mark, precise contact column and electric blue side rule.",
+    imageStyle: "vector",
     category: "Business",
-    colors: ["#0F172A", "#F8FAFC", "#38BDF8"],
+    colors: ["#10263B", "#F6F8F5", "#65CCEE"],
+    layoutFamily: "businessCard",
     layout: businessCard,
   },
   {
     name: "Restaurant Menu",
+    formatId: "facebook-post",
+    imageBrief:
+      "Landscape bistro menu pairing a richly lit ceramic bowl with a readable seasonal menu and warm brass details.",
     imageStyle: "photorealistic",
     category: "Business",
-    colors: ["#1C1410", "#F6EBDD", "#E4A04B"],
+    colors: ["#251C17", "#FFF4DE", "#D5A45E"],
+    layoutFamily: "promoSplit",
     layout: promoSplit(
       {
         eyebrow: "Seasonal menu",
@@ -202,8 +230,7 @@ const configs: TemplateConfig[] = [
         sub: "Wood-fired plates from the farms around us.",
         note: "Open daily · 12 – 10 PM · Book a table",
       },
-      visual(
-        "supportingImage",
+      libraryVisual(
         "food-bowl",
         "Overhead shot of a rustic ceramic bowl of roasted vegetables on dark linen",
       ),
@@ -219,9 +246,13 @@ const configs: TemplateConfig[] = [
   },
   {
     name: "Party Invitation",
-    imageStyle: "isometric",
+    formatId: "instagram-story",
+    imageBrief:
+      "Playful vertical birthday invitation with balloon cutouts, berry pink type and one lemon RSVP sticker.",
+    imageStyle: "flat-illustration",
     category: "Events",
-    colors: ["#FF5FA2", "#2B0A3D", "#FFE14D"],
+    colors: ["#F3A3BB", "#3C193F", "#F6DB69"],
+    layoutFamily: "retroSticker",
     layout: retroSticker(
       {
         eyebrow: "You're invited",
@@ -231,18 +262,21 @@ const configs: TemplateConfig[] = [
         body: "Saturday, 8 PM\nThe Loft, 214 Grand Street",
         cta: "I'll be there",
       },
-      visual(
-        "heroImage",
-        "balloons",
+      libraryVisual(
+        "events-balloons",
         "Cluster of glossy balloons and confetti on a hot-pink backdrop",
       ),
     ),
   },
   {
     name: "Job Opening",
-    imageStyle: "vector",
+    formatId: "linkedin-post",
+    imageBrief:
+      "Wide recruiting announcement with a clear role headline, remote-work details and a three-panel team collage.",
+    imageStyle: "photorealistic",
     category: "Business",
-    colors: ["#0F3D2E", "#F1F5EE", "#7EE081"],
+    colors: ["#133E38", "#F3F4E9", "#B8DE8C"],
+    layoutFamily: "collage",
     layout: collage(
       {
         badge: "We're hiring",
@@ -252,20 +286,17 @@ const configs: TemplateConfig[] = [
         cta: "Apply now",
       },
       [
-        visual(
-          "humanModelImage",
-          "bust-woman-2",
+        libraryVisual(
+          "people-half-body-glasses",
           "Engineer with glasses smiling at her desk, natural office light",
         ),
-        visual(
-          "supportingImage",
-          "laptop-screen",
+        libraryVisual(
+          "tech-laptop",
           "Laptop showing a code editor and a video call",
           { fit: "contain" },
         ),
-        visual(
-          "humanModelImage",
-          "bust-man",
+        libraryVisual(
+          "people-half-body-man",
           "Bearded team lead in a blazer, relaxed office portrait",
         ),
       ],
@@ -273,9 +304,13 @@ const configs: TemplateConfig[] = [
   },
   {
     name: "Webinar Promo",
-    imageStyle: "hand-drawn",
+    formatId: "youtube-thumbnail",
+    imageBrief:
+      "Readable video thumbnail with a short bold design-systems title, one laptop visual and a violet session label.",
+    imageStyle: "photorealistic",
     category: "Marketing",
-    colors: ["#F1F0FA", "#1E1B4B", "#5B5BD6"],
+    colors: ["#F1EAFB", "#292344", "#8973DC"],
+    layoutFamily: "editorialSerif",
     layout: editorialSerif(
       {
         eyebrow: "Free live webinar",
@@ -285,9 +320,8 @@ const configs: TemplateConfig[] = [
         body: "A practical 60-minute session\nwith live Q&A.",
         cta: "Save my seat",
       },
-      visual(
-        "supportingImage",
-        "laptop-screen",
+      libraryVisual(
+        "tech-laptop",
         "Laptop showing a video call with two speakers and presentation slides",
         { fit: "contain" },
       ),
@@ -295,9 +329,13 @@ const configs: TemplateConfig[] = [
   },
   {
     name: "Real Estate Listing",
-    imageStyle: "cyberpunk-neon",
+    formatId: "facebook-post",
+    imageBrief:
+      "Wide property showcase with a warm daylight house photograph, terracotta price panel and concise viewing details.",
+    imageStyle: "photorealistic",
     category: "Business",
-    colors: ["#F5F2EC", "#1C1917", "#B8860B"],
+    colors: ["#F8F0E4", "#292B28", "#B96140"],
+    layoutFamily: "promoSplit",
     layout: promoSplit(
       {
         eyebrow: "Just listed · Oakridge",
@@ -308,18 +346,21 @@ const configs: TemplateConfig[] = [
         cta: "Book a viewing",
         note: "oakridgehomes.co",
       },
-      visual(
-        "heroImage",
-        "house",
+      libraryVisual(
+        "realestate-house",
         "Modern two-storey family home with a gabled roof and front garden at golden hour",
       ),
     ),
   },
   {
     name: "Fitness Class",
-    imageStyle: "anime",
+    formatId: "instagram-story",
+    imageBrief:
+      "Energetic vertical fitness story with a full-body athlete, lime-on-charcoal type and an unobstructed booking zone.",
+    imageStyle: "photorealistic",
     category: "Lifestyle",
-    colors: ["#0C0A09", "#FAFAF9", "#FF6A13"],
+    colors: ["#172321", "#FAF6EC", "#C6F05F"],
+    layoutFamily: "verticalType",
     layout: verticalType(
       {
         eyebrow: "Mondays · 7 AM",
@@ -328,18 +369,21 @@ const configs: TemplateConfig[] = [
         cta: "Book a spot",
         note: "Studio 4 · Eastside",
       },
-      visual(
-        "humanModelImage",
-        "person-active-man",
+      libraryVisual(
+        "people-active-man",
         "Athlete mid-jump with arms raised in orange activewear, dark studio, dramatic rim light",
       ),
     ),
   },
   {
     name: "Podcast Episode",
+    formatId: "youtube-thumbnail",
+    imageBrief:
+      "High-contrast podcast thumbnail with oversized ivory headline, purple microphone lighting and a compact episode badge.",
     imageStyle: "cinematic",
     category: "Social",
-    colors: ["#1E1B4B", "#EDE9FE", "#C084FC"],
+    colors: ["#211636", "#FFF4E7", "#BC8ADE"],
+    layoutFamily: "editorialSerif",
     layout: editorialSerif(
       {
         eyebrow: "Episode 42",
@@ -349,9 +393,8 @@ const configs: TemplateConfig[] = [
         body: "Why sharing early beats\nlaunching loud.",
         cta: "Listen now",
       },
-      visual(
-        "heroImage",
-        "microphone",
+      libraryVisual(
+        "events-microphone",
         "Studio podcast microphone with purple backlight and soft haze",
         { fit: "contain" },
       ),
@@ -359,9 +402,13 @@ const configs: TemplateConfig[] = [
   },
   {
     name: "Coming Soon",
-    imageStyle: "neumorphism",
+    formatId: "instagram-story",
+    imageBrief:
+      "Minimal midnight-blue vertical teaser with a small dimensional glass sculpture, spacious serif title and quiet waitlist CTA.",
+    imageStyle: "photorealistic",
     category: "Marketing",
-    colors: ["#05060A", "#F1F5F9", "#38BDF8"],
+    colors: ["#0E1B2F", "#F7F3E9", "#8CCDD8"],
+    layoutFamily: "spotlight",
     layout: spotlight(
       {
         eyebrow: "Something new",
@@ -376,9 +423,13 @@ const configs: TemplateConfig[] = [
   },
   {
     name: "Customer Testimonial",
-    imageStyle: "glassmorphism",
+    formatId: "instagram-square",
+    imageBrief:
+      "Square customer story with warm portraits, a single prominent quotation and a clear author credit.",
+    imageStyle: "photorealistic",
     category: "Marketing",
-    colors: ["#FFF4E8", "#3B1D0E", "#F97316"],
+    colors: ["#FFF0DE", "#442D26", "#B96A44"],
+    layoutFamily: "collage",
     layout: collage(
       {
         badge: "Customer story",
@@ -388,19 +439,16 @@ const configs: TemplateConfig[] = [
         cta: "Read the story",
       },
       [
-        visual(
-          "supportingImage",
-          "bust-man",
+        libraryVisual(
+          "people-half-body-man",
           "Warm portrait of a bearded design lead in a bright office",
         ),
-        visual(
-          "supportingImage",
-          "bust-curly",
+        libraryVisual(
+          "people-half-body-curly",
           "Designer with curly hair reviewing work on a wall",
         ),
-        visual(
-          "supportingImage",
-          "bust-woman",
+        libraryVisual(
+          "people-half-body-woman",
           "Product manager smiling during a team review",
         ),
       ],
@@ -408,9 +456,13 @@ const configs: TemplateConfig[] = [
   },
   {
     name: "Seasonal Sale",
-    imageStyle: "pixel-art",
+    formatId: "instagram-story",
+    imageBrief:
+      "Vertical forest-green holiday offer with a decorated evergreen, warm cream type and a scarlet offer sticker.",
+    imageStyle: "photorealistic",
     category: "Marketing",
-    colors: ["#0F5132", "#FFF8E7", "#E63946"],
+    colors: ["#16483B", "#FFF6E6", "#DB4E4C"],
+    layoutFamily: "boldBlock",
     layout: boldBlock(
       {
         eyebrow: "Winter sale",
@@ -421,18 +473,21 @@ const configs: TemplateConfig[] = [
         body: "Free gift wrapping\nin store and online",
         cta: "Shop gifts",
       },
-      visual(
-        "productImage",
-        "gift",
-        "Wrapped gift box with a red ribbon bow on a deep green backdrop",
+      libraryVisual(
+        "seasonal-holiday",
+        "Decorated evergreen with scarlet ribbon and a few handmade ornaments on a deep green backdrop",
       ),
     ),
   },
   {
     name: "Wedding Invitation",
-    imageStyle: "low-poly",
+    formatId: "whatsapp-status",
+    imageBrief:
+      "Elegant tall wedding stationery with olive floral corners, rose accents, script names and centered event details.",
+    imageStyle: "watercolor",
     category: "Events",
-    colors: ["#FBF7F0", "#3F3527", "#B8912F"],
+    colors: ["#FAF5E9", "#3E4333", "#A66F78"],
+    layoutFamily: "ornamentFrame",
     layout: ornamentFrame(
       {
         eyebrow: "Together with their families",
@@ -447,9 +502,13 @@ const configs: TemplateConfig[] = [
   },
   {
     name: "Baby Shower Invite",
-    imageStyle: "line-art",
+    formatId: "whatsapp-status",
+    imageBrief:
+      "Gentle tall celebration with peach sunshine artwork, sky-blue details and playful restrained display type.",
+    imageStyle: "flat-illustration",
     category: "Events",
-    colors: ["#BDE0FE", "#0B3C5D", "#FFFFFF"],
+    colors: ["#FBE7D8", "#334961", "#95BDD2"],
+    layoutFamily: "retroSticker",
     layout: retroSticker(
       {
         eyebrow: "Baby shower",
@@ -459,18 +518,21 @@ const configs: TemplateConfig[] = [
         body: "Hosted by Grace\n18 Willow Lane",
         cta: "RSVP to Grace",
       },
-      visual(
-        "heroImage",
-        "moon-cloud",
-        "Soft nursery scene of a smiling moon, clouds, and stars in pastel blue",
+      libraryVisual(
+        "seasonal-sun",
+        "Gentle illustrated sunrise with rounded peach rays on a pastel blue backdrop",
       ),
     ),
   },
   {
     name: "Graduation Announcement",
-    imageStyle: "photorealistic",
+    formatId: "whatsapp-status",
+    imageBrief:
+      "Tall navy graduation card with a gold tassel cap, fine gold frame and a spacious celebratory name.",
+    imageStyle: "line-art",
     category: "Events",
-    colors: ["#14213D", "#F8F4E3", "#E9C46A"],
+    colors: ["#142C47", "#FFF6DB", "#DDBA6D"],
+    layoutFamily: "ornamentFrame",
     layout: ornamentFrame(
       {
         eyebrow: "Class of 2026",
@@ -478,9 +540,8 @@ const configs: TemplateConfig[] = [
         sub: "Bachelor of Science in Architecture",
         body: "Ceremony · 30 May · 10 AM\nMain Quad, Westbrook University",
       },
-      visual(
-        "heroImage",
-        "graduation-cap",
+      libraryVisual(
+        "education-graduation",
         "Graduation cap with a gold tassel and a rolled diploma on navy",
       ),
       { ornament: "gold-frame", titleColor: "accent" },
@@ -488,9 +549,13 @@ const configs: TemplateConfig[] = [
   },
   {
     name: "Holiday Greeting Card",
-    imageStyle: "low-poly",
+    formatId: "whatsapp-status",
+    imageBrief:
+      "Warm burgundy family greeting with a small illustrated family portrait, champagne frame and elegant cream script.",
+    imageStyle: "flat-illustration",
     category: "Social",
-    colors: ["#7F1D1D", "#FDF6E3", "#E9C46A"],
+    colors: ["#682C39", "#FFF4DE", "#D4B472"],
+    layoutFamily: "ornamentFrame",
     layout: ornamentFrame(
       {
         eyebrow: "Season's greetings",
@@ -498,9 +563,8 @@ const configs: TemplateConfig[] = [
         sub: "for the holidays and the year ahead",
         body: "With love from the Carter family",
       },
-      visual(
-        "heroImage",
-        "family",
+      libraryVisual(
+        "people-family",
         "Family of three in cosy knitwear beside a decorated evergreen tree",
       ),
       { ornament: "gold-frame", titleColor: "accent" },
@@ -508,9 +572,13 @@ const configs: TemplateConfig[] = [
   },
   {
     name: "New Year Countdown",
-    imageStyle: "anime",
+    formatId: "youtube-thumbnail",
+    imageBrief:
+      "Bold widescreen celebration thumbnail with gold fireworks, oversized countdown type and one midnight event detail.",
+    imageStyle: "cinematic",
     category: "Social",
-    colors: ["#07070B", "#FAFAFA", "#F2C94C"],
+    colors: ["#111622", "#FFF9E9", "#E7BD65"],
+    layoutFamily: "megaType",
     layout: megaType(
       {
         eyebrow: "31 December",
@@ -520,9 +588,8 @@ const configs: TemplateConfig[] = [
         body: "Live DJ, skyline views\nand a midnight toast",
         cta: "Get tickets",
       },
-      visual(
-        "heroImage",
-        "fireworks",
+      libraryVisual(
+        "seasonal-fireworks",
         "Gold fireworks bursting over a night city skyline",
       ),
       { font: FONT.bebas, scene: true },
@@ -530,9 +597,13 @@ const configs: TemplateConfig[] = [
   },
   {
     name: "Recipe Card",
-    imageStyle: "vector",
+    formatId: "pinterest-pin",
+    imageBrief:
+      "Saveable long recipe pin with an overhead grain bowl, paprika headline, readable ingredients and generous kitchen-note spacing.",
+    imageStyle: "photorealistic",
     category: "Lifestyle",
-    colors: ["#FFF7E6", "#4A2511", "#E4572E"],
+    colors: ["#FFF4DF", "#503D25", "#B94D32"],
+    layoutFamily: "promoSplit",
     layout: promoSplit(
       {
         eyebrow: "Weeknight dinner · 25 min",
@@ -541,8 +612,7 @@ const configs: TemplateConfig[] = [
         body: "• 1 cup farro\n• 1 small squash\n• 1 can chickpeas\n• 3 tbsp tahini",
         note: "Serves 4 · Vegetarian",
       },
-      visual(
-        "productImage",
+      libraryVisual(
         "food-bowl",
         "Overhead shot of a grain bowl with roasted squash, chickpeas, and a tahini drizzle",
       ),
@@ -550,9 +620,13 @@ const configs: TemplateConfig[] = [
   },
   {
     name: "Travel Promo",
-    imageStyle: "glassmorphism",
+    formatId: "pinterest-pin",
+    imageBrief:
+      "Tall coastal travel pin with a panoramic island view, sea-blue accents and a compact package price.",
+    imageStyle: "photorealistic",
     category: "Marketing",
-    colors: ["#E8F6F8", "#0B3B4A", "#0FA3B1"],
+    colors: ["#E9F4EF", "#173D48", "#3D9FAD"],
+    layoutFamily: "promoSplit",
     layout: promoSplit(
       {
         eyebrow: "Island escape",
@@ -563,18 +637,21 @@ const configs: TemplateConfig[] = [
         cta: "Plan my trip",
         note: "Departures May – Oct",
       },
-      visual(
-        "heroImage",
-        "landscape",
+      libraryVisual(
+        "travel-landscape",
         "Whitewashed village above a turquoise sea at sunset",
       ),
     ),
   },
   {
     name: "Music Concert Poster",
-    imageStyle: "cyberpunk-neon",
+    formatId: "youtube-thumbnail",
+    imageBrief:
+      "Widescreen music thumbnail with a magenta performer silhouette, condensed cream title and one tour-date accent.",
+    imageStyle: "cinematic",
     category: "Events",
-    colors: ["#1A0B2E", "#F8F0FF", "#FF3CAC"],
+    colors: ["#22152E", "#FFF0E1", "#E476B5"],
+    layoutFamily: "boldBlock",
     layout: boldBlock(
       {
         eyebrow: "World tour 2026",
@@ -585,9 +662,8 @@ const configs: TemplateConfig[] = [
         body: "Saturday 22 November\nDoors 7 PM",
         cta: "Get tickets",
       },
-      visual(
-        "heroImage",
-        "profile",
+      libraryVisual(
+        "people-profile-silhouette",
         "Dramatic side-profile silhouette of a singer under magenta stage light",
       ),
       { font: FONT.anton },
@@ -595,9 +671,13 @@ const configs: TemplateConfig[] = [
   },
   {
     name: "Yoga Retreat",
-    imageStyle: "pixel-art",
+    formatId: "pinterest-pin",
+    imageBrief:
+      "Calm long wellness pin with a seated meditation figure, sage framing and a vertical serif headline.",
+    imageStyle: "photorealistic",
     category: "Lifestyle",
-    colors: ["#EEF0E5", "#2F3A25", "#B9C49A"],
+    colors: ["#EFF0E1", "#344536", "#9BAD83"],
+    layoutFamily: "verticalType",
     layout: verticalType(
       {
         eyebrow: "Weekend retreat",
@@ -606,9 +686,8 @@ const configs: TemplateConfig[] = [
         cta: "Reserve your mat",
         note: "14 – 16 Nov · Sonoma",
       },
-      visual(
-        "humanModelImage",
-        "person-meditate",
+      libraryVisual(
+        "people-seated",
         "Person meditating cross-legged on a mat in soft morning light among trees",
       ),
       { font: FONT.serif },
@@ -616,9 +695,13 @@ const configs: TemplateConfig[] = [
   },
   {
     name: "Book Launch",
-    imageStyle: "cinematic",
+    formatId: "pinterest-pin",
+    imageBrief:
+      "Long literary pin with a burgundy hardcover stack, quiet serif hierarchy, one review and a clear preorder button.",
+    imageStyle: "photorealistic",
     category: "Marketing",
-    colors: ["#F7EFE9", "#3B0918", "#9F1239"],
+    colors: ["#F5EAE3", "#4C2034", "#AF5E73"],
+    layoutFamily: "editorialSerif",
     layout: editorialSerif(
       {
         eyebrow: "New release",
@@ -628,9 +711,8 @@ const configs: TemplateConfig[] = [
         body: "“Quietly devastating.”\nThe Literary Review",
         cta: "Pre-order now",
       },
-      visual(
-        "productImage",
-        "book-stack",
+      libraryVisual(
+        "education-books",
         "Hardcover novel with a deep red jacket standing on a stack of books",
         { fit: "contain" },
       ),
@@ -638,9 +720,13 @@ const configs: TemplateConfig[] = [
   },
   {
     name: "Startup Pitch Cover",
-    imageStyle: "line-art",
+    formatId: "linkedin-post",
+    imageBrief:
+      "Wide investor cover with dark navy, electric mint accents, large Relay wordmark and a clean growth-chart panel.",
+    imageStyle: "vector",
     category: "Business",
-    colors: ["#0B1220", "#E2E8F0", "#22D3EE"],
+    colors: ["#101E30", "#EDF6EA", "#61CDB8"],
+    layoutFamily: "editorialSerif",
     layout: editorialSerif(
       {
         eyebrow: "Seed round · 2026",
@@ -649,9 +735,8 @@ const configs: TemplateConfig[] = [
         sub: "payments for creators",
         body: "Investor presentation\nQ4 2026",
       },
-      visual(
-        "supportingImage",
-        "chart-growth",
+      libraryVisual(
+        "finance-growth",
         "Clean upward growth chart on a dark dashboard",
         { fit: "contain" },
       ),
@@ -659,31 +744,35 @@ const configs: TemplateConfig[] = [
   },
   {
     name: "Newsletter Header",
-    imageStyle: "hand-drawn",
+    formatId: "x-post",
+    imageBrief:
+      "Wide cream-and-ink newsletter masthead, a dawn skyline panel and one concise weekly editorial deck.",
+    imageStyle: "photorealistic",
     category: "Business",
-    colors: ["#F6F3EC", "#111827", "#2563EB"],
+    colors: ["#F7F2E5", "#25332E", "#3A648C"],
+    layoutFamily: "newsprint",
     layout: newsprint(
       {
         eyebrow: "Issue 18 · September 2026",
         title: "The Weekly Grid",
         sub: "Design notes, tools, and one good idea every Friday.",
         note: "The city at dawn, from our studio roof",
-        body: "This week: why the best dashboards start on paper, a font pairing that never fails, and the tiny habit that keeps our backlog honest.\n\nPlus five links worth your coffee break.",
+        body: "One good idea. Five useful links. Every Friday.",
         cta: "Subscribe free",
         badge: "Free · Every Friday",
       },
-      visual(
-        "supportingImage",
-        "city-skyline",
-        "City skyline at dawn with lit windows",
-      ),
+      libraryVisual("travel-city", "City skyline at dawn with lit windows"),
     ),
   },
   {
     name: "Coupon Voucher",
-    imageStyle: "isometric",
+    formatId: "instagram-square",
+    imageBrief:
+      "Square tangerine ticket with circular notches, an oversized discount and a legible coupon code.",
+    imageStyle: "photorealistic",
     category: "Marketing",
-    colors: ["#FFE8A3", "#3D2A00", "#E85D04"],
+    colors: ["#FFE7B0", "#43291C", "#D66137"],
+    layoutFamily: "voucher",
     layout: voucher({
       eyebrow: "Thank-you gift",
       offer: "$20 OFF",
@@ -695,34 +784,35 @@ const configs: TemplateConfig[] = [
   },
   {
     name: "Product Catalog Cover",
-    imageStyle: "retro-vintage",
+    formatId: "instagram-post",
+    imageBrief:
+      "Portrait home-goods cover featuring ceramic greenery, amber fragrance and a camera in a warm three-frame object study.",
+    imageStyle: "photorealistic",
     category: "Business",
-    colors: ["#F3F1EC", "#1C1B19", "#B5651D"],
+    colors: ["#EEE7DB", "#302F27", "#A86C47"],
+    layoutFamily: "collage",
     layout: collage(
       {
         badge: "AW 2026",
-        title: "HOME GOODS CATALOG",
+        title: "OBJECTS FOR LIVING",
         sub: "120 pieces for slower living",
-        body: "Ceramics, linen and light for every room.",
+        body: "Thoughtful objects for everyday rituals.",
         cta: "Browse the collection",
       },
       [
-        visual(
-          "productImage",
-          "vase-set",
-          "Ceramic vases in earthy glazes on a linen-covered plinth",
+        libraryVisual(
+          "scenes-plant-vase",
+          "Eucalyptus stems in an earthy ceramic vase on a linen-covered plinth",
           { fit: "contain", focal: [0.5, 1] },
         ),
-        visual(
-          "productImage",
-          "perfume",
+        libraryVisual(
+          "fashion-perfume",
           "Amber glass diffuser bottle on a stone tray",
           { fit: "contain", focal: [0.5, 1] },
         ),
-        visual(
-          "productImage",
-          "headphones",
-          "Oat-colored wireless headphones on a wooden shelf",
+        libraryVisual(
+          "tech-camera",
+          "Compact cream camera with a tan strap on a wooden shelf",
           { fit: "contain", focal: [0.5, 1] },
         ),
       ],
@@ -730,9 +820,13 @@ const configs: TemplateConfig[] = [
   },
   {
     name: "Charity Fundraiser",
-    imageStyle: "watercolor",
+    formatId: "facebook-post",
+    imageBrief:
+      "Wide community appeal with hands holding a heart, a teal headline column and one clear meal-impact offer.",
+    imageStyle: "photorealistic",
     category: "Events",
-    colors: ["#0F766E", "#F0FDFA", "#FDE68A"],
+    colors: ["#145950", "#F5F5DF", "#E9C879"],
+    layoutFamily: "boldBlock",
     layout: boldBlock(
       {
         eyebrow: "Charity gala",
@@ -743,9 +837,8 @@ const configs: TemplateConfig[] = [
         body: "Dinner, music and an auction\nfor the Riverside Food Bank",
         cta: "Donate today",
       },
-      visual(
-        "heroImage",
-        "heart-hands",
+      libraryVisual(
+        "health-heart",
         "Hands gently holding a heart, warm community volunteering scene",
       ),
       { font: FONT.anton },
@@ -753,9 +846,13 @@ const configs: TemplateConfig[] = [
   },
   {
     name: "Online Course Promo",
-    imageStyle: "paper-cut",
+    formatId: "x-post",
+    imageBrief:
+      "Wide course announcement with a violet lightbulb study, strong serif headline and concise lesson and price details.",
+    imageStyle: "photorealistic",
     category: "Marketing",
-    colors: ["#F5F3FF", "#2E1065", "#7C3AED"],
+    colors: ["#F0EBFA", "#382955", "#9269BD"],
+    layoutFamily: "editorialSerif",
     layout: editorialSerif(
       {
         eyebrow: "Self-paced course",
@@ -766,9 +863,8 @@ const configs: TemplateConfig[] = [
         body: "Learn to frame problems\nand test ideas fast.",
         cta: "Enroll now",
       },
-      visual(
-        "supportingImage",
-        "lightbulb",
+      libraryVisual(
+        "education-idea",
         "Glowing lightbulb with a violet filament on a soft lavender backdrop",
         { fit: "contain" },
       ),
@@ -776,9 +872,13 @@ const configs: TemplateConfig[] = [
   },
   {
     name: "App Launch",
-    imageStyle: "neumorphism",
+    formatId: "x-post",
+    imageBrief:
+      "Wide planner-app launch with a clean phone UI on blue, a bold left headline and a compact download CTA.",
+    imageStyle: "3d-render",
     category: "Marketing",
-    colors: ["#0A1A3F", "#EAF2FF", "#3B82F6"],
+    colors: ["#152C4D", "#F2F4EB", "#80B5E9"],
+    layoutFamily: "spotlight",
     layout: spotlight(
       {
         eyebrow: "Now on iOS & Android",
@@ -787,9 +887,8 @@ const configs: TemplateConfig[] = [
         sub: "Tempo turns your to-dos into a calm daily rhythm.",
         cta: "Download free",
       },
-      visual(
-        "productImage",
-        "phone-app",
+      libraryVisual(
+        "devices-phone-app",
         "Smartphone showing a clean planner app with a notification, glowing blue light",
       ),
       { font: FONT.bebas },
@@ -797,9 +896,13 @@ const configs: TemplateConfig[] = [
   },
   {
     name: "Anniversary Card",
-    imageStyle: "flat-illustration",
+    formatId: "whatsapp-status",
+    imageBrief:
+      "Blush tall anniversary stationery with floral corners, champagne flutes and a personal script dedication.",
+    imageStyle: "watercolor",
     category: "Social",
-    colors: ["#FFF1F2", "#881337", "#E11D48"],
+    colors: ["#FBECE8", "#6E3347", "#BF6C80"],
+    layoutFamily: "ornamentFrame",
     layout: ornamentFrame(
       {
         eyebrow: "Happy anniversary",
@@ -807,9 +910,8 @@ const configs: TemplateConfig[] = [
         sub: "here's to every adventure still ahead",
         body: "With all my love,\nSam",
       },
-      visual(
-        "heroImage",
-        "champagne",
+      libraryVisual(
+        "food-celebration",
         "Two champagne flutes clinking with sparkles on a blush backdrop",
       ),
       { ornament: "floral-frame", titleColor: "accent" },
@@ -817,9 +919,13 @@ const configs: TemplateConfig[] = [
   },
   {
     name: "Motivational Poster",
-    imageStyle: "claymorphism",
+    formatId: "pinterest-pin",
+    imageBrief:
+      "Saveable butter-yellow typographic pin with coral sticker accents, a small upward arrow and an oversized encouraging message.",
+    imageStyle: "vector",
     category: "Quotes",
-    colors: ["#FFD23F", "#111111", "#EE4266"],
+    colors: ["#F8D96F", "#302D27", "#C85665"],
+    layoutFamily: "retroSticker",
     layout: retroSticker(
       {
         eyebrow: "Monday reminder",
@@ -833,9 +939,13 @@ const configs: TemplateConfig[] = [
   },
   {
     name: "Team Hiring Banner",
-    imageStyle: "3d-render",
+    formatId: "linkedin-post",
+    imageBrief:
+      "Wide recruitment banner with a lilac team-portrait mosaic and a bold hiring headline with concise role details.",
+    imageStyle: "photorealistic",
     category: "Business",
-    colors: ["#EEF2FF", "#1E1B4B", "#4F46E5"],
+    colors: ["#EAE6F6", "#30354C", "#7F7CC5"],
+    layoutFamily: "collage",
     layout: collage(
       {
         badge: "Join our team",
@@ -845,19 +955,16 @@ const configs: TemplateConfig[] = [
         cta: "See open roles",
       },
       [
-        visual(
-          "humanModelImage",
-          "bust-curly",
+        libraryVisual(
+          "people-half-body-curly",
           "Designer with curly hair smiling in a bright studio",
         ),
-        visual(
-          "humanModelImage",
-          "bust-man",
+        libraryVisual(
+          "people-half-body-man",
           "Engineer with a beard in a relaxed office portrait",
         ),
-        visual(
-          "humanModelImage",
-          "bust-woman",
+        libraryVisual(
+          "people-half-body-woman",
           "Product manager with long hair laughing with colleagues",
         ),
       ],
@@ -865,10 +972,14 @@ const configs: TemplateConfig[] = [
   },
   {
     name: "M3 Product Spotlight",
-    imageStyle: "cinematic",
+    formatId: "instagram-post",
+    imageBrief:
+      "Tonal lilac product portrait with a frosted mist bottle, soft radial light and expressive Material-inspired serif type.",
+    imageStyle: "photorealistic",
     category: "Material 3",
     colors: m3Colors("#6750A4"),
     styleKitSeed: "#6750A4",
+    layoutFamily: "spotlight",
     layout: spotlight(
       {
         eyebrow: "Product spotlight",
@@ -877,19 +988,22 @@ const configs: TemplateConfig[] = [
         sub: "A fine daily mist with hyaluronic acid and rosewater.",
         cta: "Buy now",
       },
-      visual(
-        "productImage",
-        "perfume",
+      libraryVisual(
+        "fashion-perfume",
         "Frosted spray bottle on a soft lilac pedestal, studio light",
       ),
     ),
   },
   {
     name: "M3 Event Poster",
-    imageStyle: "3d-render",
+    formatId: "x-post",
+    imageBrief:
+      "Wide teal tonal meetup creative with a rounded stage panel and clear community-event typography.",
+    imageStyle: "photorealistic",
     category: "Material 3",
     colors: m3Colors("#006A6A"),
     styleKitSeed: "#006A6A",
+    layoutFamily: "editorialSerif",
     layout: editorialSerif(
       {
         eyebrow: "Community meetup",
@@ -899,9 +1013,8 @@ const configs: TemplateConfig[] = [
         body: "Makers' Hall, Austin\nFree entry, limited seats",
         cta: "Register free",
       },
-      visual(
-        "heroImage",
-        "event-stage",
+      libraryVisual(
+        "events-stage",
         "Small meetup audience facing a speaker and slides, teal lighting",
       ),
       { radius: 48 },
@@ -909,10 +1022,14 @@ const configs: TemplateConfig[] = [
   },
   {
     name: "M3 Seasonal Offer",
-    imageStyle: "glassmorphism",
+    formatId: "facebook-post",
+    imageBrief:
+      "Wide amber tonal member offer with a holiday-tree visual, rounded offer badge and a strong savings headline.",
+    imageStyle: "photorealistic",
     category: "Material 3",
     colors: m3Colors("#8B5000"),
     styleKitSeed: "#8B5000",
+    layoutFamily: "boldBlock",
     layout: boldBlock(
       {
         eyebrow: "Members",
@@ -923,19 +1040,22 @@ const configs: TemplateConfig[] = [
         body: "Members save more\non every order",
         cta: "Shop the offer",
       },
-      visual(
-        "productImage",
-        "gift",
-        "Gift box with a warm amber ribbon, soft studio light",
+      libraryVisual(
+        "seasonal-holiday",
+        "Small evergreen tree with amber ribbon on a warm tonal plinth, soft studio light",
       ),
     ),
   },
   {
     name: "M3 Editorial Cover",
-    imageStyle: "neumorphism",
+    formatId: "instagram-post",
+    imageBrief:
+      "Portrait rose-tonal editorial cover with a tailored male portrait, large condensed title and generous cream type.",
+    imageStyle: "photorealistic",
     category: "Material 3",
     colors: m3Colors("#984061"),
     styleKitSeed: "#984061",
+    layoutFamily: "megaType",
     layout: megaType(
       {
         eyebrow: "Issue 12",
@@ -945,19 +1065,22 @@ const configs: TemplateConfig[] = [
         body: "How one seed color\nshapes a whole home",
         cta: "Read the issue",
       },
-      visual(
-        "humanModelImage",
-        "bust-man",
+      libraryVisual(
+        "people-half-body-man",
         "Editorial half-body portrait of a male model in a rose-toned blazer against a tonal backdrop",
       ),
     ),
   },
   {
     name: "M3 App Announcement",
-    imageStyle: "flat-illustration",
+    formatId: "linkedin-post",
+    imageBrief:
+      "Wide blue tonal app announcement with a wallpaper-themed phone, rounded panels and a clear update message.",
+    imageStyle: "3d-render",
     category: "Material 3",
     colors: m3Colors("#375CA9"),
     styleKitSeed: "#375CA9",
+    layoutFamily: "spotlight",
     layout: spotlight(
       {
         eyebrow: "What's new",
@@ -966,19 +1089,22 @@ const configs: TemplateConfig[] = [
         sub: "Your app now adapts to your wallpaper and style.",
         cta: "Update now",
       },
-      visual(
-        "productImage",
-        "phone-app",
+      libraryVisual(
+        "devices-phone-app",
         "Smartphone showing an app themed from the wallpaper's colors",
       ),
     ),
   },
   {
     name: "M3 Quote Card",
-    imageStyle: "anime",
+    formatId: "instagram-square",
+    imageBrief:
+      "Quiet sage-tonal square quote with expressive serif type, one small upward arrow and clean attribution.",
+    imageStyle: "vector",
     category: "Material 3",
     colors: m3Colors("#4F6353"),
     styleKitSeed: "#4F6353",
+    layoutFamily: "retroSticker",
     layout: retroSticker(
       {
         eyebrow: "Daily note",
@@ -993,9 +1119,13 @@ const configs: TemplateConfig[] = [
   },
   {
     name: "Street Style Fit Check",
+    formatId: "tiktok-video",
+    imageBrief:
+      "Tall street-style cover: editable limestone street layers, a cream-blazer walking model, dark caption shade and safe social-title placement.",
     imageStyle: "photorealistic",
     category: "Social",
-    colors: ["#18201E", "#F8F6F0", "#D6B79B"],
+    colors: ["#172E2B", "#FFF4E6", "#D5AC8D"],
+    layoutFamily: "modelFeedPost",
     layout: modelFeedPost(
       {
         eyebrow: "@mira.style",
@@ -1008,9 +1138,13 @@ const configs: TemplateConfig[] = [
   },
   {
     name: "Everyday Skincare",
+    formatId: "tiktok-video",
+    imageBrief:
+      "Tall skincare diary cover with separate bathroom, eucalyptus, pump and model layers; soft peach typography below the photo.",
     imageStyle: "photorealistic",
     category: "Lifestyle",
-    colors: ["#F7F2EC", "#302A27", "#B77D68"],
+    colors: ["#F7EBDF", "#40342E", "#AD7159"],
+    layoutFamily: "modelFeedPost",
     layout: modelFeedPost(
       {
         eyebrow: "@sana.skin",
@@ -1024,9 +1158,13 @@ const configs: TemplateConfig[] = [
   },
   {
     name: "Cafe Morning",
+    formatId: "tiktok-video",
+    imageBrief:
+      "Tall cafe cover with separate window light, greenery, mug and seated model layers; an espresso caption panel beneath.",
     imageStyle: "cinematic",
     category: "Social",
-    colors: ["#F2ECE3", "#2D261F", "#A46A49"],
+    colors: ["#EDE4D8", "#302820", "#A97752"],
+    layoutFamily: "modelFeedPost",
     layout: modelFeedPost(
       {
         eyebrow: "@eli.days",
@@ -1040,9 +1178,13 @@ const configs: TemplateConfig[] = [
   },
   {
     name: "Movement Club",
+    formatId: "tiktok-video",
+    imageBrief:
+      "Tall wellness cover with separate lakeside, shadow and athlete layers in two unequal frames and a clear lower caption zone.",
     imageStyle: "photorealistic",
     category: "Lifestyle",
-    colors: ["#E8EEE9", "#1F3D36", "#789B7E"],
+    colors: ["#E4EDE3", "#23463C", "#759376"],
+    layoutFamily: "modelFeedPost",
     layout: modelFeedPost(
       {
         eyebrow: "@move.with.ana",
@@ -1060,9 +1202,13 @@ const configs: TemplateConfig[] = [
   },
   {
     name: "Coastal Weekend",
+    formatId: "tiktok-video",
+    imageBrief:
+      "Tall travel diary cover with layered coastal architecture, a linen-dress model and a quiet terracotta caption card.",
     imageStyle: "cinematic",
     category: "Social",
-    colors: ["#F6F2EA", "#233B49", "#B98269"],
+    colors: ["#F1E9DD", "#294551", "#BB8165"],
+    layoutFamily: "modelFeedPost",
     layout: modelFeedPost(
       {
         eyebrow: "@noa.travels",
@@ -1075,9 +1221,13 @@ const configs: TemplateConfig[] = [
   },
   {
     name: "After Dark Sessions",
+    formatId: "instagram-story",
+    imageBrief:
+      "Vertical live-sound story with an amber-lit microphone, ink-blue stage glow and condensed type above a clear ticket CTA.",
     imageStyle: "cinematic",
     category: "Events",
-    colors: ["#101019", "#F8F1E8", "#D97745"],
+    colors: ["#141E29", "#FAEDD9", "#DCA366"],
+    layoutFamily: "spotlight",
     layout: spotlight(
       {
         eyebrow: "Live music",
@@ -1086,19 +1236,22 @@ const configs: TemplateConfig[] = [
         sub: "An intimate night of live sound.",
         cta: "Book a seat",
       },
-      visual(
-        "heroImage",
-        "guitar",
-        "Single electric guitar on a small dark stage in a warm amber spotlight, with a faint haze and no performer",
+      libraryVisual(
+        "events-microphone",
+        "Single studio microphone on a small dark stage in a warm amber spotlight, with a faint haze and no performer",
       ),
       { font: FONT.bebas },
     ),
   },
   {
     name: "Studio Workshop",
-    imageStyle: "vector",
+    formatId: "youtube-thumbnail",
+    imageBrief:
+      "Widescreen workshop thumbnail with a readable short headline, green-on-paper palette and a clean laptop design-canvas visual.",
+    imageStyle: "photorealistic",
     category: "Business",
-    colors: ["#F0EFE8", "#20372E", "#C06A4D"],
+    colors: ["#EEEADD", "#244A3A", "#B67D52"],
+    layoutFamily: "editorialSerif",
     layout: editorialSerif(
       {
         eyebrow: "North Studio",
@@ -1108,18 +1261,21 @@ const configs: TemplateConfig[] = [
         body: "Ideas, sketches, and practical tools.\nSaturday · 10 AM",
         cta: "Save a place",
       },
-      visual(
-        "supportingImage",
-        "laptop-screen",
+      libraryVisual(
+        "tech-laptop",
         "Minimal laptop showing a simple design canvas with geometric blocks, alongside a pencil and paper on a warm studio desk",
       ),
     ),
   },
   {
     name: "Sunday Market",
+    formatId: "facebook-post",
+    imageBrief:
+      "Wide local-market announcement with bright illustrated produce, forest-green title and a simple terracotta visit CTA.",
     imageStyle: "flat-illustration",
     category: "Lifestyle",
-    colors: ["#FFF2D9", "#254B3C", "#E3794F"],
+    colors: ["#FAEACB", "#294D3D", "#CF7853"],
+    layoutFamily: "promoSplit",
     layout: promoSplit(
       {
         eyebrow: "Fresh this week",
@@ -1129,8 +1285,7 @@ const configs: TemplateConfig[] = [
         cta: "Come by",
         note: "Sundays · 9 AM – 2 PM",
       },
-      visual(
-        "supportingImage",
+      libraryVisual(
         "food-bowl",
         "Bright overhead flat illustration of a ceramic bowl filled with leafy greens, tomatoes and citrus on a warm tabletop",
       ),
@@ -1158,13 +1313,32 @@ function buildSlots(cfg: TemplateConfig, format: Format): SpecElement[] {
   const typeScale = Math.min(w / BASE_WIDTH, h / BASE_HEIGHT);
   const [bg, ink, accent] = cfg.colors;
   const counts: Partial<Record<ElementKind, number>> = {};
-  return cfg
-    .layout({ bg, ink, accent })
+  return layoutForFormat(
+    cfg.layout({ bg, ink, accent }),
+    { bg, ink, accent },
+    format,
+    cfg.layoutFamily,
+  )
     .filter((slot) => !(isTextKind(slot.kind) && !slot.content))
     .map((slot, i) => {
       const n = counts[slot.kind] ?? 0;
       counts[slot.kind] = n + 1;
-      const el = createElement(slot.kind, format, n);
+      const base = createElement(slot.kind, format, n);
+      const patch = templateAssetPatch(slot.assetId, slot.kind, format, {
+        bg,
+        ink,
+        accent,
+      });
+      const el: SpecElement = {
+        ...base,
+        ...patch,
+        style: { ...base.style, ...patch.style },
+        constraint: {
+          ...base.constraint,
+          ...patch.constraint,
+          ...slot.constraint,
+        },
+      };
       const [x, y, bw, bh] = slot.box;
       const rotation = slot.rotation ?? 0;
       if (Math.abs(rotation) === 90) {
@@ -1202,6 +1376,7 @@ function buildSlots(cfg: TemplateConfig, format: Format): SpecElement[] {
       if (el.style.letterSpacing)
         el.style.letterSpacing =
           Math.round(el.style.letterSpacing * typeScale * 10) / 10;
+      fitTemplateText(el);
       return el;
     });
 }
@@ -1234,7 +1409,7 @@ export function createDocument(
     },
     background: { type: "solid", value: cfg?.colors[0] ?? "#F5F1EA" },
     elements: cfg ? buildSlots(cfg, format) : [],
-    imageBrief: "",
+    imageBrief: cfg?.imageBrief ?? "",
     promptMode: "design_skill",
     promptOptions: {
       exactText: true,
@@ -1260,17 +1435,19 @@ export const starterTemplates = configs.map((c) => ({
   name: c.name,
   category: c.category,
   // Starters stay brand-neutral; the default kit applies when one is opened.
-  document: createDocument("instagram-post", c.name, { brandKit: false }),
+  document: createDocument(c.formatId, c.name, { brandKit: false }),
 }));
 
 export function matchesTemplateQuery(
   name: string,
   category: string,
   query: string,
+  format?: Format,
 ) {
   const trimmed = query.trim().toLowerCase();
   if (!trimmed) return true;
-  const haystack = `${name} ${category}`.toLowerCase();
+  const haystack =
+    `${name} ${category} ${format?.label ?? ""} ${format?.platform ?? ""} ${format?.id ?? ""}`.toLowerCase();
   return trimmed.split(/\s+/).every((term) => haystack.includes(term));
 }
 

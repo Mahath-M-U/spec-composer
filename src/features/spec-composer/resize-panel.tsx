@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, Plus, Scaling, Search, X } from "lucide-react";
+import { Scaling, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -11,8 +11,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { FormatPreview } from "./format-gallery";
 import { PanelHeader } from "./panel-header";
+import { PresetCard } from "./preset-card";
+import { resizePreset } from "./preset-catalog";
 import {
   RESIZE_PRESET_GROUPS,
   fromPixels,
@@ -24,25 +25,13 @@ import {
   type ResizeUnit,
 } from "./resize";
 import { useEditorStore } from "./store";
+import "./resize-gallery.css";
 
-const VARIANTS = [
-  "editorial",
-  "type",
-  "product",
-  "minimal",
-  "tint",
-  "banner",
-  "video",
-] as const;
-const PRESET_CARDS = RESIZE_PRESET_GROUPS.flatMap((group, groupIndex) =>
-  group.presets.map((preset, presetIndex) => ({
+const PRESET_CARDS = RESIZE_PRESET_GROUPS.flatMap((group) =>
+  group.presets.map((preset) => ({
     group: group.label,
     preset,
-    format: {
-      ...makeResizeFormat(preset.width, preset.height, preset),
-      previewVariant:
-        VARIANTS[(groupIndex * 3 + presetIndex) % VARIANTS.length],
-    },
+    format: makeResizeFormat(preset.width, preset.height, preset),
   })),
 );
 
@@ -266,55 +255,30 @@ export function ResizePanel() {
 
         <div className="resize-card-grid" aria-label="Available sizes">
           {showCustomCard && (
-            <button
-              type="button"
-              className="resize-format-card resize-format-card--custom"
-              aria-label="Enter a custom size"
-              aria-pressed={customOpen}
+            <PresetCard
+              mode="create"
+              title="Custom size"
+              description="Enter width and height"
+              ariaLabel="Enter a custom size"
+              selected={customOpen}
               onClick={() => {
                 setSelectedId(null);
                 setCustomOpen((open) => !open);
               }}
-            >
-              <span className="resize-custom-visual" aria-hidden="true">
-                <Plus size={28} />
-              </span>
-              <span className="resize-card-title">Custom size</span>
-              <span className="resize-card-meta">Enter width and height</span>
-            </button>
+            />
           )}
-          {visibleCards.map(({ group, preset, format }, index) => {
+          {visibleCards.map(({ group, preset }) => {
             const selected = preset.id === selectedId;
             const current = isCurrent(preset);
             return (
-              <button
+              <PresetCard
                 key={preset.id}
-                type="button"
-                className="resize-format-card"
-                aria-pressed={selected}
-                aria-label={`${selected ? "Deselect" : "Select"} ${group} ${preset.label}, ${preset.width} by ${preset.height} pixels${current ? ", current size" : ""}`}
+                preset={resizePreset(preset, group)}
+                selected={selected}
+                current={current}
+                ariaLabel={`${selected ? "Deselect" : "Select"} ${group} ${preset.label}, ${preset.width} by ${preset.height} pixels${current ? ", current size" : ""}`}
                 onClick={() => togglePreset(preset.id)}
-              >
-                <div className="resize-card-art">
-                  <FormatPreview format={format} index={index} />
-                  {current && (
-                    <span className="resize-card-current" aria-hidden="true">
-                      Current
-                    </span>
-                  )}
-                  {selected && (
-                    <span className="resize-card-check" aria-hidden="true">
-                      <Check size={13} strokeWidth={3} />
-                    </span>
-                  )}
-                </div>
-                <span className="resize-card-title">
-                  {group} {preset.label}
-                </span>
-                <span className="resize-card-meta">
-                  {preset.width} × {preset.height} px · {format.subtitle}
-                </span>
-              </button>
+              />
             );
           })}
           {!showCustomCard && !visibleCards.length && (
@@ -323,12 +287,14 @@ export function ResizePanel() {
         </div>
       </div>
 
-      <div className="resize-action-bar">
-        {actionText && <p>{actionText}</p>}
-        <button type="button" disabled={disabled} onClick={requestResize}>
-          {pending ? "Resizing…" : "Resize design"}
-        </button>
-      </div>
+      {target && (
+        <div className="resize-action-bar">
+          {actionText && <p>{actionText}</p>}
+          <button type="button" disabled={disabled} onClick={requestResize}>
+            {pending ? "Resizing…" : "Resize design"}
+          </button>
+        </div>
+      )}
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>

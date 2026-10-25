@@ -1,3 +1,4 @@
+import { OpaqueColorControl } from "./color-control";
 import { useRef, useState } from "react";
 import { ChevronDown, Copy, Plus, Trash2 } from "lucide-react";
 import {
@@ -105,7 +106,7 @@ const SEED_PRESETS = [
 
 const isHex = (value: string) => /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(value);
 
-/** Preset seed dots plus a colour input, hex field and a live 5-role strip
+/** Preset seed dots plus an inline color picker, hex field and a live 5-role strip
  * built from the same `materialRoleColors` helper the generated kit uses. */
 export function SeedSwatchPicker({
   seed,
@@ -138,12 +139,19 @@ export function SeedSwatchPicker({
         ))}
       </div>
       <div className="bk-swatch-row">
-        <input
-          type="color"
-          className="bk-swatch"
-          value={valid ? seed : "#6750a4"}
-          aria-label="Seed color"
-          onChange={(event) => onChange(event.target.value)}
+        <OpaqueColorControl
+          label="Seed color"
+          value={seed}
+          presets={SEED_PRESETS}
+          onChange={onChange}
+          trigger={
+            <button
+              type="button"
+              className="bk-swatch"
+              aria-label="Seed color"
+              style={{ background: valid ? seed : "#6750a4" }}
+            />
+          }
         />
         <input
           value={seed}
@@ -163,8 +171,8 @@ export function SeedSwatchPicker({
   );
 }
 
-/** Adjoining role tiles, optionally editable through a native color input.
- * Copy stays separate from the edit label so it never opens the picker. */
+/** Adjoining role tiles use one button each to open the inline picker.
+ * Copy stays a sibling so it never opens the picker. */
 export function PaletteSwatchTiles({
   colors,
   onChange,
@@ -205,17 +213,20 @@ export function PaletteSwatchTiles({
             }}
           >
             {onChange ? (
-              <label className="bk-tile-content bk-tile-edit">
-                <input
-                  type="color"
-                  value={color.hex}
-                  aria-label={`Edit ${colorLabel}`}
-                  onChange={(event) =>
-                    updateColor(color.id, event.target.value)
-                  }
-                />
-                {content}
-              </label>
+              <OpaqueColorControl
+                label={`Edit ${colorLabel}`}
+                value={color.hex}
+                onChange={(hex) => updateColor(color.id, hex)}
+                trigger={
+                  <button
+                    type="button"
+                    className="bk-tile-content bk-tile-edit"
+                    aria-label={`Edit ${colorLabel}`}
+                  >
+                    {content}
+                  </button>
+                }
+              />
             ) : (
               <div className="bk-tile-content">{content}</div>
             )}
@@ -370,28 +381,18 @@ export function PaletteDetailsField({
                   <option value="gradient">Gradient</option>
                 </select>
               </label>
-              <label>
-                {selected.type === "gradient" ? "From" : "Color"}
-                <input
-                  type="color"
-                  aria-label="Primary color"
-                  value={selected.hex}
-                  onChange={(event) => update({ hex: event.target.value })}
-                />
-              </label>
+              <OpaqueColorControl
+                label={selected.type === "gradient" ? "From" : "Color"}
+                value={selected.hex}
+                onChange={(hex) => update({ hex })}
+              />
               {selected.type === "gradient" && (
                 <>
-                  <label>
-                    To
-                    <input
-                      type="color"
-                      aria-label="Secondary color"
-                      value={selected.secondaryHex ?? selected.hex}
-                      onChange={(event) =>
-                        update({ secondaryHex: event.target.value })
-                      }
-                    />
-                  </label>
+                  <OpaqueColorControl
+                    label="To"
+                    value={selected.secondaryHex ?? selected.hex}
+                    onChange={(secondaryHex) => update({ secondaryHex })}
+                  />
                   <label>
                     Angle
                     <input

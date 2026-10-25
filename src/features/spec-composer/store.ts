@@ -1,3 +1,65 @@
+import { findTextPreset } from "./assets-panel/text-presets";
+import { contextualCreation } from "./contextual-editor/creation";
+import { findPurpose } from "./contextual-editor/catalog";
+import { remapReferences } from "./contextual-editor/references";
+import {
+  canonicalLayers,
+  canGroupLayers,
+  flattenLayers,
+  layerGroups,
+  layerAlignmentItems,
+  movedLayers,
+  pruneLayerGroups,
+  selectedLayerIds,
+  type LayerDestination,
+} from "./layer-tree";
+import {
+  centeredCircle,
+  isCircleShape,
+  shapePatch,
+  type ShapeType,
+} from "./shape-workflow";
+import { synchronizeStructuredOutput } from "./output-sync";
+import {
+  findDescriptionTemplate,
+  resolveElementDetail,
+  synchronizeElementDescriptions,
+  type DescriptionTemplateId,
+} from "./description-templates";
+import { assetPresetPatch, type AssetPresetId } from "./asset-presets";
+import {
+  createStudioLight,
+  createStudioPreset,
+  MAX_STUDIO_LIGHTS,
+  type StudioPresetId,
+} from "./studio-lighting";
+import {
+  canAddCamera,
+  canAddLight,
+  createSceneCamera,
+  createSceneLight,
+  sceneObjectList,
+} from "./scene-objects";
+import { canvasToScene, clampNorm, sceneToCanvas } from "./scene-space";
+import { ENVIRONMENT_PRESETS, mergeEnvironmentPreset } from "./environment-presets";
+import {
+  generationSettingsSchema,
+  sceneCameraSchema,
+  sceneAmbientSchema,
+  descriptionDraftsSchema,
+  descriptionTemplateSelectionSchema,
+  studioLightSchema,
+  type StudioLight,
+  shapeRoleSchema,
+  type GenerationSettings,
+  type SceneAmbient,
+  type SceneCamera,
+  type SceneDepth,
+  type SceneLightKind,
+  type SceneVec2,
+  type ShapeRole,
+  type ElementStyle,
+} from "./types";
 import { create } from "zustand";
 import {
   type AlignEdge,
@@ -69,10 +131,27 @@ export interface Guide {
   pos: number;
 }
 
+export interface SceneTransformPreview {
+  id: string;
+  canvas?: SceneVec2;
+  rotation?: number;
+}
+
 interface EditorState {
+  setCreativePurpose: (id?: string) => void;
+  addContextualElement: (id: string, point?: { x: number; y: number }, preset?: string) => void;
   doc?: SpecDocument | undefined;
   selectedIds: string[];
+  selectedGroupIds: string[];
   backgroundSelected: boolean;
+  /** Selected scene object (environment editor): "camera", a light id, or
+   * "ambient". Mutually exclusive with element/background selection. */
+  selectedSceneId: string | null;
+  scenePreview: SceneTransformPreview | null;
+  setScenePreview: (preview: SceneTransformPreview | null) => void;
+  /** UI-only: whether the canvas Scene Overlay renders its guides at all.
+   * Not persisted, not part of undo history. */
+  sceneGuidesVisible: boolean;
   panel: PanelMode;
   /** Which tab the Style panel shows; lifted out of local state so canvas
    * selection can force it open to Style. */
@@ -100,12 +179,92 @@ interface EditorState {
   resizeCurrent: (format: Format) => boolean;
   select: (id?: string, add?: boolean) => void;
   selectMany: (ids: string[], add?: boolean) => void;
+  selectLayers: (ids: string[]) => void;
+  renameLayer: (id: string, name: string) => void;
+  updateLayers: (
+    ids: string[],
+    patch: Partial<Pick<SpecElement, "visible" | "locked">>,
+  ) => void;
+  moveLayers: (ids: string[], destination: LayerDestination) => void;
   selectBackground: () => void;
   setPanel: (p: PanelMode) => void;
   setStyleTab: (tab: "style" | "layout") => void;
   setTool: (t: ToolMode) => void;
   setView: (zoom: number, pan?: { x: number; y: number }) => void;
   setGuides: (guides: Guide[]) => void;
+  addTextPreset: (id: string, point?: { x: number; y: number }) => void;
+  addShape: (type: ShapeType, point?: { x: number; y: number }) => void;
+  addAssetPreset: (
+    id: AssetPresetId,
+    point?: { x: number; y: number },
+    templateId?: DescriptionTemplateId,
+  ) => void;
+  setDescriptionTemplate: (id: string, templateId: DescriptionTemplateId) => void;
+  updateDescriptionField: (id: string, field: string, value: string) => void;
+  detachDescriptionTemplate: (id: string) => void;
+  restoreCustomDescription: (id: string) => void;
+  setShapeRole: (id: string, role: ShapeRole) => void;
+  updateShapeAppearance: (id: string, patch: Partial<ElementStyle>) => void;
+  updateGenerationSettings: (patch: Partial<GenerationSettings>) => void;
+  addStudioLight: () => void;
+  updateStudioLight: (id: string, patch: Partial<Omit<StudioLight, "id">>) => void;
+  removeStudioLight: (id: string) => void;
+  applyStudioPreset: (id: StudioPresetId) => void;
+  resetStudioRig: () => void;
+  /** Selects a scene object ("camera" | light id | "ambient"), or clears
+   * the selection with null; validates against the current document and
+   * clears element/background selection. */
+  selectScene: (id: string | null) => void;
+  /** Adds a scene light of `kind` at `at` (or a sensible default position);
+   * returns its id, or null at the MAX_SCENE_LIGHTS cap. Selects the light. */
+  addSceneLight: (
+    kind: SceneLightKind,
+    at?: { x: number; y: number },
+    overrides?: { role?: StudioLight["role"]; depth?: SceneDepth },
+  ) => string | null;
+  /** Adds the scene camera at `at` (or a default position); returns false
+   * if a camera already exists. Selects the camera. */
+  addSceneCamera: (at?: { x: number; y: number }) => boolean;
+  /** Adds (or updates) the camera to roughly match the canvas's current
+   * zoom level; a deliberately simple stand-in until Step B's camera
+   * inspector adds finer framing controls. */
+  setCameraFromView: () => void;
+  /** Patches a scene light; recomputes azimuth/elevation when `canvas` or
+   * `depth` change so the legacy compiler path stays valid. `history=false`
+   * coalesces continuous edits (e.g. a slider drag) into the bracketing
+   * commit. */
+  updateSceneLight: (
+    id: string,
+    patch: Partial<Omit<StudioLight, "id">>,
+    history?: boolean,
+  ) => void;
+  updateSceneCamera: (patch: Partial<SceneCamera>, history?: boolean) => void;
+  updateAmbient: (patch: Partial<SceneAmbient>, history?: boolean) => void;
+  /** Duplicates a scene light; returns its new id, or null at the cap or if
+   * the light doesn't exist. Selects the copy. */
+  duplicateSceneLight: (id: string) => string | null;
+  /** Removes a scene object: deletes a light, deletes the camera, or (for
+   * "ambient", which always "exists" as a setting) disables it. */
+  removeSceneObject: (id: string) => void;
+  /** Renames a scene light or the single camera. */
+  renameSceneObject: (id: string, name: string) => void;
+  /** Toggles a scene object's canvas guide without disabling it. */
+  toggleSceneGuide: (id: string) => void;
+  setSceneGuidesVisible: (visible: boolean) => void;
+  /** Commits a Scene Overlay drag/rotate as a single history entry. */
+  commitSceneTransform: (
+    id: string,
+    patch: { canvas?: SceneVec2; rotation?: number; target?: SceneVec2 },
+  ) => void;
+  /** Applies an environment preset (environment-presets.ts) in one history
+   * entry: "replace" overwrites the camera/lights/ambient; "merge" appends
+   * lights up to the cap and keeps the existing camera. Returns whether a
+   * matching preset was found and how many of its lights were skipped at
+   * the cap, so the UI can toast. */
+  applyEnvironmentPreset: (
+    id: string,
+    mode: "replace" | "merge",
+  ) => { applied: boolean; skipped: number };
   addElement: (
     k: ElementKind,
     x?: number,
@@ -194,7 +353,102 @@ export type BrandKitDraft = Partial<
   Pick<BrandKit, "colors" | "emotions" | "style" | "typography" | "profile">
 >;
 
+function moveSelectedStack(
+  state: EditorState,
+  direction: "front" | "back" | "up" | "down",
+) {
+  const doc = state.doc;
+  if (!doc) return;
+  const nodes = canonicalLayers(
+    doc,
+    selectedLayerIds(doc, state.selectedIds, state.selectedGroupIds),
+  );
+  if (
+    !nodes.length ||
+    nodes.some((node) => node.parentId !== nodes[0]!.parentId)
+  )
+    return;
+  const rows = flattenLayers(doc);
+  const selected = new Set(nodes.map((node) => node.id));
+  const siblings = rows.filter((node) => node.parentId === nodes[0]!.parentId);
+  const up = direction === "front" || direction === "up";
+  const index = up
+    ? siblings.findIndex((node) => selected.has(node.id))
+    : siblings.length -
+      1 -
+      [...siblings].reverse().findIndex((node) => selected.has(node.id));
+  const target =
+    direction === "front"
+      ? siblings.find((node) => !selected.has(node.id))
+      : direction === "back"
+        ? [...siblings].reverse().find((node) => !selected.has(node.id))
+        : siblings[index + (up ? -1 : 1)];
+  if (target && !selected.has(target.id))
+    state.moveLayers([...selected], {
+      targetId: target.id,
+      position: up ? "before" : "after",
+    });
+}
+
 const clone = (d: SpecDocument): SpecDocument => structuredClone(d);
+
+/** Preflight transitions, including bounded imported draft maps, before adding history. */
+function prepareDescriptionChange(
+  doc: SpecDocument | undefined,
+  id: string,
+  change: (el: SpecElement) => void,
+): SpecElement | undefined {
+  const original = doc?.elements.find((el) => el.id === id);
+  if (!doc || !original || original.kind !== "shape" || original.locked)
+    return undefined;
+  const candidate = structuredClone(original);
+  change(candidate);
+  synchronizeElementDescriptions(
+    { ...doc, elements: [original] },
+    { ...doc, elements: [candidate] },
+  );
+  if (
+    (candidate.descriptionTemplate &&
+      !descriptionTemplateSelectionSchema.safeParse(
+        candidate.descriptionTemplate,
+      ).success) ||
+    (candidate.descriptionDrafts &&
+      !descriptionDraftsSchema.safeParse(candidate.descriptionDrafts)
+        .success) ||
+    (candidate.detail?.length ?? 0) > 20_000 ||
+    [
+      "detail",
+      "semanticRole",
+      "descriptionTemplate",
+      "descriptionDrafts",
+    ].every(
+      (key) =>
+        JSON.stringify(candidate[key as keyof SpecElement]) ===
+        JSON.stringify(original[key as keyof SpecElement]),
+    )
+  )
+    return undefined;
+  return candidate;
+}
+
+function applyDescriptionChange(
+  doc: SpecDocument,
+  id: string,
+  candidate: SpecElement,
+) {
+  const el = doc.elements.find((item) => item.id === id);
+  if (!el) return;
+  for (const key of [
+    "detail",
+    "descriptionTemplate",
+    "descriptionDrafts",
+    "semanticRole",
+  ] as const) {
+    if (key in candidate) Object.assign(el, { [key]: candidate[key] });
+    else delete el[key];
+  }
+}
+
 const historyLimit = (doc: SpecDocument) =>
   JSON.stringify(doc).length > 1_000_000 ? 10 : 75;
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
@@ -335,7 +589,12 @@ const STACK_ROLES: readonly AssetRole[] = ["headline", "offer", "cta"];
 
 export const useEditorStore = create<EditorState>((set, get) => ({
   selectedIds: [],
+  selectedGroupIds: [],
   backgroundSelected: false,
+  selectedSceneId: null,
+  scenePreview: null,
+  sceneGuidesVisible: true,
+  setScenePreview: (preview) => set({ scenePreview: preview }),
   panel: "assets",
   styleTab: "layout",
   tool: "select",
@@ -373,7 +632,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       past: [],
       future: [],
       selectedIds: [],
+      selectedGroupIds: [],
       backgroundSelected: false,
+      selectedSceneId: null,
+      scenePreview: null,
       saveStatus: "saved",
       externallyModified: false,
       composeOrigin: undefined,
@@ -397,7 +659,15 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     else delete next.creativeDirection.brandKitId;
     get().mutate((doc) => {
       delete doc.layout;
+      delete doc.groups;
       Object.assign(doc, next);
+    });
+    set({
+      selectedIds: [],
+      selectedGroupIds: [],
+      backgroundSelected: false,
+      selectedSceneId: null,
+      scenePreview: null,
     });
   },
 
@@ -409,7 +679,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       past: [],
       future: [],
       selectedIds: [],
+      selectedGroupIds: [],
       backgroundSelected: false,
+      selectedSceneId: null,
+      scenePreview: null,
       saveStatus: "saved",
       externallyModified: false,
       composeOrigin: undefined,
@@ -421,9 +694,30 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     if (!current) return;
     const next = clone(current);
     fn(next);
+    // Explicit source edits (including the unchanged Inspector) invalidate an old
+    // contextual source reference unless it still resolves to the supplied pixels.
+    next.elements.forEach((element) => {
+      const sourceId = element.contextualProperties?.["asset.source"];
+      if (typeof sourceId === "string" && next.referenceAssets?.[sourceId]?.source !== element.src)
+        delete element.contextualProperties!["asset.source"];
+    });
+    synchronizeElementDescriptions(current, next);
+    synchronizeStructuredOutput(current, next);
     withRevision(next);
     set((s) => ({
       doc: next,
+      scenePreview: null,
+      selectedIds: s.selectedIds.filter((id) =>
+        next.elements.some((el) => el.id === id),
+      ),
+      selectedGroupIds: s.selectedGroupIds.filter((id) =>
+        layerGroups(next).some((group) => group.id === id),
+      ),
+      selectedSceneId:
+        s.selectedSceneId &&
+        sceneObjectList(next).some((o) => o.id === s.selectedSceneId)
+          ? s.selectedSceneId
+          : null,
       past: history
         ? [...s.past.slice(1 - historyLimit(current)), clone(current)]
         : s.past,
@@ -465,45 +759,135 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     return true;
   },
 
-  select: (id, add = false) => {
-    if (!id) {
-      set({ selectedIds: [], backgroundSelected: false });
-      return;
-    }
+  selectLayers: (ids) => {
     const doc = get().doc;
-    const el = doc?.elements.find((e) => e.id === id);
-    if (add) {
-      set((s) => ({
-        selectedIds: s.selectedIds.includes(id)
-          ? s.selectedIds.filter((v) => v !== id)
-          : [...s.selectedIds, id],
+    if (!doc) return;
+    const nodes = canonicalLayers(doc, ids);
+    set({
+      selectedIds: nodes.flatMap((node) => node.leaves.map((el) => el.id)),
+      selectedGroupIds: nodes
+        .filter((node) => !node.element)
+        .map((node) => node.id),
+      backgroundSelected: false,
+      selectedSceneId: null,
+      scenePreview: null,
+    });
+  },
+
+  select: (id, add = false) => {
+    const doc = get().doc;
+    if (!doc || !id) {
+      set({
+        selectedIds: [],
+        selectedGroupIds: [],
         backgroundSelected: false,
-      }));
+        selectedSceneId: null,
+        scenePreview: null,
+      });
       return;
     }
-    const groupId = el?.groupId;
-    const ids = groupId
-      ? (doc?.elements
-          .filter((e) => e.groupId === groupId)
-          .map((e) => e.id) ?? [id])
-      : [id];
-    set({
-      selectedIds: ids,
-      backgroundSelected: false,
-    });
+    if (add) {
+      // Canvas modifiers operate on individual objects, even inside groups.
+      get().selectMany(
+        get().selectedIds.includes(id)
+          ? get().selectedIds.filter((value) => value !== id)
+          : [...get().selectedIds, id],
+      );
+      return;
+    }
+    const rows = flattenLayers(doc);
+    let node = rows.find((row) => row.id === id);
+    while (node?.parentId) node = rows.find((row) => row.id === node!.parentId);
+    get().selectLayers(node ? [node.id] : []);
   },
 
   selectBackground: () =>
     set({
       selectedIds: [],
+      selectedGroupIds: [],
       backgroundSelected: true,
+      selectedSceneId: null,
+      scenePreview: null,
     }),
 
-  selectMany: (ids, add = false) =>
+  selectMany: (ids, add = false) => {
+    const valid = new Set(get().doc?.elements.map((el) => el.id));
     set((s) => ({
-      selectedIds: add ? Array.from(new Set([...s.selectedIds, ...ids])) : ids,
+      selectedIds: [...new Set(add ? [...s.selectedIds, ...ids] : ids)].filter(
+        (id) => valid.has(id),
+      ),
+      selectedGroupIds: [],
       backgroundSelected: false,
-    })),
+      selectedSceneId: null,
+      scenePreview: null,
+    }));
+  },
+
+  selectScene: (id) => {
+    const doc = get().doc;
+    if (id && (!doc || !sceneObjectList(doc).some((o) => o.id === id))) return;
+    set({
+      selectedSceneId: id,
+      scenePreview: id === get().selectedSceneId ? get().scenePreview : null,
+      selectedIds: [],
+      selectedGroupIds: [],
+      backgroundSelected: false,
+    });
+  },
+
+  renameLayer: (id, value) => {
+    const name = value.trim().slice(0, 200);
+    const doc = get().doc;
+    const node = doc && flattenLayers(doc).find((row) => row.id === id);
+    if (!doc || !node || !name || node.name === name) return;
+    get().mutate((next) => {
+      if (node.element) next.elements.find((el) => el.id === id)!.name = name;
+      else {
+        next.groups = layerGroups(next);
+        next.groups.find((group) => group.id === id)!.name = name;
+      }
+    });
+  },
+
+  updateLayers: (ids, patch) => {
+    const doc = get().doc;
+    if (!doc) return;
+    const leaves = new Set(
+      canonicalLayers(doc, ids).flatMap((node) =>
+        node.leaves.map((el) => el.id),
+      ),
+    );
+    const values = Object.entries(patch).filter(
+      ([key, value]) =>
+        (key === "visible" || key === "locked") && typeof value === "boolean",
+    );
+    if (
+      !values.length ||
+      !doc.elements.some(
+        (el) =>
+          leaves.has(el.id) &&
+          values.some(
+            ([key, value]) => el[key as "visible" | "locked"] !== value,
+          ),
+      )
+    )
+      return;
+    get().mutate((next) =>
+      next.elements.forEach((el) => {
+        if (leaves.has(el.id)) Object.assign(el, Object.fromEntries(values));
+      }),
+    );
+  },
+
+  moveLayers: (ids, destination) => {
+    const doc = get().doc;
+    const next = doc && movedLayers(doc, ids, destination);
+    if (next)
+      get().mutate((draft) => {
+        draft.elements = next.elements;
+        draft.groups = next.groups;
+      });
+  },
 
   setPanel: (panel) => set({ panel }),
   setStyleTab: (styleTab) => set({ styleTab }),
@@ -511,6 +895,504 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setView: (zoom, pan) =>
     set((s) => ({ zoom: Math.min(3, Math.max(0.1, zoom)), pan: pan ?? s.pan })),
   setGuides: (guides) => set({ guides }),
+
+  setCreativePurpose: (id) => {
+    if (id && !findPurpose(id)) return;
+    if (get().doc?.creativePurposeId === id) return;
+    get().mutate((doc) => { doc.creativePurposeId = id; });
+  },
+  addContextualElement: (id, point, preset) => {
+    if (point && (!Number.isFinite(point.x) || !Number.isFinite(point.y))) return;
+    const creation = contextualCreation(id, preset);
+    if (!creation) return;
+    get().addElement(creation.kind, point?.x, point?.y, creation.patch, { preservePatchStyle: true });
+  },
+  addTextPreset: (id, point) => {
+    const preset = findTextPreset(id);
+    if (
+      !preset ||
+      (point && (!Number.isFinite(point.x) || !Number.isFinite(point.y)))
+    )
+      return;
+    const catalogElementId = ({ title: "information.headline", subheading: "information.title", body: "information.body", eyebrow: "information.label", offer: "information.offer_value", price: "information.price", badge: "decoration.badge", cta: "actions.cta" })[preset.kind];
+    get().addElement(preset.kind, point?.x, point?.y, { ...preset.patch, catalogElementId, ...(preset.kind === "price" || preset.kind === "offer" ? { content: "" } : {}) });
+  },
+  addShape: (type, point) => {
+    get().addElement("shape", point?.x, point?.y, { ...shapePatch(type), catalogElementId: type === "line" ? "decoration.divider" : "decoration.shape" }, {
+      preservePatchStyle: true,
+    });
+    if (get().panel !== "assets") set({ panel: "style", styleTab: "style" });
+  },
+  addAssetPreset: (id, point, templateId) => {
+    const doc = get().doc;
+    if (
+      !doc ||
+      (point && (!Number.isFinite(point.x) || !Number.isFinite(point.y)))
+    )
+      return;
+    const patch = assetPresetPatch(id, templateId);
+    if (!patch) return;
+    patch.catalogElementId = ({ model: "subjects.person", product: "subjects.product", pedestal: "decoration.shape", backdrop: "subjects.background", label: "decoration.badge", "copy-space": undefined })[id];
+    const scale = Math.min(
+      1,
+      doc.format.width / patch.width!,
+      doc.format.height / patch.height!,
+    );
+    patch.width = patch.width! * scale;
+    patch.height = patch.height! * scale;
+    const x = point
+      ? Math.max(0, Math.min(point.x, doc.format.width - patch.width))
+      : undefined;
+    const y = point
+      ? Math.max(0, Math.min(point.y, doc.format.height - patch.height))
+      : undefined;
+    get().addElement("shape", x, y, patch, { preservePatchStyle: true });
+    if (get().panel !== "assets") set({ panel: "style", styleTab: "style" });
+  },
+  setDescriptionTemplate: (id, templateId) => {
+    const template = findDescriptionTemplate(templateId);
+    const original = get().doc?.elements.find((el) => el.id === id);
+    if (!template || original?.descriptionTemplate?.id === templateId) return;
+    const candidate = prepareDescriptionChange(get().doc, id, (el) => {
+      const values =
+        el.descriptionDrafts?.templates?.[templateId]?.values ??
+        Object.fromEntries(
+          template.fields.map((field) => [field.id, field.defaultValue]),
+        );
+      el.descriptionTemplate = { id: templateId, values: { ...values } };
+      el.semanticRole = template.role;
+    });
+    if (candidate)
+      get().mutate((doc) => applyDescriptionChange(doc, id, candidate));
+  },
+  updateDescriptionField: (id, field, value) => {
+    const original = get().doc?.elements.find((el) => el.id === id);
+    const selection = original?.descriptionTemplate;
+    if (
+      !selection ||
+      value.length > 200 ||
+      !findDescriptionTemplate(selection.id)?.fields.some(
+        (item) => item.id === field,
+      )
+    )
+      return;
+    const trimmed = value.trim();
+    if (selection.values[field] === trimmed) return;
+    const candidate = prepareDescriptionChange(get().doc, id, (el) => {
+      el.descriptionTemplate!.values[field] = trimmed;
+    });
+    if (candidate)
+      get().mutate((doc) => applyDescriptionChange(doc, id, candidate));
+  },
+  detachDescriptionTemplate: (id) => {
+    if (!get().doc?.elements.find((el) => el.id === id)?.descriptionTemplate)
+      return;
+    const candidate = prepareDescriptionChange(get().doc, id, (el) => {
+      el.detail = resolveElementDetail(el);
+      delete el.descriptionTemplate;
+    });
+    if (candidate)
+      get().mutate((doc) => applyDescriptionChange(doc, id, candidate));
+  },
+  restoreCustomDescription: (id) => {
+    const original = get().doc?.elements.find((el) => el.id === id);
+    const custom = original?.descriptionDrafts?.custom;
+    if (custom === undefined) return;
+    const candidate = prepareDescriptionChange(get().doc, id, (el) => {
+      el.detail = custom;
+      delete el.descriptionTemplate;
+    });
+    if (candidate)
+      get().mutate((doc) => applyDescriptionChange(doc, id, candidate));
+  },
+  setShapeRole: (id, role) => {
+    const el = get().doc?.elements.find((e) => e.id === id);
+    if (
+      !el ||
+      el.kind !== "shape" ||
+      el.locked ||
+      el.semanticRole === role ||
+      !shapeRoleSchema.safeParse(role).success
+    )
+      return;
+    const candidate = prepareDescriptionChange(get().doc, id, (element) => {
+      element.semanticRole = role;
+    });
+    if (candidate)
+      get().mutate((doc) => applyDescriptionChange(doc, id, candidate));
+  },
+  updateShapeAppearance: (id, patch) => {
+    const el = get().doc?.elements.find((e) => e.id === id);
+    if (
+      !el ||
+      el.kind !== "shape" ||
+      el.locked ||
+      Object.entries(patch).every(
+        ([key, value]) => el.style[key as keyof ElementStyle] === value,
+      )
+    )
+      return;
+    if (
+      [patch.borderRadius, patch.opacity].some(
+        (value) => value !== undefined && !Number.isFinite(value),
+      )
+    )
+      return;
+    const style = { ...el.style, ...patch };
+    if (
+      patch.shapeType === "rounded rectangle" &&
+      el.style.shapeType !== patch.shapeType
+    )
+      style.borderRadius = 16;
+    if (patch.shapeType === "rectangle") style.borderRadius = 0;
+    if (["ellipse", "triangle", "diamond", "line"].includes(patch.shapeType ?? "")) style.borderRadius = 0;
+    const box =
+      patch.shapeType === "circle"
+        ? {
+            width: Math.min(el.width, el.height),
+            height: Math.min(el.width, el.height),
+          }
+        : {};
+    get().updateElement(id, { style, ...box });
+  },
+  updateGenerationSettings: (patch) => {
+    const doc = get().doc;
+    if (!doc) return;
+    const includesLighting = [
+      "lightType",
+      "lightDirection",
+      "lightIntensity",
+      "shadows",
+      "studioLights",
+    ].some((key) => key in patch);
+    const result = generationSettingsSchema.safeParse({
+      ...doc.generationSettings,
+      ...patch,
+    });
+    if (
+      !result.success ||
+      (JSON.stringify(result.data) ===
+        JSON.stringify(doc.generationSettings ?? {}) &&
+        !(includesLighting && !doc.promptOptions.lighting))
+    )
+      return;
+    get().mutate((next) => {
+      next.generationSettings = result.data;
+      if ("cameraAngle" in patch) next.promptOptions.scene = true;
+      if (includesLighting) next.promptOptions.lighting = true;
+    });
+  },
+  addStudioLight: () => {
+    const doc = get().doc;
+    if (
+      !doc ||
+      (doc.generationSettings?.studioLights?.length ?? 0) >= MAX_STUDIO_LIGHTS
+    )
+      return;
+    get().updateGenerationSettings({
+      studioLights: [
+        ...(doc.generationSettings?.studioLights ?? []),
+        createStudioLight(),
+      ],
+    });
+  },
+  updateStudioLight: (id, patch) => {
+    const lights = get().doc?.generationSettings?.studioLights;
+    const current = lights?.find((light) => light.id === id);
+    if (!current || !lights) return;
+    const candidate = studioLightSchema.safeParse({
+      ...current,
+      ...patch,
+      id: current.id,
+    });
+    if (
+      !candidate.success ||
+      JSON.stringify(candidate.data) === JSON.stringify(current)
+    )
+      return;
+    get().mutate((doc) => {
+      doc.generationSettings!.studioLights = lights.map((light) =>
+        light.id === id ? candidate.data : light,
+      );
+    });
+  },
+  removeStudioLight: (id) => {
+    const lights = get().doc?.generationSettings?.studioLights;
+    if (!lights?.some((light) => light.id === id)) return;
+    get().mutate((doc) => {
+      doc.generationSettings!.studioLights = lights.filter(
+        (light) => light.id !== id,
+      );
+    });
+  },
+  applyStudioPreset: (id) => {
+    if (!get().doc || (id !== "portrait" && id !== "product")) return;
+    get().updateGenerationSettings({ studioLights: createStudioPreset(id) });
+  },
+  resetStudioRig: () => {
+    if (get().doc?.generationSettings?.studioLights === undefined) return;
+    get().mutate((doc) => {
+      delete doc.generationSettings!.studioLights;
+    });
+  },
+
+  addSceneLight: (kind, at, overrides) => {
+    const doc = get().doc;
+    if (!doc || !canAddLight(doc)) return null;
+    const light = createSceneLight(
+      kind,
+      doc.generationSettings?.studioLights ?? [],
+      at,
+      overrides,
+    );
+    get().mutate((next) => {
+      next.generationSettings ??= {};
+      next.generationSettings.studioLights = [
+        ...(next.generationSettings.studioLights ?? []),
+        light,
+      ];
+      next.promptOptions.lighting = true;
+    });
+    get().selectScene(light.id);
+    return light.id;
+  },
+
+  addSceneCamera: (at) => {
+    const doc = get().doc;
+    if (!doc || !canAddCamera(doc)) return false;
+    const camera = createSceneCamera(at);
+    get().mutate((next) => {
+      next.generationSettings ??= {};
+      next.generationSettings.camera = camera;
+      next.promptOptions.scene = true;
+    });
+    get().selectScene("camera");
+    return true;
+  },
+
+  setCameraFromView: () => {
+    const doc = get().doc;
+    if (!doc) return;
+    const zoom = get().zoom || 1;
+    const focalLength = Math.round(
+      Math.max(14, Math.min(300, 50 / zoom)),
+    );
+    if (doc.generationSettings?.camera) {
+      get().updateSceneCamera({ focalLength });
+      return;
+    }
+    const camera = { ...createSceneCamera(), focalLength };
+    get().mutate((next) => {
+      next.generationSettings ??= {};
+      next.generationSettings.camera = camera;
+      next.promptOptions.scene = true;
+    });
+    get().selectScene("camera");
+  },
+
+  updateSceneLight: (id, patch, history = true) => {
+    const lights = get().doc?.generationSettings?.studioLights;
+    const current = lights?.find((light) => light.id === id);
+    if (!current || !lights) return;
+    const recompute = patch.canvas !== undefined || patch.depth !== undefined;
+    const fromDirection =
+      patch.canvas === undefined &&
+      (patch.azimuth !== undefined || patch.elevation !== undefined)
+        ? sceneToCanvas({
+            azimuth: patch.azimuth ?? current.azimuth,
+            elevation: patch.elevation ?? current.elevation,
+          })
+        : undefined;
+    const canvas = patch.canvas ? clampNorm(patch.canvas) : fromDirection?.canvas;
+    const depth = patch.depth;
+    const scene = recompute
+      ? canvasToScene(
+          canvas ?? current.canvas ?? sceneToCanvas(current).canvas,
+          depth ?? current.depth ?? "front",
+        )
+      : undefined;
+    const candidate = studioLightSchema.safeParse({
+      ...current,
+      ...patch,
+      id: current.id,
+      ...(canvas ? { canvas } : {}),
+      ...(fromDirection && patch.depth === undefined
+        ? { depth: fromDirection.depth }
+        : {}),
+      ...(scene ? { azimuth: scene.azimuth, elevation: scene.elevation } : {}),
+    });
+    if (
+      !candidate.success ||
+      JSON.stringify(candidate.data) === JSON.stringify(current)
+    )
+      return;
+    get().mutate((doc) => {
+      doc.generationSettings!.studioLights = doc.generationSettings!.studioLights!.map(
+        (light) => (light.id === id ? candidate.data : light),
+      );
+    }, history);
+  },
+
+  updateSceneCamera: (patch, history = true) => {
+    const doc = get().doc;
+    const current = doc?.generationSettings?.camera;
+    if (!doc || !current) return;
+    const merged = { ...current, ...patch };
+    const candidate = sceneCameraSchema.safeParse(merged);
+    if (
+      !candidate.success ||
+      JSON.stringify(candidate.data) === JSON.stringify(current)
+    )
+      return;
+    get().mutate((next) => {
+      next.generationSettings!.camera = candidate.data;
+    }, history);
+  },
+
+  updateAmbient: (patch, history = true) => {
+    const doc = get().doc;
+    if (!doc) return;
+    const current = doc.generationSettings?.ambient ?? {
+      enabled: false,
+      intensity: 50,
+      temperature: 5600,
+    };
+    const merged = { ...current, ...patch };
+    const candidate = sceneAmbientSchema.safeParse(merged);
+    if (
+      !candidate.success ||
+      JSON.stringify(candidate.data) === JSON.stringify(doc.generationSettings?.ambient)
+    )
+      return;
+    get().mutate((next) => {
+      next.generationSettings ??= {};
+      next.generationSettings.ambient = candidate.data;
+    }, history);
+  },
+
+  duplicateSceneLight: (id) => {
+    const doc = get().doc;
+    const lights = doc?.generationSettings?.studioLights;
+    const current = lights?.find((light) => light.id === id);
+    if (!doc || !current || !lights || !canAddLight(doc)) return null;
+    const copy: StudioLight = {
+      ...current,
+      id: crypto.randomUUID(),
+      name: `${current.name} copy`.slice(0, 60),
+    };
+    get().mutate((next) => {
+      next.generationSettings!.studioLights = [
+        ...next.generationSettings!.studioLights!,
+        copy,
+      ];
+    });
+    get().selectScene(copy.id);
+    return copy.id;
+  },
+
+  removeSceneObject: (id) => {
+    const doc = get().doc;
+    if (!doc) return;
+    if (id === "camera") {
+      if (!doc.generationSettings?.camera) return;
+      get().mutate((next) => {
+        delete next.generationSettings!.camera;
+      });
+    } else if (id === "ambient") {
+      if (!doc.generationSettings?.ambient?.enabled) return;
+      get().updateAmbient({ enabled: false });
+    } else {
+      const lights = doc.generationSettings?.studioLights;
+      if (!lights?.some((light) => light.id === id)) return;
+      get().mutate((next) => {
+        next.generationSettings!.studioLights = lights.filter(
+          (light) => light.id !== id,
+        );
+      });
+    }
+    if (get().selectedSceneId === id) get().selectScene(null);
+  },
+
+  renameSceneObject: (id, value) => {
+    if (id === "ambient") return;
+    const name = value.trim().slice(0, 60);
+    if (!name) return;
+    if (id === "camera") get().updateSceneCamera({ name });
+    else get().updateSceneLight(id, { name });
+  },
+
+  toggleSceneGuide: (id) => {
+    const doc = get().doc;
+    if (!doc) return;
+    if (id === "camera") {
+      const camera = doc.generationSettings?.camera;
+      if (!camera) return;
+      get().updateSceneCamera({ guideHidden: !camera.guideHidden });
+    } else if (id === "ambient") {
+      return;
+    } else {
+      const light = doc.generationSettings?.studioLights?.find(
+        (item) => item.id === id,
+      );
+      if (!light) return;
+      get().updateSceneLight(id, { guideHidden: !light.guideHidden });
+    }
+  },
+
+  setSceneGuidesVisible: (visible) => set({ sceneGuidesVisible: visible }),
+
+  commitSceneTransform: (id, patch) => {
+    const doc = get().doc;
+    if (!doc) return;
+    if (id === "camera") {
+      const camera = doc.generationSettings?.camera;
+      if (!camera) return;
+      const next: Partial<SceneCamera> = {};
+      if (patch.canvas) next.position = clampNorm(patch.canvas);
+      if (patch.rotation !== undefined) next.rotation = patch.rotation;
+      if (patch.target) next.target = clampNorm(patch.target);
+      get().updateSceneCamera(next, true);
+      return;
+    }
+    if (id === "ambient") return;
+    const light = doc.generationSettings?.studioLights?.find(
+      (item) => item.id === id,
+    );
+    if (!light) return;
+    const next: Partial<StudioLight> = {};
+    if (patch.canvas) next.canvas = clampNorm(patch.canvas);
+    if (patch.rotation !== undefined) next.rotation = patch.rotation;
+    get().updateSceneLight(id, next, true);
+  },
+
+  applyEnvironmentPreset: (id, mode) => {
+    const doc = get().doc;
+    const preset = ENVIRONMENT_PRESETS.find((p) => p.id === id);
+    if (!doc || !preset) return { applied: false, skipped: 0 };
+    let skipped = 0;
+    get().mutate((next) => {
+      next.generationSettings ??= {};
+      const settings = next.generationSettings;
+      if (mode === "replace") {
+        settings.camera = { ...preset.camera };
+        settings.studioLights = preset.lights.map((light) => ({
+          ...light,
+          id: crypto.randomUUID(),
+        }));
+        settings.ambient = { ...preset.ambient };
+      } else {
+        const merged = mergeEnvironmentPreset(settings, preset);
+        settings.studioLights = merged.studioLights;
+        settings.ambient = merged.ambient;
+        skipped = merged.skipped;
+      }
+      settings.scenePreset = preset.id;
+      if (mode === "replace" || !next.scene?.trim()) next.scene = preset.scene;
+      next.promptOptions.scene = true;
+      next.promptOptions.lighting = true;
+    });
+    return { applied: true, skipped };
+  },
 
   addElement: (kind, x, y, patch, options) => {
     const d = get().doc;
@@ -523,7 +1405,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const el = insertElement(doc, activeKit, kind, x, y, patch, options);
       id = el.id;
     });
-    set({ selectedIds: [id], backgroundSelected: false });
+    set({ selectedIds: [id], selectedGroupIds: [], backgroundSelected: false });
   },
 
   slotElement: (role, kind, patch, options) => {
@@ -657,7 +1539,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       el.x = Math.max(0, Math.min(el.x, doc.format.width - el.width));
       el.y = Math.max(0, Math.min(el.y, doc.format.height - el.height));
     });
-    set({ selectedIds: [id], backgroundSelected: false });
+    set({ selectedIds: [id], selectedGroupIds: [], backgroundSelected: false });
     return id;
   },
 
@@ -721,13 +1603,32 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       return;
     get().mutate((next) => {
       next.elements.forEach((el) => {
-        if (boxes[el.id]) Object.assign(el, boxes[el.id]);
+        if (boxes[el.id])
+          Object.assign(
+            el,
+            isCircleShape(el) && el.semanticRole
+              ? centeredCircle(boxes[el.id]!)
+              : boxes[el.id],
+          );
       });
     });
   },
   updateElement: (id, patch) => {
     const original = get().doc?.elements.find((el) => el.id === id);
     if (!original) return;
+    if (
+      original.locked &&
+      (patch.semanticRole !== undefined || patch.style !== undefined)
+    )
+      return;
+    if (
+      isCircleShape(original) &&
+      original.semanticRole &&
+      (patch.width !== undefined || patch.height !== undefined)
+    ) {
+      const diameter = patch.width ?? patch.height!;
+      patch = { ...patch, width: diameter, height: diameter };
+    }
     const geometry = ["x", "y", "width", "height", "rotation"] as const;
     if (geometry.some((key) => patch[key] !== undefined)) {
       if (
@@ -763,13 +1664,30 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   setElementDetail: (id, value, history) => {
     const original = get().doc?.elements.find((el) => el.id === id);
-    if (!original || original.locked) return;
+    if (
+      !original ||
+      original.locked ||
+      value.length > 20_000 ||
+      (original.detail === value && !original.descriptionTemplate)
+    )
+      return;
+    if (original.kind === "shape") {
+      const candidate = prepareDescriptionChange(get().doc, id, (el) => {
+        el.detail = value;
+        delete el.descriptionTemplate;
+      });
+      if (candidate)
+        get().mutate(
+          (doc) => applyDescriptionChange(doc, id, candidate),
+          history ?? true,
+        );
+      return;
+    }
     get().mutate((doc) => {
       const el = doc.elements.find((e) => e.id === id);
       if (el) el.detail = value;
     }, history ?? true);
   },
-
   updateElementConstraint: (id, patch) =>
     get().mutate((doc) => {
       const e = doc.elements.find((v) => v.id === id);
@@ -787,39 +1705,153 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }),
 
   deleteElements: (ids) => {
-    if (!ids.length) return;
-    get().mutate((d) => {
-      d.elements = d.elements.filter((e) => !ids.includes(e.id));
+    const doc = get().doc;
+    if (!doc) return;
+    const nodes = canonicalLayers(doc, ids);
+    if (!nodes.length) return;
+    const leaves = new Set(
+      nodes.flatMap((node) => node.leaves.map((el) => el.id)),
+    );
+    const deletedGroups = new Set(
+      flattenLayers(doc)
+        .filter(
+          (node) =>
+            !node.element &&
+            nodes.some(
+              (parent) =>
+                parent.id === node.id ||
+                node.leaves.every((el) => leaves.has(el.id)),
+            ),
+        )
+        .map((node) => node.id),
+    );
+    get().mutate((next) => {
+      next.elements = next.elements.filter((el) => !leaves.has(el.id));
+      next.elements.forEach((element) => remapReferences(element, new Map(), leaves));
+      next.groups = layerGroups(next).filter(
+        (group) => !deletedGroups.has(group.id),
+      );
+      pruneLayerGroups(next);
     });
-    set((s) => ({
-      selectedIds: s.selectedIds.filter((id) => !ids.includes(id)),
-    }));
+    const current = get();
+    get().selectLayers(
+      selectedLayerIds(
+        get().doc!,
+        current.selectedIds,
+        current.selectedGroupIds,
+      ).filter((id) => !leaves.has(id) && !deletedGroups.has(id)),
+    );
   },
 
-  deleteSelected: () => get().deleteElements(get().selectedIds),
+  deleteSelected: () => {
+    const state = get();
+    if (state.doc)
+      state.deleteElements(
+        selectedLayerIds(state.doc, state.selectedIds, state.selectedGroupIds),
+      );
+  },
 
   duplicate: () => {
-    const ids = get().selectedIds;
-    const nextIds: string[] = [];
-    get().mutate((d) => {
-      const base = d.elements.length;
-      const copies = d.elements
-        .filter((e) => ids.includes(e.id))
-        .map((e, i) => {
-          const copy: SpecElement = {
-            ...structuredClone(e),
-            id: `${e.kind}_${crypto.randomUUID().slice(0, 8)}`,
-            name: `${e.name} copy`,
-            x: e.x + 24,
-            y: e.y + 24,
-            zIndex: base + i + 1,
-          };
-          nextIds.push(copy.id);
-          return copy;
-        });
-      d.elements.push(...copies);
+    const state = get(),
+      doc = state.doc;
+    if (!doc) return;
+    const nodes = canonicalLayers(
+      doc,
+      selectedLayerIds(doc, state.selectedIds, state.selectedGroupIds),
+    );
+    if (!nodes.length) return;
+    const leaves = new Set(
+      nodes.flatMap((node) => node.leaves.map((el) => el.id)),
+    );
+    const rows = flattenLayers(doc);
+    const selectedGroups = new Set(
+      nodes.filter((node) => !node.element).map((node) => node.id),
+    );
+    const groups = layerGroups(doc).filter((group) => {
+      let id: string | undefined = group.id;
+      while (id) {
+        if (selectedGroups.has(id)) return true;
+        id = rows.find((row) => row.id === id)?.parentId;
+      }
+      return false;
     });
-    set({ selectedIds: nextIds });
+    const ids = new Map(
+      [...groups.map((g) => g.id), ...leaves].map((id) => [
+        id,
+        `layer_${crypto.randomUUID().slice(0, 8)}`,
+      ]),
+    );
+    const selection = nodes.map((node) => ids.get(node.id)!);
+    get().mutate((next) => {
+      next.groups = [
+        ...layerGroups(next),
+        ...groups.map((group) => ({
+          ...group,
+          id: ids.get(group.id)!,
+          name: `${group.name.slice(0, 195)} copy`,
+          parentId: ids.get(group.parentId ?? "") ?? group.parentId,
+        })),
+      ];
+      const base = Math.max(0, ...next.elements.map((el) => el.zIndex));
+      const copies = [...doc.elements]
+        .filter((el) => leaves.has(el.id))
+        .sort((a, b) => a.zIndex - b.zIndex)
+        .map((el, index) => ({
+          ...structuredClone(el),
+          id: ids.get(el.id)!,
+          name: `${el.name} copy`,
+          x: el.x + 24,
+          y: el.y + 24,
+          groupId: ids.get(el.groupId ?? "") ?? el.groupId,
+          zIndex: base + index + 1,
+        }));
+      copies.forEach((element) => remapReferences(element, ids));
+      next.elements.push(...copies);
+      const originals = [...doc.elements]
+        .sort((a, b) => b.zIndex - a.zIndex)
+        .map((el) => el.id);
+      const rootLeaves = new Set(
+        nodes
+          .filter((node) => !node.parentId)
+          .flatMap((node) => node.leaves.map((el) => el.id)),
+      );
+      let ordered = [
+        ...originals
+          .filter((id) => rootLeaves.has(id))
+          .map((id) => ids.get(id)!),
+        ...originals,
+      ];
+      for (const node of nodes.filter((node) => node.parentId)) {
+        const members = new Set(node.leaves.map((el) => el.id));
+        const index = ordered.findIndex((id) => members.has(id));
+        ordered.splice(
+          index,
+          0,
+          ...originals
+            .filter((id) => members.has(id))
+            .map((id) => ids.get(id)!),
+        );
+      }
+      const nextRows = flattenLayers(next);
+      for (const parentId of new Set(
+        nodes.flatMap((node) => (node.parentId ? [node.parentId] : [])),
+      )) {
+        const members = new Set(
+          nextRows
+            .find((node) => node.id === parentId)!
+            .leaves.map((el) => el.id),
+        );
+        const first = ordered.findIndex((id) => members.has(id));
+        const groupOrder = ordered.filter((id) => members.has(id));
+        ordered = ordered.filter((id) => !members.has(id));
+        ordered.splice(first, 0, ...groupOrder);
+      }
+      ordered.forEach((id, index) => {
+        next.elements.find((el) => el.id === id)!.zIndex =
+          ordered.length - index;
+      });
+    });
+    get().selectLayers(selection);
   },
 
   undo: () => {
@@ -831,6 +1863,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       past: s.past.slice(0, -1),
       future: [clone(doc), ...s.future].slice(0, historyLimit(doc)),
       selectedIds: [],
+      selectedGroupIds: [],
+      selectedSceneId: null,
+      scenePreview: null,
       saveStatus: "saving",
     }));
     clearTimeout(saveTimer);
@@ -846,6 +1881,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       past: [...s.past, clone(doc)].slice(-historyLimit(doc)),
       future: s.future.slice(1),
       selectedIds: [],
+      selectedGroupIds: [],
+      selectedSceneId: null,
+      scenePreview: null,
       saveStatus: "saving",
     }));
     clearTimeout(saveTimer);
@@ -857,7 +1895,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const ids = get().selectedIds;
     if (!doc || !ids.length) return;
     const moves = alignOffsets(
-      doc.elements.filter((e) => ids.includes(e.id)),
+      layerAlignmentItems(doc, ids, get().selectedGroupIds),
       a,
       { x: 0, y: 0, width: doc.format.width, height: doc.format.height },
     );
@@ -878,7 +1916,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const ids = get().selectedIds;
     if (!doc || !ids.length) return;
     const moves = distributeOffsets(
-      doc.elements.filter((e) => ids.includes(e.id)),
+      layerAlignmentItems(doc, ids, get().selectedGroupIds),
       axis,
     );
     if (!Object.keys(moves).length) return;
@@ -893,82 +1931,77 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     });
   },
 
-  bringToFront: () => {
-    const ids = get().selectedIds;
-    if (!ids.length) return;
-    get().mutate((d) => {
-      const rest = d.elements.filter((e) => !ids.includes(e.id));
-      const moved = d.elements.filter((e) => ids.includes(e.id));
-      d.elements = [...rest, ...moved];
-      d.elements.forEach((e, i) => (e.zIndex = i + 1));
-    });
-  },
-
-  sendToBack: () => {
-    const ids = get().selectedIds;
-    if (!ids.length) return;
-    get().mutate((d) => {
-      const moved = d.elements.filter((e) => ids.includes(e.id));
-      const rest = d.elements.filter((e) => !ids.includes(e.id));
-      d.elements = [...moved, ...rest];
-      d.elements.forEach((e, i) => (e.zIndex = i + 1));
-    });
-  },
-
-  bringForward: () => {
-    const ids = get().selectedIds;
-    if (!ids.length) return;
-    get().mutate((d) => {
-      const ordered = [...d.elements].sort((a, b) => a.zIndex - b.zIndex);
-      for (let i = ordered.length - 2; i >= 0; i--) {
-        const cur = ordered[i]!;
-        const nextEl = ordered[i + 1]!;
-        if (ids.includes(cur.id) && !ids.includes(nextEl.id)) {
-          ordered[i] = nextEl;
-          ordered[i + 1] = cur;
-        }
-      }
-      ordered.forEach((e, i) => (e.zIndex = i + 1));
-      d.elements = ordered;
-    });
-  },
-
-  sendBackward: () => {
-    const ids = get().selectedIds;
-    if (!ids.length) return;
-    get().mutate((d) => {
-      const ordered = [...d.elements].sort((a, b) => a.zIndex - b.zIndex);
-      for (let i = 1; i < ordered.length; i++) {
-        const cur = ordered[i]!;
-        const prevEl = ordered[i - 1]!;
-        if (ids.includes(cur.id) && !ids.includes(prevEl.id)) {
-          ordered[i] = prevEl;
-          ordered[i - 1] = cur;
-        }
-      }
-      ordered.forEach((e, i) => (e.zIndex = i + 1));
-      d.elements = ordered;
-    });
-  },
+  bringToFront: () => moveSelectedStack(get(), "front"),
+  sendToBack: () => moveSelectedStack(get(), "back"),
+  bringForward: () => moveSelectedStack(get(), "up"),
+  sendBackward: () => moveSelectedStack(get(), "down"),
 
   group: () => {
-    const ids = get().selectedIds;
-    if (ids.length < 2) return;
-    const groupId = `group_${crypto.randomUUID().slice(0, 6)}`;
-    get().mutate((d) =>
-      d.elements.forEach((e) => {
-        if (ids.includes(e.id)) e.groupId = groupId;
-      }),
+    const state = get(),
+      doc = state.doc;
+    if (!doc) return;
+    const ids = selectedLayerIds(
+      doc,
+      state.selectedIds,
+      state.selectedGroupIds,
     );
+    if (!canGroupLayers(doc, ids)) return;
+    const nodes = canonicalLayers(doc, ids);
+    const id = `group_${crypto.randomUUID().slice(0, 8)}`;
+    get().mutate((next) => {
+      next.groups = [
+        ...layerGroups(next),
+        {
+          id,
+          name: `Group ${layerGroups(next).length + 1}`,
+          parentId: nodes[0]!.parentId,
+        },
+      ];
+      for (const node of nodes) {
+        const group = next.groups.find((value) => value.id === node.id);
+        if (group) group.parentId = id;
+        else next.elements.find((el) => el.id === node.id)!.groupId = id;
+      }
+      // Make only the new group contiguous at its highest selected sibling.
+      const leaves = new Set(
+        nodes.flatMap((node) => node.leaves.map((el) => el.id)),
+      );
+      const ordered = [...next.elements].sort((a, b) => b.zIndex - a.zIndex);
+      const first = ordered.findIndex((el) => leaves.has(el.id));
+      const members = ordered.filter((el) => leaves.has(el.id));
+      const rest = ordered.filter((el) => !leaves.has(el.id));
+      rest.splice(first, 0, ...members);
+      rest.forEach((el, i) => {
+        el.zIndex = rest.length - i;
+      });
+    });
+    get().selectLayers([id]);
   },
 
   ungroup: () => {
-    const ids = get().selectedIds;
-    get().mutate((d) =>
-      d.elements.forEach((e) => {
-        if (ids.includes(e.id)) delete e.groupId;
-      }),
+    const state = get(),
+      doc = state.doc;
+    if (!doc) return;
+    const nodes = canonicalLayers(doc, state.selectedGroupIds).filter(
+      (node) => !node.element && !node.leaves.some((el) => el.locked),
     );
+    if (!nodes.length) return;
+    const children = nodes.flatMap((node) =>
+      node.children.map((child) => child.id),
+    );
+    get().mutate((next) => {
+      next.groups = layerGroups(next);
+      for (const node of nodes) {
+        for (const el of next.elements)
+          if (el.groupId === node.id) el.groupId = node.parentId;
+        for (const group of next.groups)
+          if (group.parentId === node.id) group.parentId = node.parentId;
+      }
+      next.groups = next.groups.filter(
+        (group) => !nodes.some((node) => node.id === group.id),
+      );
+    });
+    get().selectLayers(children);
   },
 
   tidy: () => get().mutate((d) => applyTidy(d, get().selectedIds)),
@@ -1034,6 +2067,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         e.y = Math.round(next.y + relY * scaleY);
         e.width = Math.round(e.width * scaleX);
         e.height = Math.round(e.height * scaleY);
+        if (isCircleShape(e) && e.semanticRole)
+          Object.assign(e, centeredCircle(e));
       });
     });
   },

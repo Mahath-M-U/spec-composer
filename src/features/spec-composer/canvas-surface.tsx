@@ -1,3 +1,4 @@
+import { isCircleShape, isShapeType, shapeRoleLabel } from "./shape-workflow";
 import {
   useCallback,
   useEffect,
@@ -27,8 +28,16 @@ import {
 import { CanvasTextEditor } from "./canvas-text-editor";
 import { CanvasCaret } from "./canvas-caret";
 import { findAssetItem } from "./asset-catalog";
+import { findAssetPreset } from "./asset-presets";
+import { findDescriptionTemplate } from "./description-templates";
 import { addCatalogAsset } from "./assets-panel/add-asset";
 import { SelectionContextBar } from "./selection-context-bar";
+import { FloatingContextualToolbar } from "./contextual-editor/FloatingContextualToolbar";
+import { SceneObjectToolbar } from "./contextual-editor/SceneObjectToolbar";
+import { CATALOG_DRAG_TYPE, parseCatalogDrag, isConstraint } from "./contextual-editor/catalog";
+import { SceneOverlay } from "./scene-overlay/SceneOverlay";
+import { SCENE_DRAG_TYPE, parseSceneDrag } from "./scene-objects";
+import { docToNorm } from "./scene-space";
 import {
   ELEMENT_KINDS,
   isTextKind,
@@ -68,9 +77,11 @@ type Gesture = {
 export function CanvasWorkspace({
   children,
   onCanvasSelect,
+  navigationLayoutKey,
 }: {
   children: ReactNode;
   onCanvasSelect?: () => void;
+  navigationLayoutKey?: string;
 }) {
   const s = useEditorStore();
   const doc = s.doc;
@@ -98,7 +109,7 @@ export function CanvasWorkspace({
     if (pointer !== undefined && surface.current?.hasPointerCapture(pointer))
       surface.current.releasePointerCapture(pointer);
   }, []);
-  const viewport = useCanvasViewport(surface, busy, cancel);
+  const viewport = useCanvasViewport(surface, busy, cancel, navigationLayoutKey);
   useEffect(() => {
     if (gesture.current && gesture.current.document !== doc) cancel();
   }, [doc, cancel]);
@@ -137,7 +148,7 @@ export function CanvasWorkspace({
       viewport.manual();
     } else if (id || handle || target.closest("[data-selection-body]")) {
       if (id && !handle) {
-        if (e.shiftKey) {
+        if (e.shiftKey || e.ctrlKey || e.metaKey) {
           state.select(id, true);
           if (useEditorStore.getState().selectedIds.length > 0)
             onCanvasSelect?.();
@@ -147,8 +158,11 @@ export function CanvasWorkspace({
       }
       const ids = useEditorStore.getState().selectedIds;
       elements = doc.elements.filter((el) => ids.includes(el.id));
-      if (!elements.length || elements.some((el) => el.locked || !el.visible))
+      if (!elements.length) return;
+      if (elements.some((el) => el.locked || !el.visible)) {
+        onCanvasSelect?.();
         return;
+      }
       kind = handle ? "resize" : "drag";
     }
     gesture.current = {
@@ -159,7 +173,7 @@ export function CanvasWorkspace({
       zoom: state.zoom,
       document: doc,
       kind,
-      additive: e.shiftKey,
+      additive: e.shiftKey || e.ctrlKey || e.metaKey,
       elements,
       bounds: boundsOf(elements),
       ...(handle ? { handle } : {}),
@@ -207,7 +221,10 @@ export function CanvasWorkspace({
           g.bounds,
           g.handle,
           { x: dx / g.zoom, y: dy / g.zoom },
-          e.shiftKey,
+          e.shiftKey ||
+            (g.elements.length === 1 &&
+              !!g.elements[0]?.semanticRole &&
+              isCircleShape(g.elements[0])),
           minimum,
         ),
         g.bounds,
@@ -364,7 +381,12 @@ export function CanvasWorkspace({
         onKeyDown={keyDown}
         onDragOver={(e) => {
           if (
+            e.dataTransfer.types.includes(CATALOG_DRAG_TYPE) ||
+            e.dataTransfer.types.includes(SCENE_DRAG_TYPE) ||
+            e.dataTransfer.types.includes("application/x-spec-asset-preset") ||
+            e.dataTransfer.types.includes("spec/shape") ||
             e.dataTransfer.types.includes("spec/asset") ||
+            e.dataTransfer.types.includes("spec/text-preset") ||
             e.dataTransfer.types.includes("spec/kind")
           ) {
             e.preventDefault();
@@ -374,6 +396,50 @@ export function CanvasWorkspace({
         onDrop={(e) => {
           e.preventDefault();
           const point = viewport.toDoc(e.clientX, e.clientY);
+          const sceneData = e.dataTransfer.getData(SCENE_DRAG_TYPE);
+          if (sceneData) {
+            const payload = parseSceneDrag(sceneData);
+            if (!payload) return;
+            const norm = docToNorm(point, doc.format);
+            if (payload.type === "camera") s.addSceneCamera(norm);
+            else if (payload.kind)
+              s.addSceneLight(payload.kind, norm, {
+                ...(payload.role ? { role: payload.role } : {}),
+                ...(payload.depth ? { depth: payload.depth } : {}),
+              });
+            return;
+          }
+          const contextualData = e.dataTransfer.getData(CATALOG_DRAG_TYPE);
+          if (contextualData) {
+            const payload = parseCatalogDrag(contextualData);
+            if (payload) s.addContextualElement(payload.elementId, point, payload.preset);
+            return;
+          }
+          const presetData = e.dataTransfer.getData("application/x-spec-asset-preset");
+          if (presetData) {
+            try {
+              const payload: unknown = JSON.parse(presetData);
+              if (!payload || typeof payload !== "object" ||
+                !("presetId" in payload) || typeof payload.presetId !== "string" ||
+                !("templateId" in payload) || typeof payload.templateId !== "string") return;
+              const preset = findAssetPreset(payload.presetId);
+              const template = findDescriptionTemplate(payload.templateId);
+              if (preset && template) s.addAssetPreset(preset.id, point, template.id);
+            } catch {
+              // Foreign or incomplete drag payloads must not create an element.
+            }
+            return;
+          }
+          const textPreset = e.dataTransfer.getData("spec/text-preset");
+          if (textPreset) {
+            s.addTextPreset(textPreset, point);
+            return;
+          }
+          const shape = e.dataTransfer.getData("spec/shape");
+          if (isShapeType(shape)) {
+            s.addShape(shape, point);
+            return;
+          }
           const assetId = e.dataTransfer.getData("spec/asset");
           const item = assetId ? findAssetItem(assetId) : undefined;
           if (item) {
@@ -414,7 +480,11 @@ export function CanvasWorkspace({
                   <div
                     key={el.id}
                     data-element-id={el.id}
-                    aria-label={el.name}
+                    aria-label={
+                      el.semanticRole
+                        ? `${el.name}: ${shapeRoleLabel(el.semanticRole)}`
+                        : el.name
+                    }
                     className={`canvas-object${el.locked ? " is-locked" : ""}${editable(el) ? " is-text" : ""}`}
                     style={{
                       left: el.x,
@@ -425,6 +495,19 @@ export function CanvasWorkspace({
                       transform: `rotate(${el.rotation}deg)`,
                     }}
                   >
+                    {el.kind === "shape" && el.semanticRole && (
+                      <span
+                        className="shape-role-label"
+                        style={{
+                          fontSize: 11 / s.zoom,
+                          transform:
+                            el.y < 24 / s.zoom ? "none" : "translateY(-100%)",
+                        }}
+                        aria-hidden="true"
+                      >
+                        {shapeRoleLabel(el.semanticRole)}
+                      </span>
+                    )}
                     {editing?.id === el.id ? (
                       <CanvasTextEditor
                         el={el}
@@ -486,6 +569,7 @@ export function CanvasWorkspace({
             )}
           </div>
         )}
+        <SceneOverlay />
         {editingEl && (
           <CanvasCaret
             key={editingEl.id}
@@ -515,13 +599,23 @@ export function CanvasWorkspace({
           {doc.format.label} · {doc.format.width} × {doc.format.height} px
         </div>
       </div>
-      {selected.length === 1 &&
+      {selected.length > 0 &&
         !locked &&
         !isEditingSelection &&
         !activeKind &&
         !panning && (
-          <SelectionContextBar el={selected[0]!} screenBox={screenBox} />
+          <FloatingContextualToolbar key={JSON.stringify([doc.id, s.selectedIds])} elements={selected} screenBox={screenBox} onOpenInspector={onCanvasSelect} />
         )}
+      {s.selectedSceneId && !activeKind && !panning && (
+        <SceneObjectToolbar
+          key={`${doc.id}:${s.selectedSceneId}`}
+          id={s.selectedSceneId}
+          format={doc.format}
+          pan={s.pan}
+          zoom={s.zoom}
+          onOpenInspector={onCanvasSelect}
+        />
+      )}
       {children}
       <div
         className="zoom-controls"

@@ -1,4 +1,11 @@
 import type { SpecDocument, SpecElement } from "./types.ts";
+import { compileStudioLighting } from "./studio-lighting";
+import {
+  compileCameraPhrase,
+  compileSceneLighting,
+  hasStructuredCamera,
+  hasStructuredSceneLighting,
+} from "./scene-prompt";
 
 export type ArtFieldKey = "scene" | "lighting";
 export const ART_FIELD_KEYS = ["scene", "lighting"] as const;
@@ -48,6 +55,55 @@ export const MATERIAL_PRESETS = [
   "Paper stock",
 ] as const;
 
+/** Suggestions describe the selected subject, rather than a generic material catalog. */
+export function materialSuggestions(elements: SpecElement[]): string[] {
+  const suggestions = (element: SpecElement) => {
+    const role =
+      `${element.semanticRole ?? ""} ${element.slot ?? ""} ${element.kind} ${element.descriptionTemplate?.id ?? ""}`.toLowerCase();
+    if (
+      element.kind === "humanModelImage" ||
+      (element.kind !== "productImage" && /human|person|model/.test(role))
+    )
+      return [
+        "Natural skin texture",
+        "Soft fabric",
+        "Detailed hair",
+        "Fabric weave",
+        "Woven cotton",
+      ];
+    if (element.kind === "productImage" || /product/.test(role))
+      return [
+        "Matte packaging",
+        "Brushed metal",
+        "Clear glass",
+        "Paper stock",
+        "Glossy finish",
+        "Stainless steel",
+      ];
+    if (/background|backdrop/.test(role))
+      return [
+        "Seamless paper",
+        "Textured plaster",
+        "Matte surface",
+        "Natural stone",
+        "Soft gradient",
+      ];
+    if (/text|title|body|heading|cta|price|offer|badge/.test(role))
+      return [
+        "Printed ink",
+        "Paper stock",
+        "Embossed lettering",
+        "Foil lettering",
+      ];
+    if (/logo|brand/.test(role))
+      return ["Printed ink", "Embossed mark", "Foil finish", "Matte finish"];
+    return [];
+  };
+  if (!elements.length) return [];
+  const sets = elements.map(suggestions);
+  return sets[0]!.filter((value) => sets.every((set) => set.includes(value)));
+}
+
 /** Preset chips for the Mood field, refining it as a brand-tone picker.
  * Lower-case, since `TagsControl` lower-cases every tag it stores. */
 export const BRAND_TONES = [
@@ -69,10 +125,39 @@ export const artValue = (value?: string): string =>
 /** One art field as its own prompt paragraph / design.md line, e.g.
  * "Scene: On a marble countertop.". Returns "" when unset. */
 export function artLine(
-  doc: Pick<SpecDocument, ArtFieldKey>,
+  doc: Pick<SpecDocument, ArtFieldKey | "generationSettings">,
   key: ArtFieldKey,
 ): string {
-  const value = artValue(doc[key]);
+  const settings = doc.generationSettings;
+  const phrases = [artValue(doc[key])];
+  if (key === "scene") {
+    // The environment editor's camera (new field) compiles to a natural-
+    // language phrase; a document without one keeps the legacy labeled
+    // line, byte-identically.
+    if (hasStructuredCamera(settings)) phrases.push(compileCameraPhrase(settings!.camera!));
+    else if (settings?.cameraAngle)
+      phrases.push(`Camera angle: ${settings.cameraAngle}`);
+  }
+  if (key === "lighting" && settings) {
+    // Likewise, any scene-editor light/ambient field (new) compiles to
+    // natural language; a rig or simple settings with none of those fields
+    // keep their legacy text, byte-identically.
+    if (hasStructuredSceneLighting(settings)) {
+      phrases.push(
+        compileSceneLighting(settings.studioLights ?? [], settings.ambient),
+      );
+    } else if (settings.studioLights !== undefined) {
+      phrases.push(compileStudioLighting(settings.studioLights));
+    } else {
+      if (settings.lightType) phrases.push(`Light type: ${settings.lightType}`);
+      if (settings.lightDirection)
+        phrases.push(`Direction: ${settings.lightDirection}`);
+      if (settings.lightIntensity !== undefined)
+        phrases.push(`Intensity: ${settings.lightIntensity}%`);
+      if (settings.shadows) phrases.push(`Shadows: ${settings.shadows}`);
+    }
+  }
+  const value = phrases.filter(Boolean).join("; ");
   return value ? `${ART_FIELDS[key].label}: ${value}.` : "";
 }
 

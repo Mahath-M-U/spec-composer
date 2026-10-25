@@ -1,6 +1,6 @@
 {
   "name": "spec-composer",
-  "version": "0.5.3",
+  "version": "0.6.0",
   "description": "Local-first semantic poster composer that exports structured specs, prompts, JSON and PNG.",
   "license": "MIT",
   "author": "MAHATH M U",

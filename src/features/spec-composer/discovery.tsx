@@ -1,4 +1,7 @@
+import { TemplateCardMedia } from "./template-card-media";
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { useVisibleHomeCardCount } from "./use-visible-home-card-count";
+import { useProjectMasonry } from "./use-project-masonry";
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -6,9 +9,7 @@ import {
   ArrowDownAZ,
   ArrowRight,
   Clock3,
-  Check,
   Compass,
-  Copy,
   Download,
   Upload,
   FilePlus2,
@@ -24,7 +25,6 @@ import {
   Search,
   Shuffle,
   Sparkles,
-  Trash2,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -35,17 +35,8 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { AppIcon } from "@/components/app-icon";
+import { PreviewCardSkeleton } from "@/components/preview-card";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Hint } from "@/components/ui/tooltip";
@@ -62,14 +53,15 @@ import {
 } from "./templates";
 import { getNextProjectName, saveProject } from "./persistence";
 import { createProjectBackup, importProjectBackup } from "./project-backup";
-import { projectsQueryOptions, useRemoveProject } from "./queries";
+import { projectsQueryOptions } from "./queries";
 import { reportStorageError } from "./storage/errors";
 import type { Format, SpecDocument } from "./types";
 import { BrandKitPanel } from "./brand-kit-panel";
+import { DesignKitCard } from "./design-kit-card";
 import { DocumentPreview } from "./static-render";
-import { TemplateCardMedia } from "./template-card-media";
+import { RecentDesignCard } from "./recent-design-card";
+import { HomeTemplateCard } from "./home-template-card";
 import { templateImageFor } from "./template-images";
-import { findImageStyle } from "./image-styles";
 import { useEditorStore } from "./store";
 import {
   compileDesignSkill,
@@ -90,6 +82,7 @@ import {
 } from "./coming-soon-lazy";
 import { QuickGuide } from "./quick-guide-lazy";
 import { LATEST_RELEASE } from "./release-notes";
+import "./home-dashboard.css";
 
 /** Saves a new document, then opens it in the editor. */
 function useOpenNewProject() {
@@ -180,12 +173,15 @@ export function DiscoveryShell({
             <Nav to="/projects" icon={<Folder />}>
               My designs
             </Nav>
-            <span className="sidebar-nav-label sidebar-nav-label--brand">
-              Brand assets
-            </span>
-            <BrandKitSidebarLink />
+            <Nav to="/design-kit" icon={<Gem />}>
+              Design kit
+            </Nav>
           </nav>
-          <Link to="/release-notes" className="sidebar-release-link">
+          <Link
+            to="/release-notes"
+            className="sidebar-release-link"
+            data-tour="whats-new"
+          >
             What&apos;s new in v{LATEST_RELEASE.version}
           </Link>
           <button
@@ -229,6 +225,7 @@ export function DiscoveryShell({
               <button
                 type="button"
                 className="mobile-create-button"
+                data-tour="create"
                 onClick={() => {
                   setMenuOpen(false);
                   setCreateOpen(true);
@@ -359,53 +356,6 @@ export function DiscoveryShell({
   );
 }
 
-function colorPaint(color: {
-  type: "solid" | "gradient";
-  hex: string;
-  secondaryHex?: string;
-  angle: number;
-}) {
-  return color.type === "gradient"
-    ? `linear-gradient(${color.angle}deg, ${color.hex}, ${color.secondaryHex ?? color.hex})`
-    : color.hex;
-}
-
-function BrandKitSidebarLink() {
-  const brandKits = useEditorStore((state) => state.brandKits);
-  const defaultBrandKitId = useEditorStore((state) => state.defaultBrandKitId);
-  const globalKit = brandKits.find((kit) => kit.id === defaultBrandKitId);
-
-  return (
-    <Link
-      to="/design-kit"
-      activeProps={{ className: "active" }}
-      className="sidebar-brandkit-card"
-      data-tour="design-kit"
-    >
-      <span className="sidebar-brandkit-icon" aria-hidden="true">
-        <Gem />
-      </span>
-      <span className="sidebar-brandkit-copy">
-        <b>Design kits</b>
-        <small>{globalKit?.name ?? "Build your identity"}</small>
-      </span>
-      {globalKit ? (
-        <span
-          className="sidebar-brandkit-swatches"
-          aria-label="Default design kit selected"
-        >
-          {globalKit.colors.slice(0, 3).map((color) => (
-            <i key={color.id} style={{ background: colorPaint(color) }} />
-          ))}
-          {!globalKit.colors.length ? <i /> : null}
-        </span>
-      ) : (
-        <ArrowRight className="sidebar-brandkit-arrow" aria-hidden="true" />
-      )}
-    </Link>
-  );
-}
-
 const navLinkClass =
   "sidebar-nav-link flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium text-muted-foreground transition-colors [&_svg]:h-4 [&_svg]:w-4";
 
@@ -456,49 +406,30 @@ export function BrandKitsPage() {
           </div>
 
           <div
-            className="brandkit-hero-preview"
+            className="brandkit-hero-kit"
             data-tour="kit-default"
             aria-label="Default design kit for designs"
           >
-            <div className="brandkit-preview-topline">
-              <span>Default for designs</span>
-              <i className={globalKit ? "is-live" : undefined} />
-            </div>
-            <strong>{globalKit?.name ?? "No default kit yet"}</strong>
-            <span className="brandkit-preview-font">
-              {globalKit?.typography ?? "Choose your signature type"}
-            </span>
-            <div className="brandkit-preview-palette" aria-hidden="true">
-              {(globalKit?.colors.length
-                ? globalKit.colors.slice(0, 5)
-                : [
-                    {
-                      id: "a",
-                      type: "solid" as const,
-                      hex: "#C55454",
-                      angle: 0,
-                    },
-                    {
-                      id: "b",
-                      type: "solid" as const,
-                      hex: "#141413",
-                      angle: 0,
-                    },
-                    {
-                      id: "c",
-                      type: "solid" as const,
-                      hex: "#EFE9DE",
-                      angle: 0,
-                    },
-                  ]
-              ).map((color) => (
-                <i key={color.id} style={{ background: colorPaint(color) }} />
-              ))}
-            </div>
-            <div className="brandkit-preview-meta">
-              <span>{globalKit?.style ?? "Creative style"}</span>
-              <span>{globalKit?.emotions[0] ?? "Brand mood"}</span>
-            </div>
+            <p className="brandkit-hero-eyebrow">
+              Default for designs{" "}
+              <i
+                className={
+                  globalKit
+                    ? "brandkit-hero-live is-live"
+                    : "brandkit-hero-live"
+                }
+                aria-hidden="true"
+              />
+            </p>
+            {globalKit ? (
+              <DesignKitCard kit={globalKit} active />
+            ) : (
+              <div className="asset-empty">
+                <Gem aria-hidden="true" />
+                <b>No default kit yet</b>
+                <span>Apply a kit below to make it the default.</span>
+              </div>
+            )}
           </div>
         </header>
 
@@ -542,11 +473,10 @@ function matchesQuery(format: Format, query: string) {
     .every((term) => haystack.includes(term));
 }
 
-const FEATURED_COUNT = 8;
 /** Cards above the fold on /templates load eagerly with high fetch priority. */
 const TEMPLATE_PRIORITY_COUNT = 5;
 
-/** A random handful of starters, one per category where possible. */
+/** Randomize starter order while keeping categories distributed. */
 function pickFeaturedTemplates() {
   const pool = [...starterTemplates];
   for (let i = pool.length - 1; i > 0; i--) {
@@ -558,7 +488,7 @@ function pickFeaturedTemplates() {
     (template) => !seen.has(template.category) && seen.add(template.category),
   );
   const rest = pool.filter((template) => !varied.includes(template));
-  return [...varied, ...rest].slice(0, FEATURED_COUNT);
+  return [...varied, ...rest];
 }
 
 /**
@@ -570,7 +500,7 @@ function useFeaturedTemplates() {
   useEffect(() => setPicked(pickFeaturedTemplates()), []);
   return {
     ready: picked !== null,
-    templates: picked ?? starterTemplates.slice(0, FEATURED_COUNT),
+    templates: picked ?? starterTemplates,
   };
 }
 
@@ -582,8 +512,11 @@ export function HomePage() {
   const { data: projects = [], isPending: projectsPending } = useQuery(
     projectsQueryOptions(),
   );
-  const recent = projects.slice(0, 5);
+  const recent = projects;
   const featured = useFeaturedTemplates();
+  const recentCards = useVisibleHomeCardCount();
+  const starterCards = useVisibleHomeCardCount();
+  const popularFormatCards = useVisibleHomeCardCount();
   const openNewProject = useOpenNewProject();
   const nextProjectName = useNextProjectName();
 
@@ -605,11 +538,15 @@ export function HomePage() {
     });
 
     return platform === "Popular" && !query.trim()
-      ? matchingFormats.slice(0, 6)
+      ? matchingFormats.slice(0, 7)
       : matchingFormats;
   }, [platform, query]);
 
   const heading = query.trim() ? "Search results" : platform;
+  const isDefaultPopular = platform === "Popular" && !query.trim();
+  const visibleFormats = isDefaultPopular
+    ? shown.slice(0, Math.max(0, popularFormatCards.visibleCount - 1))
+    : shown;
 
   return (
     <DiscoveryShell>
@@ -656,9 +593,11 @@ export function HomePage() {
           </div>
           {shown.length ? (
             <FormatGrid
-              formats={shown}
+              formats={visibleFormats}
               onSelect={createFromPreset}
               onCreateCustom={() => setCustomOpen(true)}
+              containerRef={popularFormatCards.containerRef}
+              className={isDefaultPopular ? "home-popular-format-grid" : ""}
             />
           ) : (
             <div className="empty-gallery">
@@ -682,6 +621,7 @@ export function HomePage() {
 
         <section
           className="discovery-secondary-section recent-showcase"
+          data-tour="recent"
           aria-labelledby="recent-section-title"
         >
           <div className="section-heading showcase-heading">
@@ -699,21 +639,20 @@ export function HomePage() {
               className="template-strip template-strip--recent"
               role="status"
               aria-busy="true"
+              ref={recentCards.containerRef}
             >
               <span className="sr-only">Loading recent designs</span>
-              {[0, 1, 2].map((index) => (
-                <div key={index} className="template-card-skeleton">
-                  <div className="template-preview">
-                    <MediaSkeleton />
-                  </div>
-                  <MediaSkeleton className="media-skeleton--line" />
-                </div>
+              {Array.from({ length: recentCards.visibleCount }, (_, index) => (
+                <PreviewCardSkeleton key={index} />
               ))}
             </div>
           ) : recent.length ? (
-            <div className="template-strip template-strip--recent">
-              {recent.map((document) => (
-                <TemplateCard key={document.id} doc={document} existing />
+            <div
+              className="template-strip template-strip--recent"
+              ref={recentCards.containerRef}
+            >
+              {recent.slice(0, recentCards.visibleCount).map((document) => (
+                <RecentDesignCard key={document.id} doc={document} />
               ))}
             </div>
           ) : (
@@ -745,20 +684,24 @@ export function HomePage() {
           <div
             className="template-strip template-strip--starters"
             data-ready={featured.ready ? "" : undefined}
+            ref={starterCards.containerRef}
           >
-            {featured.templates.map((template) => (
-              <TemplateCard
-                key={template.name}
-                doc={template.document}
-                category={template.category}
-              />
-            ))}
+            {featured.templates
+              .slice(0, starterCards.visibleCount)
+              .map((template) => (
+                <TemplateCard
+                  key={template.name}
+                  doc={template.document}
+                  category={template.category}
+                />
+              ))}
           </div>
         </section>
 
         <section
           id="design-kit"
           className="discovery-secondary-section brandkit-showcase scroll-mt-8 pb-10"
+          data-tour="design-kit"
           aria-labelledby="design-kit-section-title"
         >
           <div className="section-heading showcase-heading">
@@ -769,6 +712,9 @@ export function HomePage() {
                 Save colors, typography, style, and emotion for every design.
               </p>
             </div>
+            <Link to="/design-kit" className="section-link">
+              View all <ArrowRight size={14} />
+            </Link>
           </div>
           <BrandKitPanel standalone />
         </section>
@@ -780,15 +726,13 @@ export function HomePage() {
   );
 }
 
-function HomeHero({ onCreate }: { onCreate: () => void }) {
+export function HomeHero({ onCreate }: { onCreate: () => void }) {
   const previews = useMemo(
     () =>
-      starterTemplates.flatMap((template) => {
-        const image = templateImageFor(template.name);
-        return image?.status === "approved"
-          ? [{ doc: template.document, image }]
-          : [];
-      }),
+      starterTemplates.map((template) => ({
+        doc: template.document,
+        image: templateImageFor(template.name, template.document.format),
+      })),
     [],
   );
   const [preview, setPreview] = useState(
@@ -909,7 +853,12 @@ function HomeHero({ onCreate }: { onCreate: () => void }) {
           </a>
         </div>
       </div>
-      <div className="home-hero-art" aria-hidden="true" inert>
+      <div
+        className="home-hero-art"
+        data-tour="home-hero"
+        aria-hidden="true"
+        inert
+      >
         <div
           className="home-hero-preview home-hero-preview--canvas"
           key={`canvas:${preview.doc.name}`}
@@ -926,7 +875,12 @@ function HomeHero({ onCreate }: { onCreate: () => void }) {
               <ArrowLeftRight size={10} />
             </span>
           </div>
-          <div className="home-hero-canvas-stage">
+          <div
+            className="home-hero-canvas-stage"
+            style={{
+              aspectRatio: `${preview.doc.format.width} / ${preview.doc.format.height}`,
+            }}
+          >
             <DocumentPreview doc={preview.doc} />
             <span className="home-hero-selection">
               <i />
@@ -960,37 +914,26 @@ function HomeHero({ onCreate }: { onCreate: () => void }) {
         <div
           className="home-hero-preview home-hero-preview--image"
           key={`image:${preview.doc.name}`}
+          style={{
+            aspectRatio: `${preview.doc.format.width} / ${preview.doc.format.height}`,
+          }}
         >
-          <img
-            src={preview.image.src}
-            alt=""
-            width={preview.image.width}
-            height={preview.image.height}
-            decoding="async"
-          />
+          <TemplateCardMedia doc={preview.doc} image={preview.image} priority />
         </div>
       </div>
     </section>
   );
 }
 
-function TemplateStyleChip({ style }: { style: string | undefined }) {
-  const label = findImageStyle(style)?.label;
-  return label ? <span className="template-style-chip">{label}</span> : null;
-}
-
 function TemplateCard({
   doc,
   category,
-  existing = false,
   priority = false,
 }: {
   doc: SpecDocument;
   category?: string;
-  existing?: boolean;
   priority?: boolean;
 }) {
-  const navigate = useNavigate();
   const router = useRouter();
   const openNewProject = useOpenNewProject();
   const [copied, setCopied] = useState(false);
@@ -1046,101 +989,19 @@ function TemplateCard({
       ?.catch(() => {});
   };
   const open = () => {
-    if (existing) {
-      navigate({ to: "/design/$projectId", params: { projectId: doc.id } });
-      return;
-    }
     void openNewProject(cloneTemplate(doc.name, doc.format.id));
   };
-  const { primaryColor, secondaryColor } = doc.creativeDirection;
-  const swatches = [
-    ...(doc.background.type === "solid" ? [doc.background.value] : []),
-    primaryColor,
-    secondaryColor,
-  ];
-
   return (
-    <div
-      className={`template-card template-card--actions template-card--${existing ? "recent" : "starter"} group w-full text-left`}
-      onPointerEnter={warmEditor}
-      onFocus={warmEditor}
-    >
-      {!existing && (
-        <div className="template-card-style-row">
-          <TemplateStyleChip style={doc.imageStyle} />
-        </div>
-      )}
-      <div className="template-preview">
-        <button
-          type="button"
-          className="template-preview-media template-preview-open"
-          onClick={open}
-          tabIndex={-1}
-          aria-label={`${existing ? "Open" : "Use"} ${doc.name}`}
-        >
-          <TemplateCardMedia
-            doc={doc}
-            image={existing ? undefined : templateImageFor(doc.name)}
-            priority={priority}
-          />
-        </button>
-        {/* Revealed as the poster window morphs up on hover or focus. */}
-        <div className="template-preview-reveal">
-          <span className="template-preview-details" aria-hidden="true">
-            <span className="template-preview-swatches">
-              {swatches.map((color, index) => (
-                <i key={index} style={{ background: color }} />
-              ))}
-            </span>
-            <span className="template-preview-format">
-              {doc.format.width} × {doc.format.height}
-            </span>
-          </span>
-          <div className="template-preview-actions">
-            <button
-              type="button"
-              className="template-preview-action"
-              onClick={open}
-              aria-label={`${existing ? "Open" : "Use"} ${doc.name}`}
-            >
-              <span className="template-preview-action-label">
-                {existing ? "Open design" : "Use template"}
-              </span>
-              <ArrowRight size={14} aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              className="template-preview-action template-preview-copy"
-              onClick={() => void copyDesign()}
-              disabled={copying}
-              aria-label={`Copy design: ${doc.name}`}
-            >
-              {copied ? (
-                <Check size={14} aria-hidden="true" />
-              ) : (
-                <Copy size={14} aria-hidden="true" />
-              )}
-              <span className="template-preview-action-label">
-                {copied ? "Copied" : copying ? "Copying…" : "Copy design"}
-              </span>
-            </button>
-          </div>
-        </div>
-      </div>
-      <button
-        type="button"
-        className="template-card-copy w-full text-left"
-        onClick={open}
-        tabIndex={-1}
-      >
-        <span className="template-card-title">{doc.name}</span>
-        <span className="template-card-meta">
-          {existing
-            ? `${doc.format.label} · ${doc.format.width} × ${doc.format.height}px`
-            : (category ?? "Template")}
-        </span>
-      </button>
-    </div>
+    <HomeTemplateCard
+      doc={doc}
+      category={category}
+      priority={priority}
+      copied={copied}
+      copying={copying}
+      onOpen={open}
+      onCopy={copyDesign}
+      onWarmEditor={warmEditor}
+    />
   );
 }
 
@@ -1405,72 +1266,22 @@ function CreationDialog({
             {compatibleTemplates.length ? (
               <div className="creation-template-grid">
                 {compatibleTemplates.map((template) => (
-                  <button
-                    type="button"
+                  <HomeTemplateCard
                     key={template.name}
-                    className="template-card creation-template-option"
-                    aria-label={`Use ${template.name} template`}
-                    onClick={() => create(template.name)}
-                  >
-                    <span className="template-card-style-row">
-                      <TemplateStyleChip style={template.document.imageStyle} />
-                    </span>
-                    <span className="template-preview">
-                      <span className="template-preview-media">
-                        <TemplateCardMedia
-                          doc={template.document}
-                          image={
-                            Math.abs(
-                              Math.log(
-                                template.document.format.width /
-                                  template.document.format.height /
-                                  0.8,
-                              ),
-                            ) < 0.02
-                              ? templateImageFor(template.name)
-                              : undefined
-                          }
-                        />
-                      </span>
-                      <span
-                        className="template-preview-reveal"
-                        aria-hidden="true"
-                      >
-                        <span className="template-preview-details">
-                          <span className="template-preview-swatches">
-                            {[
-                              ...(template.document.background.type === "solid"
-                                ? [template.document.background.value]
-                                : []),
-                              template.document.creativeDirection.primaryColor,
-                              template.document.creativeDirection
-                                .secondaryColor,
-                            ].map((color, index) => (
-                              <i key={index} style={{ background: color }} />
-                            ))}
-                          </span>
-                          <span className="template-preview-format">
-                            {template.document.format.width} ×{" "}
-                            {template.document.format.height}
-                          </span>
-                        </span>
-                        <span className="template-preview-action">
-                          <span className="template-preview-action-label">
-                            Use template
-                          </span>
-                          <ArrowRight size={14} />
-                        </span>
-                      </span>
-                    </span>
-                    <span className="template-card-copy">
-                      <span className="template-card-title">
-                        {template.name}
-                      </span>
-                      <span className="template-card-meta">
-                        {template.category}
-                      </span>
-                    </span>
-                  </button>
+                    className="creation-template-option"
+                    doc={template.document}
+                    category={template.category}
+                    templatePhoto={
+                      Math.abs(
+                        Math.log(
+                          template.document.format.width /
+                            template.document.format.height /
+                            0.8,
+                        ),
+                      ) < 0.02
+                    }
+                    onOpen={() => create(template.name)}
+                  />
                 ))}
               </div>
             ) : (
@@ -1519,7 +1330,12 @@ export function TemplatesPage() {
         const inCategory = category === "All" || template.category === category;
         return (
           inCategory &&
-          matchesTemplateQuery(template.name, template.category, query)
+          matchesTemplateQuery(
+            template.name,
+            template.category,
+            query,
+            template.document.format,
+          )
         );
       }),
     [category, query],
@@ -1527,12 +1343,11 @@ export function TemplatesPage() {
 
   return (
     <DiscoveryShell>
-      <div className="discovery-content">
+      <div className="discovery-content templates-page">
         <p className="eyebrow">STRUCTURED STARTING POINTS</p>
-        <h1 className="text-3xl font-extrabold md:text-4xl">Templates</h1>
+        <h1 className="font-extrabold">Templates</h1>
         <p className="mt-2 text-muted-foreground">
-          Previews are AI-rendered examples. Every template opens as editable
-          semantic JSON.
+          AI-generated previews. Every template opens as editable layers.
         </p>
 
         <label className="discovery-search">
@@ -1540,7 +1355,7 @@ export function TemplatesPage() {
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search templates by name or category…"
+            placeholder="Search templates by name, category, or platform…"
             aria-label="Search templates"
           />
           {query ? (
@@ -1565,7 +1380,7 @@ export function TemplatesPage() {
         </div>
 
         {shown.length ? (
-          <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="templates-grid template-masonry mt-4">
             {shown.map((template, index) => (
               <TemplateCard
                 key={template.name}
@@ -1603,10 +1418,8 @@ export function ProjectsPage() {
   const queryClient = useQueryClient();
   const backupInput = useRef<HTMLInputElement>(null);
   const ready = !isPending;
-  const removeProject = useRemoveProject();
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<"updated" | "name">("updated");
-  const [pendingDelete, setPendingDelete] = useState<SpecDocument>();
 
   const shownProjects = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -1625,6 +1438,9 @@ export function ProjectsPage() {
           : new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
       );
   }, [projects, query, sort]);
+  const projectMasonryRef = useProjectMasonry(
+    JSON.stringify([ready, shownProjects.map((project) => project.id)]),
+  );
 
   const formatCount = new Set(projects.map((project) => project.format.id))
     .size;
@@ -1778,35 +1594,28 @@ export function ProjectsPage() {
 
           {!ready ? (
             <div
-              className="projects-loading-grid"
+              className="projects-loading-grid project-masonry"
+              ref={projectMasonryRef}
               role="status"
               aria-busy="true"
               aria-label="Loading designs"
             >
-              <i>
-                <MediaSkeleton />
-              </i>
-              <i>
-                <MediaSkeleton />
-              </i>
-              <i>
-                <MediaSkeleton />
-              </i>
+              {[0, 1, 2].map((index) => (
+                <div key={index} className="project-masonry-item">
+                  <i>
+                    <MediaSkeleton />
+                  </i>
+                </div>
+              ))}
             </div>
           ) : shownProjects.length ? (
-            <div className="project-library-grid">
+            <div
+              className="project-library-grid project-masonry"
+              ref={projectMasonryRef}
+            >
               {shownProjects.map((document) => (
-                <div key={document.id} className="project-library-card">
-                  <TemplateCard doc={document} existing />
-                  <button
-                    type="button"
-                    aria-label={`Delete ${document.name}`}
-                    className="project-delete-button"
-                    onClick={() => setPendingDelete(document)}
-                  >
-                    <Trash2 size={14} />
-                    <span>Delete</span>
-                  </button>
+                <div key={document.id} className="project-masonry-item">
+                  <RecentDesignCard doc={document} />
                 </div>
               ))}
             </div>
@@ -1836,39 +1645,6 @@ export function ProjectsPage() {
           )}
         </section>
       </div>
-
-      <AlertDialog
-        open={Boolean(pendingDelete)}
-        onOpenChange={(open) => {
-          if (!open) setPendingDelete(undefined);
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete “{pendingDelete?.name}”?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This design is stored only in this browser. Deleting it cannot be
-              undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Keep design</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => {
-                if (!pendingDelete) return;
-                removeProject.mutate(pendingDelete.id, {
-                  onError: (error) =>
-                    reportStorageError(error, "remove-project"),
-                });
-                setPendingDelete(undefined);
-              }}
-            >
-              Delete design
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </DiscoveryShell>
   );
 }

@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+export type ContextualValue = string | number | boolean | null | ContextualValue[] | { [key: string]: ContextualValue };
+const contextualValueSchema: z.ZodType<ContextualValue> = z.lazy(() => z.union([
+  z.string(), z.number().finite(), z.boolean(), z.null(),
+  z.array(contextualValueSchema), z.record(z.string(), contextualValueSchema),
+]));
+
 export const TEXT_KINDS = [
   "title",
   "subheading",
@@ -31,8 +37,169 @@ export type ElementKind = (typeof ELEMENT_KINDS)[number];
 
 export type PromptMode = "visual_prompt" | "design_skill";
 export type PanelMode =
-  "assets" | "layers" | "templates" | "brandKit" | "resize" | "style";
+  | "assets"
+  | "environment"
+  | "layers"
+  | "templates"
+  | "brandKit"
+  | "resize"
+  | "style";
 export type ToolMode = "select" | "hand";
+
+export const SHAPE_ROLES = [
+  "subject",
+  "product",
+  "background",
+  "text_area",
+  "decorative",
+] as const;
+export const shapeRoleSchema = z.enum(SHAPE_ROLES);
+export type ShapeRole = z.infer<typeof shapeRoleSchema>;
+export const CAMERA_ANGLES = [
+  "Eye level",
+  "Overhead",
+  "Low angle",
+  "Isometric",
+] as const;
+export const LIGHT_TYPES = [
+  "Diffused light",
+  "Sunlight",
+  "Natural daylight",
+  "Studio",
+  "Directional",
+  "Ambient",
+] as const;
+export const LIGHT_DIRECTIONS = [
+  "Front",
+  "Back",
+  "Left",
+  "Right",
+  "Above",
+] as const;
+export const SHADOW_TYPES = ["None", "Soft", "Hard"] as const;
+export const STUDIO_LIGHT_ROLES = ["Key", "Fill", "Rim", "Background"] as const;
+export const STUDIO_LIGHT_SHAPES = ["Rectangle", "Disk"] as const;
+export const STUDIO_LIGHT_MODIFIERS = [
+  "Softbox",
+  "Umbrella",
+  "Diffusion panel",
+  "Bare",
+] as const;
+export const MAX_STUDIO_LIGHTS = 6;
+/** Scene objects (environment editor): a light's visual role in the 2D scene
+ * canvas, distinct from its camera-relative STUDIO_LIGHT_ROLES. */
+export const SCENE_LIGHT_KINDS = [
+  "sun",
+  "diffused",
+  "spot",
+  "point",
+  "area",
+] as const;
+export type SceneLightKind = (typeof SCENE_LIGHT_KINDS)[number];
+export const CAMERA_VIEW_ANGLES = [
+  "eye-level",
+  "low",
+  "high",
+  "top-down",
+  "three-quarter",
+] as const;
+export type CameraViewAngle = (typeof CAMERA_VIEW_ANGLES)[number];
+export const CAMERA_PROJECTIONS = [
+  "normal",
+  "wide",
+  "telephoto",
+  "orthographic",
+] as const;
+export type CameraProjection = (typeof CAMERA_PROJECTIONS)[number];
+export const SCENE_DEPTHS = ["front", "side", "back"] as const;
+export type SceneDepth = (typeof SCENE_DEPTHS)[number];
+/** Shared cap for the number of scene lights (environment editor) and the
+ * legacy studio lighting rig they're stored in. */
+export const MAX_SCENE_LIGHTS = MAX_STUDIO_LIGHTS;
+/** Normalized scene-canvas position: origin is the artboard centre, +x is
+ * right, +y is up. */
+export const sceneVec2Schema = z.object({
+  x: z.number().finite().min(-1.5).max(1.5),
+  y: z.number().finite().min(-1.5).max(1.5),
+});
+export type SceneVec2 = z.infer<typeof sceneVec2Schema>;
+export const studioLightSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().trim().min(1).max(60),
+  enabled: z.boolean(),
+  role: z.enum(STUDIO_LIGHT_ROLES),
+  shape: z.enum(STUDIO_LIGHT_SHAPES),
+  modifier: z.enum(STUDIO_LIGHT_MODIFIERS),
+  azimuth: z.number().finite().min(-180).max(180),
+  elevation: z.number().finite().min(-90).max(90),
+  width: z.number().finite().min(0.1).max(5),
+  height: z.number().finite().min(0.1).max(5),
+  intensity: z.number().finite().min(0).max(100),
+  diffusion: z.number().finite().min(0).max(100),
+  temperature: z.number().finite().min(2000).max(10000),
+  shadows: z.enum(SHADOW_TYPES),
+  /** Scene editor (environment editor) fields, all optional so legacy rigs
+   * parse unchanged; see scene-space.ts for the canvas <-> azimuth/elevation
+   * mapping. */
+  kind: z.enum(SCENE_LIGHT_KINDS).optional(),
+  canvas: sceneVec2Schema.optional(),
+  /** 2D aim on the scene canvas; 0 = pointing right, counter-clockwise. */
+  rotation: z.number().finite().min(-180).max(180).optional(),
+  depth: z.enum(SCENE_DEPTHS).optional(),
+  coneAngle: z.number().finite().min(5).max(120).optional(),
+  radius: z.number().finite().min(0.05).max(3).optional(),
+  color: z
+    .string()
+    .regex(/^#[0-9a-f]{6}$/i)
+    .optional(),
+  /** Hides this object's canvas guide without disabling it in the prompt. */
+  guideHidden: z.boolean().optional(),
+});
+export type StudioLight = z.infer<typeof studioLightSchema>;
+/** Environment editor camera; presence of this object means the scene has a
+ * camera (there's at most one). */
+export const sceneCameraSchema = z.object({
+  name: z.string().trim().min(1).max(60).optional(),
+  enabled: z.boolean(),
+  position: sceneVec2Schema,
+  rotation: z.number().finite().min(-180).max(180),
+  target: sceneVec2Schema,
+  focalLength: z.number().finite().min(14).max(300),
+  angle: z.enum(CAMERA_VIEW_ANGLES),
+  projection: z.enum(CAMERA_PROJECTIONS),
+  guideHidden: z.boolean().optional(),
+});
+export type SceneCamera = z.infer<typeof sceneCameraSchema>;
+/** Global ambient fill; a scene setting rather than a positioned object, so
+ * it has no canvas position. */
+export const sceneAmbientSchema = z.object({
+  enabled: z.boolean(),
+  intensity: z.number().finite().min(0).max(100),
+  temperature: z.number().finite().min(2000).max(10000),
+});
+export type SceneAmbient = z.infer<typeof sceneAmbientSchema>;
+export const generationSettingsSchema = z.object({
+  cameraAngle: z.enum(CAMERA_ANGLES).optional(),
+  lightType: z.enum(LIGHT_TYPES).optional(),
+  lightDirection: z.enum(LIGHT_DIRECTIONS).optional(),
+  lightIntensity: z.number().finite().min(0).max(100).optional(),
+  shadows: z.enum(SHADOW_TYPES).optional(),
+  studioLights: z
+    .array(studioLightSchema)
+    .max(MAX_STUDIO_LIGHTS)
+    .refine(
+      (lights) =>
+        new Set(lights.map((light) => light.id)).size === lights.length,
+      "Studio light IDs must be unique.",
+    )
+    .optional(),
+  camera: sceneCameraSchema.optional(),
+  ambient: sceneAmbientSchema.optional(),
+  /** Applied environment preset id (see environment-presets.ts, Step C). */
+  scenePreset: z.string().optional(),
+});
+
+export type GenerationSettings = z.infer<typeof generationSettingsSchema>;
 
 export const isTextKind = (kind: ElementKind): kind is TextKind =>
   (TEXT_KINDS as readonly string[]).includes(kind);
@@ -89,10 +256,10 @@ const elementStyleSchema = z.object({
   fontStyle: z.enum(["normal", "italic"]).optional(),
   lineHeight: z.number().optional(),
   letterSpacing: z.number().optional(),
-  alignment: z.enum(["left", "center", "right"]).optional(),
+  alignment: z.enum(["left", "center", "right", "justify"]).optional(),
   color: z.string().optional(),
   background: z.string().optional(),
-  objectFit: z.enum(["cover", "contain"]).optional(),
+  objectFit: z.enum(["cover", "contain", "fill", "none"]).optional(),
   focalX: z.number().optional(),
   focalY: z.number().optional(),
   opacity: z.number().optional(),
@@ -100,7 +267,15 @@ const elementStyleSchema = z.object({
   borderColor: z.string().optional(),
   borderWidth: z.number().optional(),
   shapeType: z
-    .enum(["rectangle", "rounded rectangle", "circle", "line"])
+    .enum([
+      "rectangle",
+      "rounded rectangle",
+      "circle",
+      "ellipse",
+      "triangle",
+      "diamond",
+      "line",
+    ])
     .optional(),
 });
 
@@ -117,8 +292,42 @@ const elementConstraintSchema = z.object({
 });
 export type ElementConstraint = z.infer<typeof elementConstraintSchema>;
 
+export const descriptionValuesSchema = z
+  .record(z.string().min(1).max(40), z.string().max(200))
+  .refine(
+    (values) => Object.keys(values).length <= 8,
+    "A description supports at most eight fields.",
+  );
+export const descriptionTemplateSelectionSchema = z.object({
+  id: z.string().min(1).max(80),
+  values: descriptionValuesSchema,
+});
+export const descriptionDraftsSchema = z.object({
+  custom: z.string().max(20_000).optional(),
+  templates: z
+    .record(
+      z.string().min(1).max(80),
+      z.object({
+        values: descriptionValuesSchema,
+        rendered: z.string().max(20_000).optional(),
+      }),
+    )
+    .refine(
+      (templates) => Object.keys(templates).length <= 10,
+      "At most ten description drafts can be saved.",
+    )
+    .optional(),
+});
+export type DescriptionTemplateSelection = z.infer<
+  typeof descriptionTemplateSelectionSchema
+>;
+export type DescriptionDrafts = z.infer<typeof descriptionDraftsSchema>;
+
 const specElementSchema = z.object({
   id: z.string(),
+  /** Semantic catalog identity supplements the existing rendering kind. */
+  catalogElementId: z.string().optional(),
+  contextualProperties: z.record(z.string(), contextualValueSchema).optional(),
   kind: z.enum(ELEMENT_KINDS),
   name: z.string(),
   content: z.string().optional(),
@@ -131,10 +340,13 @@ const specElementSchema = z.object({
   /** Auto-slot role (an AssetRole id) this element was dropped into; a plain
    * string so unrecognized values still parse (see asset-catalog/roles.ts). */
   slot: z.string().optional(),
+  semanticRole: shapeRoleSchema.optional(),
   /** Catalog item id this element was created or last slotted from. */
   assetId: z.string().optional(),
   /** User-entered subject detail, compiled into the prompt (see Phase 8). */
   detail: z.string().optional(),
+  descriptionTemplate: descriptionTemplateSelectionSchema.optional(),
+  descriptionDrafts: descriptionDraftsSchema.optional(),
   x: z.number(),
   y: z.number(),
   width: z.number(),
@@ -240,42 +452,86 @@ const styleKitSchema = z.object({
 });
 export type StyleKit = z.infer<typeof styleKitSchema>;
 
-const specDocumentShape = z.object({
-  id: z.string(),
-  version: z.literal("1.0"),
-  name: z.string(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-  format: formatSchema,
-  creativeDirection: creativeDirectionSchema,
-  background: z.object({
-    type: z.enum(["solid", "gradient"]),
-    value: z.string(),
-    secondaryValue: z.string().optional(),
-    angle: z.number().optional(),
-  }),
-  elements: z.array(specElementSchema),
-  imageBrief: z.string().default(""),
-  promptMode: z.enum(["visual_prompt", "design_skill"]),
-  promptOptions: promptOptionsSchema,
-  externalToolRequirement: externalToolRequirementSchema.optional(),
-  /** Prompt Editor image style id (see image-styles.ts); unknown ids add nothing. */
-  imageStyle: z.string().optional(),
-  /** Prompt Scene section; free text, see art-direction.ts. */
-  scene: z.string().optional(),
-  /** Prompt Lighting section; free text, see art-direction.ts. */
-  lighting: z.string().optional(),
-  /** Hand edit for the Design Editor (promptMode "design_skill"). */
-  designEdit: z.string().optional(),
-  designEditRevision: z.number().optional(),
-  /** Hand edit for the Prompt Editor (promptMode "visual_prompt"). */
-  visualEdit: z.string().optional(),
-  visualEditRevision: z.number().optional(),
-  promptParts: z.record(z.string(), z.string()).optional(),
-  /** Last applied Compose layout id (see compose-layouts.ts isComposeLayout). */
-  layout: z.string().optional(),
-  revision: z.number(),
+export const layerGroupSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().trim().min(1).max(200),
+  parentId: z.string().min(1).optional(),
 });
+export type LayerGroup = z.infer<typeof layerGroupSchema>;
+
+const specDocumentShape = z
+  .object({
+    id: z.string(),
+    version: z.literal("1.0"),
+    name: z.string(),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+    format: formatSchema,
+    creativeDirection: creativeDirectionSchema,
+    background: z.object({
+      type: z.enum(["solid", "gradient"]),
+      value: z.string(),
+      secondaryValue: z.string().optional(),
+      angle: z.number().optional(),
+    }),
+    elements: z.array(specElementSchema),
+    creativePurposeId: z.string().optional(),
+    referenceAssets: z.record(z.string(), z.object({
+      source: z.string(), name: z.string(), type: z.string(),
+    })).optional(),
+    groups: z.array(layerGroupSchema).optional(),
+    imageBrief: z.string().default(""),
+    promptMode: z.enum(["visual_prompt", "design_skill"]),
+    promptOptions: promptOptionsSchema,
+    externalToolRequirement: externalToolRequirementSchema.optional(),
+    /** Prompt Editor image style id (see image-styles.ts); unknown ids add nothing. */
+    imageStyle: z.string().optional(),
+    /** Prompt Scene section; free text, see art-direction.ts. */
+    scene: z.string().optional(),
+    /** Prompt Lighting section; free text, see art-direction.ts. */
+    lighting: z.string().optional(),
+    generationSettings: generationSettingsSchema.optional(),
+    savedCustomText: z
+      .object({ visual: z.string().optional(), design: z.string().optional() })
+      .optional(),
+    /** Hand edit for the Design Editor (promptMode "design_skill"). */
+    designEdit: z.string().optional(),
+    designEditRevision: z.number().optional(),
+    /** Hand edit for the Prompt Editor (promptMode "visual_prompt"). */
+    visualEdit: z.string().optional(),
+    visualEditRevision: z.number().optional(),
+    promptParts: z.record(z.string(), z.string()).optional(),
+    /** Last applied Compose layout id (see compose-layouts.ts isComposeLayout). */
+    layout: z.string().optional(),
+    revision: z.number(),
+  })
+  .superRefine((doc, ctx) => {
+    const ids = new Set(doc.elements.map((el) => el.id));
+    const groups = new Map(doc.groups?.map((group) => [group.id, group]));
+    for (const group of doc.groups ?? []) {
+      if (ids.has(group.id))
+        ctx.addIssue({ code: "custom", message: "Layer IDs must be unique." });
+      ids.add(group.id);
+      if (group.parentId && !groups.has(group.parentId))
+        ctx.addIssue({
+          code: "custom",
+          message: "Group parent does not exist.",
+        });
+      const seen = new Set([group.id]);
+      let parent = group.parentId;
+      while (parent) {
+        if (seen.has(parent)) {
+          ctx.addIssue({
+            code: "custom",
+            message: "Groups cannot contain cycles.",
+          });
+          break;
+        }
+        seen.add(parent);
+        parent = groups.get(parent)?.parentId;
+      }
+    }
+  });
 
 /** Projects saved by the retired "agent_spec" mode open in the design editor;
  * their hand-edited spec text no longer matches that output, so it's dropped. */
@@ -515,6 +771,12 @@ export function validateWritableDocument(value: unknown): SpecDocument {
   }
   if ((doc.layout?.length ?? 0) > 200)
     throw new Error("The design's layout id is too long.");
+  if (
+    Object.values(doc.savedCustomText ?? {}).some(
+      (text) => (text?.length ?? 0) > 200_000,
+    )
+  )
+    throw new Error("Saved custom output is too long.");
   const serialized = JSON.stringify(doc);
   if (serialized.length > 24_000_000)
     throw new Error("Design exceeds the 24 MB project limit.");

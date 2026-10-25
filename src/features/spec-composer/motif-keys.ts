@@ -212,6 +212,12 @@ export const MOTIF_KEYS = [
   "coast-town",
   "coast-terrace",
   "person-linen-dress",
+
+  // Scene starters (motifs/scene-starters.tsx)
+  "scene-pedestal",
+  "scene-backdrop",
+  "scene-copy-space",
+  "scene-callout",
 ] as const;
 
 export type MotifKey = (typeof MOTIF_KEYS)[number];

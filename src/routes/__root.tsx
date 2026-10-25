@@ -126,10 +126,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
-        {/* Runs before paint so the light/dark class is correct on first frame. */}
+        {/* Restore light/dark and primary color preferences before first paint. */}
         <script src="/theme-init.js" />
       </head>
       <body>

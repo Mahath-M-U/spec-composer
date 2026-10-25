@@ -1,0 +1,24 @@
+.resize-panel {
+  container: resize-gallery / inline-size;
+}
+
+.resize-panel .resize-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: 1fr;
+  gap: 10px;
+  padding: 0 8px 18px;
+}
+
+@container resize-gallery (min-width: 660px) {
+  .resize-panel .resize-card-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@container resize-gallery (max-width: 259px) {
+  .resize-panel .resize-card-grid {
+    grid-template-columns: minmax(0, 1fr);
+    padding-inline: 0;
+  }
+}

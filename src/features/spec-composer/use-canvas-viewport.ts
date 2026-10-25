@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type RefObject,
@@ -27,11 +28,21 @@ export function useCanvasViewport(
   surface: RefObject<HTMLDivElement | null>,
   busy: RefObject<boolean>,
   cancel: () => void,
+  navigationLayoutKey?: string,
 ) {
   const doc = useEditorStore((s) => s.doc);
   const spaceHeld = useRef(false);
   const [space, setSpace] = useState(false);
   const fitMode = useRef(true);
+  const previousNavigation = useRef(navigationLayoutKey);
+  const suppressNavigationFitUntil = useRef(0);
+  useLayoutEffect(() => {
+    if (previousNavigation.current === navigationLayoutKey) return;
+    previousNavigation.current = navigationLayoutKey;
+    // Ignore the rail's 200ms layout transition without leaving fit mode.
+    // A later ordinary resize still fits; explicit Fit always remains immediate.
+    suppressNavigationFitUntil.current = Date.now() + 320;
+  }, [navigationLayoutKey]);
   const cancelRef = useRef(cancel);
   cancelRef.current = cancel;
   const fit = useCallback(() => {
@@ -88,7 +99,8 @@ export function useCanvasViewport(
     if (!el) return;
     const observer = new ResizeObserver(() => {
       cancelRef.current();
-      if (fitMode.current) fit();
+      if (fitMode.current && Date.now() >= suppressNavigationFitUntil.current)
+        fit();
     });
     observer.observe(el);
     const wheel = (e: WheelEvent) => {

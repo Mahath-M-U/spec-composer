@@ -1,0 +1,194 @@
+button.preset-card {
+  --preset-preview-height: 144px;
+  --preset-footer-height: 44px;
+  --preset-surface: color-mix(
+    in oklab,
+    var(--color-editor-surface, var(--color-surface-subtle)),
+    white 7%
+  );
+  --preset-accent: var(--color-primary);
+  --preset-muted: var(--color-muted-foreground);
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: calc(
+    var(--preset-preview-height) + var(--preset-footer-height) + 2px
+  );
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: var(--preset-surface);
+  padding: 0;
+  text-align: left;
+  outline: none;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+button.preset-card:hover:where(:not(:disabled)) {
+  border-color: var(--card-border-hover);
+}
+button.preset-card[aria-pressed="true"] {
+  border-color: var(--card-border-selected-accent);
+  outline: 1px solid var(--card-border-selected-accent);
+  background: color-mix(
+    in oklab,
+    var(--preset-surface),
+    var(--preset-accent) 8%
+  );
+}
+button.preset-card[aria-pressed="true"]:hover:where(:not(:disabled)) {
+  border-color: var(--card-border-selected);
+}
+button.preset-card:focus-visible {
+  outline: 2px solid var(--editor-focus, var(--color-ring));
+  outline-offset: 2px;
+}
+button.preset-card:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.preset-card .preset-card-art {
+  position: relative;
+  display: grid;
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--preset-preview-height);
+  flex: none;
+  place-items: center;
+  padding: 8px;
+}
+.preset-card .preset-card-art > :is(svg, img) {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.preset-card .preset-card-details {
+  display: grid;
+  box-sizing: border-box;
+  width: 100%;
+  height: auto;
+  min-height: var(--preset-footer-height);
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: center;
+  gap: 2px 6px;
+  padding: 2px 8px 8px;
+}
+.preset-card .preset-card-title {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-foreground);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.preset-card .preset-card-metadata {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  margin-top: 2px;
+}
+.preset-card .preset-card-ratio,
+.preset-card .preset-card-meta {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid color-mix(in oklab, var(--preset-accent) 24%, transparent);
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--preset-surface) 76%, transparent);
+  padding: 2px 6px;
+  color: var(--color-muted-foreground);
+  font-size: 9.5px;
+  font-weight: 600;
+  line-height: 14px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.preset-card .preset-card-metadata svg {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  color: var(--preset-accent);
+}
+.preset-card .preset-card-status {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  left: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.preset-card .preset-card-current,
+.preset-card .preset-card-badge,
+.preset-card .preset-card-check {
+  display: grid;
+  flex: none;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--preset-accent);
+  color: var(--color-primary-foreground);
+  font-size: 9px;
+  line-height: 14px;
+}
+.preset-card .preset-card-current {
+  padding: 2px 6px;
+}
+.preset-card .preset-card-badge {
+  background: var(--preset-surface);
+  padding: 2px 6px;
+  color: var(--preset-muted);
+}
+.preset-card .preset-card-check {
+  margin-left: auto;
+  width: 22px;
+  height: 22px;
+}
+button.preset-card--create {
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  border: 1px dotted var(--preset-accent);
+  padding: 12px;
+  text-align: center;
+}
+button.preset-card--create:hover:where(:not(:disabled)) {
+  border-color: var(--preset-accent);
+}
+.preset-card--create > svg {
+  flex: none;
+  color: var(--preset-accent);
+}
+.preset-card--create .preset-card-title,
+.preset-card .preset-card-description {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.preset-card .preset-card-description {
+  color: var(--preset-muted);
+  font-size: 10px;
+  line-height: 14px;
+}
+@media (prefers-reduced-motion: reduce) {
+  button.preset-card {
+    transition: none;
+  }
+}

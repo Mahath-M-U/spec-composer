@@ -1,6 +1,10 @@
+import { ShapeControls } from "./scene-lighting-controls";
+import { resolveEditorText } from "./output-sync";
 import {
   useCallback,
   useEffect,
+  useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -13,18 +17,20 @@ import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { CanvasWorkspace } from "./canvas-surface";
 import { AssetsPanel } from "./assets-panel/AssetsPanel";
+import { EnvironmentPanel } from "./environment-panel/EnvironmentPanel";
+import { LayersPanel } from "./layers-panel";
 import { ResizePanel } from "./resize-panel";
+import { ToolRail } from "./tool-rail";
 import { PanelHeader, PanelCollapseProvider } from "./panel-header";
 import { BrandKitPanel } from "./brand-kit-panel";
+import { HomeTemplateCard } from "./home-template-card";
 import {
   ArrowLeft,
-  ArrowRight,
   Eye,
   Copy,
   Trash2,
   AlignVerticalSpaceAround,
   Download,
-  Layers3,
   LayoutTemplate,
   LayoutGrid,
   Palette,
@@ -36,7 +42,6 @@ import {
   Unlock,
   ChevronDown,
   ChevronRight,
-  Folder,
   Clipboard,
   FileText,
   AlignStartVertical,
@@ -55,17 +60,12 @@ import {
   MoveUp,
   MoveDown,
   Search,
-  Gem,
   Check,
   Pencil,
   SlidersHorizontal,
   Loader2,
   AlertTriangle,
-  Plug,
   MessagesSquare,
-  RotateCw,
-  Scaling,
-  Compass,
   PanelRightClose,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -79,15 +79,27 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
+  DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { readRaw, writeRaw } from "@/lib/storage/local";
 import { AppIcon } from "@/components/app-icon";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { useEditorStore, type Box, type ComposeLayout } from "./store";
+import { fitPreview } from "./preview-fit";
+import { openStyleEditor } from "./inspector-navigation";
+import { OpaqueColorControl } from "./color-control";
+import { TextColorControl } from "./text-color-control";
+import { InspectorGlyph } from "./inspector-glyphs";
+import { LayoutPresetThumbnail } from "./layout-preset-thumbnail";
+import { SegmentedTab, SegmentedTabs } from "./segmented-tabs";
+import {
+  applyTextColorIntent,
+  textColorPresets,
+  type TextColorIntent,
+  type TextColorProperty,
+} from "./text-color";
+import { useEditorStore, boundsOf, type Box, type ComposeLayout } from "./store";
 import {
   COMPOSE_LAYOUTS,
   composePool,
@@ -103,7 +115,18 @@ import {
   RIGHT_COLLAPSE_ID,
   type SidebarLayout,
 } from "./use-sidebar-layout";
+import {
+  commonValue,
+  commitInspectorEdit,
+  commitInspectorGeometry,
+  inspectorCategory,
+  inspectorContext,
+  materialState,
+  semanticRole,
+  toggledMaterial,
+} from "./inspector-properties";
 import { alignUnits } from "./canvas-geometry";
+import { canonicalLayers, canGroupLayers, layerAlignmentItems, selectedLayerIds } from "./layer-tree";
 import { Sep, Tool } from "./toolbar-controls";
 import { loadProjectVersion } from "./persistence";
 import { LS_KEYS } from "./storage";
@@ -142,11 +165,11 @@ import {
 } from "./design-editor-cards";
 import { PromptPart } from "./prompt-visuals";
 import { FEATURED_FONTS, MORE_FONTS } from "./fonts";
-import { SectionEditor, PresetChips } from "./section-editors";
+import { SectionEditor } from "./section-editors";
 import {
   isArtFieldKey,
   ART_FIELDS,
-  MATERIAL_PRESETS,
+  materialSuggestions,
   optionalSectionOf,
   setSectionIncluded,
 } from "./art-direction";
@@ -166,18 +189,23 @@ import {
   resolveImageStyleId,
   setImageStyle,
 } from "./image-styles";
-import { ChatComingSoonSplash, McpComingSoonSplash } from "./coming-soon-lazy";
-import { QuickGuide } from "./quick-guide-lazy";
+import { ChatComingSoonSplash } from "./coming-soon-lazy";
 import { EditorSkeleton } from "./editor-skeleton";
 import { hasPlaceholderArt, PLACEHOLDER_ART_OPTIONS } from "./illustrations";
+import { backgroundStyle, StaticDocument } from "./static-render";
+import { CommitInput } from "./committed-input";
+import { SceneIcon } from "./environment-panel/scene-icons";
+import { controlsForSceneObject, sceneControlValue } from "./scene-controls";
 import {
-  backgroundStyle,
-  DocumentPreview,
-  StaticDocument,
-} from "./static-render";
+  applySceneControl,
+  resolveSceneObject,
+  sceneObjectIconId,
+  sceneObjectLabel,
+} from "./scene-controls-store";
 import {
   isImageKind,
   isTextKind,
+  SCENE_DEPTHS,
   type ElementKind,
   type ExternalToolRequirement,
   type Format,
@@ -199,10 +227,6 @@ const PLACEHOLDER_ART_GROUPS: [string, typeof PLACEHOLDER_ART_OPTIONS][] =
     }, new Map<string, typeof PLACEHOLDER_ART_OPTIONS>()),
   );
 
-function colorInputValue(value: string | undefined, fallback: string): string {
-  return value && /^#[0-9a-f]{6}$/i.test(value) ? value : fallback;
-}
-
 function gcd(a: number, b: number): number {
   return b === 0 ? a : gcd(b, a % b);
 }
@@ -216,24 +240,16 @@ function aspectRatioLabel(width: number, height: number): string {
 
 const LEFT_PANEL_DEFAULT_WIDTH = 432;
 const RIGHT_PANEL_DEFAULT_WIDTH = 624;
+const COMPACT_RAIL_TRACK_WIDTH = 84.8;
+const EXPANDED_RAIL_TRACK_WIDTH = 324.8;
 
 /** Total non-canvas width the floating shell reserves on desktop: the rail
  * track plus the left/right 12px resize-handle tracks and the shell's own
  * 12px padding on each side. Must stay in sync with `--rail-width`,
  * `--shell-gap` and the handle tracks in styles.css. */
-function editorChromeWidth(): number {
-  const rail = window.innerWidth <= 1250 ? 76 : 80;
+function editorChromeWidth(expanded = false): number {
+  const rail = expanded ? EXPANDED_RAIL_TRACK_WIDTH : COMPACT_RAIL_TRACK_WIDTH;
   return rail + 2 * 12 + 2 * 12;
-}
-
-/** Switches the left sidebar to the Style panel's Style tab and, on desktop,
- * opens it — shared by canvas selection and prompt-panel selection so both
- * land on the same place. */
-function openStyleEditor(sidebars: SidebarLayout) {
-  const store = useEditorStore.getState();
-  store.setPanel("style");
-  store.setStyleTab("style");
-  if (!sidebars.overlay && !sidebars.leftOpen) sidebars.setOpen("left", true);
 }
 
 export function Editor({ projectId }: { projectId: string }) {
@@ -249,20 +265,41 @@ export function Editor({ projectId }: { projectId: string }) {
     RIGHT_PANEL_DEFAULT_WIDTH,
   );
   const sidebars = useSidebarLayout();
-
+  const [navigationExpanded, setNavigationExpanded] = useState(false);
+  const [phoneNavigation, setPhoneNavigation] = useState(false);
   useEffect(() => {
+    const query = window.matchMedia("(max-width: 767px)");
+    const update = () => setPhoneNavigation(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+  const navigationLayoutKey = phoneNavigation
+    ? "phone"
+    : navigationExpanded
+      ? "expanded"
+      : "compact";
+
+  useLayoutEffect(() => {
     const keepWorkspaceVisible = () => {
       if (sidebars.overlay) return;
       const left = sidebars.leftOpen ? leftPanelWidth : 0;
       const right = sidebars.rightOpen ? rightPanelWidth : 0;
       const panelBudget =
-        Math.max(1100, window.innerWidth) - editorChromeWidth() - 350;
+        Math.max(1100, window.innerWidth) -
+        editorChromeWidth(navigationExpanded) -
+        350;
       if (left + right <= panelBudget) return;
       if (sidebars.rightOpen) {
-        const nextRight = Math.max(280, panelBudget - left);
+        const minimumScale = sidebars.leftOpen
+          ? Math.min(1, panelBudget / (240 + 280))
+          : 1;
+        const nextRight = Math.max(280 * minimumScale, panelBudget - left);
         setRightPanelWidth(nextRight);
         if (sidebars.leftOpen)
-          setLeftPanelWidth(Math.max(240, panelBudget - nextRight));
+          setLeftPanelWidth(
+            Math.max(240 * minimumScale, panelBudget - nextRight),
+          );
       } else if (sidebars.leftOpen) {
         setLeftPanelWidth(Math.max(240, panelBudget - right));
       }
@@ -271,6 +308,7 @@ export function Editor({ projectId }: { projectId: string }) {
     window.addEventListener("resize", keepWorkspaceVisible);
     return () => window.removeEventListener("resize", keepWorkspaceVisible);
   }, [
+    navigationExpanded,
     leftPanelWidth,
     rightPanelWidth,
     sidebars.overlay,
@@ -308,7 +346,9 @@ export function Editor({ projectId }: { projectId: string }) {
 
   useShortcuts(() => setPreview(true));
 
-  const openStyleFromCanvas = () => openStyleEditor(sidebars);
+  const openStyleFromCanvas = () => {
+    openStyleEditor(sidebars, { preserveActiveTab: true });
+  };
 
   if (notFound)
     return (
@@ -326,10 +366,12 @@ export function Editor({ projectId }: { projectId: string }) {
     <div
       className="editor-shell"
       data-layout={sidebars.overlay ? "overlay" : "inline"}
+      data-navigation={navigationLayoutKey}
       data-left-panel={sidebars.leftOpen ? "open" : "closed"}
       data-right-panel={sidebars.rightOpen ? "open" : "closed"}
       style={
         {
+          "--rail-width": `${navigationExpanded && !phoneNavigation ? EXPANDED_RAIL_TRACK_WIDTH : COMPACT_RAIL_TRACK_WIDTH}px`,
           "--left-panel-width": `${leftPanelWidth}px`,
           "--right-panel-width": `${rightPanelWidth}px`,
         } as CSSProperties
@@ -337,10 +379,13 @@ export function Editor({ projectId }: { projectId: string }) {
     >
       <TopBar
         preview={() => setPreview(true)}
+        previewOpen={preview}
         sidebars={sidebars}
         openChat={() => setChatOpen(true)}
       />
       <ToolRail
+        expanded={navigationExpanded}
+        onExpandedChange={setNavigationExpanded}
         sidebars={sidebars}
         onSelectPanel={(id) => {
           if (store.panel === id && sidebars.leftOpen)
@@ -372,7 +417,10 @@ export function Editor({ projectId }: { projectId: string }) {
         defaultWidth={LEFT_PANEL_DEFAULT_WIDTH}
         className="panel-resize-handle--left"
       />
-      <Workspace onCanvasSelect={openStyleFromCanvas} />
+      <Workspace
+        onCanvasSelect={openStyleFromCanvas}
+        navigationLayoutKey={navigationLayoutKey}
+      />
       <PanelResizeHandle
         label="Resize right sidebar"
         side="right"
@@ -437,8 +485,12 @@ function PanelResizeHandle({
             ),
           );
       const workspaceMax =
-        shell.clientWidth - editorChromeWidth() - 350 - oppositeWidth;
-      return Math.min(max, Math.max(min, workspaceMax), Math.max(min, next));
+        shell.clientWidth -
+        editorChromeWidth(shell.dataset["navigation"] === "expanded") -
+        350 -
+        oppositeWidth;
+      const availableMax = Math.max(0, Math.min(max, workspaceMax));
+      return Math.min(availableMax, Math.max(Math.min(min, availableMax), next));
     },
     [max, min, side],
   );
@@ -488,10 +540,12 @@ function PanelResizeHandle({
 
 function TopBar({
   preview,
+  previewOpen,
   sidebars,
   openChat,
 }: {
   preview: () => void;
+  previewOpen: boolean;
   sidebars: SidebarLayout;
   openChat: () => void;
 }) {
@@ -559,7 +613,7 @@ function TopBar({
           </span>
         </Hint>
       </div>
-      <div className="editor-chip editor-chip--end flex items-center gap-1">
+      <div className="editor-chip editor-chip--end editor-toolbar flex items-center">
         <Hint label="Preview">
           <Button
             type="button"
@@ -567,22 +621,27 @@ function TopBar({
             size="icon"
             aria-keyshortcuts="P"
             aria-label="Preview"
+            aria-pressed={previewOpen}
+            data-active={previewOpen || undefined}
             data-tour="preview"
             onClick={preview}
-            className="editor-preview-button text-editor-muted hover:bg-editor-hover hover:text-editor-foreground"
+            className="editor-toolbar-icon editor-preview-button"
           >
             <Eye size={16} aria-hidden="true" />
           </Button>
         </Hint>
         {!sidebars.rightOpen && <TopBarCopyActions />}
-        <ThemeToggle className="editor-theme-button text-editor-muted hover:bg-editor-hover hover:text-editor-foreground" />
+        <ThemeToggle className="editor-toolbar-icon editor-theme-button" />
+        {!sidebars.rightOpen && (
+          <span className="editor-toolbar-divider" aria-hidden="true" />
+        )}
         <RightPanelReopen sidebars={sidebars} openChat={openChat} />
       </div>
     </header>
   );
 }
 
-function RightPanelReopen({
+export function RightPanelReopen({
   sidebars,
   openChat,
 }: {
@@ -628,116 +687,6 @@ function RightPanelReopen({
   );
 }
 
-function ToolRail({
-  sidebars,
-  onSelectPanel,
-  onTour,
-}: {
-  sidebars: SidebarLayout;
-  onSelectPanel: (id: PanelMode) => void;
-  onTour: () => void;
-}) {
-  const s = useEditorStore();
-  const [mcpOpen, setMcpOpen] = useState(false);
-  const [guideOpen, setGuideOpen] = useState(false);
-  const items = [
-    ["assets", Image, "Assets"],
-    ["style", Palette, "Style"],
-    ["layers", Layers3, "Layers"],
-    ["templates", LayoutTemplate, "Templates"],
-    ["brandKit", Gem, "Design kit"],
-    ["resize", Scaling, "Resize"],
-  ] as const;
-  return (
-    <aside
-      className="tool-rail"
-      onFocusCapture={(event) => {
-        if (!window.matchMedia("(max-width: 767px)").matches) return;
-        const rail = event.currentTarget;
-        const button = event.target;
-        if (
-          !(button instanceof HTMLButtonElement) ||
-          !rail.contains(button) ||
-          button.parentElement !== rail
-        )
-          return;
-        const railBounds = rail.getBoundingClientRect();
-        const buttonBounds = button.getBoundingClientRect();
-        const padding = getComputedStyle(rail);
-        const left = railBounds.left + Number.parseFloat(padding.paddingLeft);
-        const right =
-          railBounds.right - Number.parseFloat(padding.paddingRight);
-        const delta =
-          buttonBounds.left < left
-            ? buttonBounds.left - left
-            : buttonBounds.right > right
-              ? buttonBounds.right - right
-              : 0;
-        if (!delta) return;
-        rail.scrollTo({
-          left: Math.max(
-            0,
-            Math.min(
-              rail.scrollWidth - rail.clientWidth,
-              rail.scrollLeft + delta,
-            ),
-          ),
-          behavior: "auto",
-        });
-      }}
-    >
-      <Hint label="Home" side="right">
-        <Link to="/" className="spec-mark editor-top-home" aria-label="Home">
-          <AppIcon className="h-full w-full" />
-        </Link>
-      </Hint>
-      {items.map(([id, Icon, label]) => {
-        const active = sidebars.leftOpen && s.panel === id;
-        return (
-          <button
-            key={id}
-            type="button"
-            id={`editor-rail-${id}`}
-            className={active ? "active" : ""}
-            aria-pressed={active}
-            data-tour={`rail-${id}`}
-            onClick={() => onSelectPanel(id)}
-          >
-            <Icon />
-            <span>{label}</span>
-          </button>
-        );
-      })}
-      <button
-        type="button"
-        className="tool-rail-tour"
-        aria-label="Quick tour"
-        onClick={() => {
-          s.setPanel("assets");
-          onTour();
-          setGuideOpen(true);
-        }}
-      >
-        <Compass />
-        <span>Tour</span>
-      </button>
-      <button
-        type="button"
-        className="tool-rail-connect"
-        data-tour="connect"
-        onClick={() => setMcpOpen(true)}
-      >
-        <Plug />
-        <span>Connect</span>
-      </button>
-      {mcpOpen && <McpComingSoonSplash close={() => setMcpOpen(false)} />}
-      {guideOpen && (
-        <QuickGuide page="editor" close={() => setGuideOpen(false)} />
-      )}
-    </aside>
-  );
-}
-
 function ContextPanel({ onCollapse }: { onCollapse: () => void }) {
   const panel = useEditorStore((s) => s.panel);
   return (
@@ -750,6 +699,8 @@ function ContextPanel({ onCollapse }: { onCollapse: () => void }) {
       <PanelCollapseProvider onCollapse={onCollapse}>
         {panel === "assets" ? (
           <AssetsPanel />
+        ) : panel === "environment" ? (
+          <EnvironmentPanel />
         ) : panel === "style" ? (
           <StylePanel />
         ) : panel === "layers" ? (
@@ -765,250 +716,6 @@ function ContextPanel({ onCollapse }: { onCollapse: () => void }) {
         )}
       </PanelCollapseProvider>
     </aside>
-  );
-}
-
-function LayersPanel() {
-  const s = useEditorStore();
-  const d = s.doc;
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
-    () => new Set(),
-  );
-  if (!d) return null;
-  const layers = [...d.elements].sort((a, b) => b.zIndex - a.zIndex);
-  const groups = new Map<string, SpecElement[]>();
-  layers.forEach((element) => {
-    if (!element.groupId) return;
-    const members = groups.get(element.groupId) ?? [];
-    members.push(element);
-    groups.set(element.groupId, members);
-  });
-
-  const seenGroups = new Set<string>();
-  const layerItems: Array<
-    | { type: "layer"; element: SpecElement }
-    | { type: "group"; id: string; elements: SpecElement[] }
-  > = [];
-  layers.forEach((element) => {
-    if (!element.groupId) {
-      layerItems.push({ type: "layer", element });
-      return;
-    }
-    if (seenGroups.has(element.groupId)) return;
-    seenGroups.add(element.groupId);
-    layerItems.push({
-      type: "group",
-      id: element.groupId,
-      elements: groups.get(element.groupId) ?? [],
-    });
-  });
-
-  const moveLayerUp = (id: string) => {
-    const index = layers.findIndex((element) => element.id === id);
-    if (index <= 0) return;
-    const ids = layers.map((element) => element.id);
-    [ids[index - 1], ids[index]] = [ids[index]!, ids[index - 1]!];
-    s.reorder(ids.reverse());
-  };
-
-  const moveLayerDown = (id: string) => {
-    const index = layers.findIndex((element) => element.id === id);
-    if (index < 0 || index >= layers.length - 1) return;
-    const ids = layers.map((element) => element.id);
-    [ids[index], ids[index + 1]] = [ids[index + 1]!, ids[index]!];
-    s.reorder(ids.reverse());
-  };
-
-  const renderLayer = (element: SpecElement, nested = false) => {
-    const index = layers.findIndex((layer) => layer.id === element.id);
-    return (
-      <div
-        key={element.id}
-        className={`layer-row ${nested ? "layer-row-child" : ""} ${s.selectedIds.includes(element.id) ? "active" : ""}`}
-        onClick={(event) => s.select(element.id, event.shiftKey)}
-      >
-        <span className="truncate">
-          {element.name}
-        </span>
-        <Hint label={element.locked ? "Unlock" : "Lock"}>
-          <button
-            type="button"
-            aria-label={
-              element.locked ? `Unlock ${element.name}` : `Lock ${element.name}`
-            }
-            onClick={(event) => {
-              event.stopPropagation();
-              s.updateElement(element.id, { locked: !element.locked });
-            }}
-          >
-            {element.locked ? <Lock /> : <Unlock />}
-          </button>
-        </Hint>
-        <Hint label="Move up">
-          <button
-            type="button"
-            aria-label={`Move ${element.name} up`}
-            disabled={index === 0}
-            onClick={(event) => {
-              event.stopPropagation();
-              moveLayerUp(element.id);
-            }}
-          >
-            <MoveUp />
-          </button>
-        </Hint>
-        <Hint label="Move down">
-          <button
-            type="button"
-            aria-label={`Move ${element.name} down`}
-            disabled={index === layers.length - 1}
-            onClick={(event) => {
-              event.stopPropagation();
-              moveLayerDown(element.id);
-            }}
-          >
-            <MoveDown />
-          </button>
-        </Hint>
-        <Hint label="Delete">
-          <button
-            type="button"
-            className="layer-delete"
-            aria-label={`Delete ${element.name}`}
-            onClick={(event) => {
-              event.stopPropagation();
-              s.deleteElements([element.id]);
-            }}
-          >
-            <Trash2 />
-          </button>
-        </Hint>
-      </div>
-    );
-  };
-
-  return (
-    <>
-      <PanelHeader
-        icon={Layers3}
-        eyebrow="Canvas"
-        title="Layers"
-        meta={`${d.elements.length} layer${d.elements.length === 1 ? "" : "s"}`}
-      />
-      <div className="layer-list px-2">
-        {layerItems.map((item, itemIndex) => {
-          if (item.type === "layer") return renderLayer(item.element);
-
-          const isCollapsed = collapsedGroups.has(item.id);
-          const memberIds = item.elements.map((element) => element.id);
-          const isSelected = memberIds.some((id) => s.selectedIds.includes(id));
-          const groupNumber = layerItems
-            .slice(0, itemIndex + 1)
-            .filter((candidate) => candidate.type === "group").length;
-          const groupLabel = `Group ${groupNumber}`;
-
-          return (
-            <div className="layer-group" key={item.id}>
-              <div
-                className={`layer-group-row ${isSelected ? "active" : ""}`}
-                onClick={(event) => s.selectMany(memberIds, event.shiftKey)}
-              >
-                <Hint label={isCollapsed ? "Expand" : "Collapse"}>
-                  <button
-                    type="button"
-                    className="layer-group-toggle"
-                    aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${groupLabel}`}
-                    aria-expanded={!isCollapsed}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setCollapsedGroups((current) => {
-                        const next = new Set(current);
-                        if (next.has(item.id)) next.delete(item.id);
-                        else next.add(item.id);
-                        return next;
-                      });
-                    }}
-                  >
-                    {isCollapsed ? <ChevronRight /> : <ChevronDown />}
-                  </button>
-                </Hint>
-                <Folder className="layer-group-folder" aria-hidden="true" />
-                <span className="truncate">
-                  {groupLabel}
-                </span>
-                <span className="layer-group-count">
-                  {item.elements.length}
-                </span>
-                <Hint label="Delete group">
-                  <button
-                    type="button"
-                    className="layer-delete"
-                    aria-label={`Delete ${groupLabel} and its layers`}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      s.deleteElements(memberIds);
-                    }}
-                  >
-                    <Trash2 />
-                  </button>
-                </Hint>
-              </div>
-              {!isCollapsed && (
-                <div className="layer-group-children">
-                  {item.elements.map((element) => renderLayer(element, true))}
-                </div>
-              )}
-            </div>
-          );
-        })}
-        <div
-          className={`layer-row-background ${s.backgroundSelected ? "active" : ""}`}
-          onClick={() => s.selectBackground()}
-        >
-          <span
-            className="layer-background-swatch"
-            style={backgroundStyle(d)}
-            aria-hidden="true"
-          />
-          <span className="truncate">Background</span>
-        </div>
-      </div>
-      <div className="p-3 grid grid-cols-2 gap-2">
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={s.selectedIds.length < 2}
-          onClick={s.group}
-        >
-          <Group size={14} />
-          Group
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={
-            !d.elements.some(
-              (element) =>
-                s.selectedIds.includes(element.id) && Boolean(element.groupId),
-            )
-          }
-          onClick={s.ungroup}
-        >
-          <Ungroup size={14} />
-          Ungroup
-        </Button>
-        <Button
-          className="col-span-2"
-          size="sm"
-          variant="outline"
-          disabled={!s.selectedIds.length}
-          onClick={s.deleteSelected}
-        >
-          <Trash2 size={14} />
-          Delete selected
-        </Button>
-      </div>
-    </>
   );
 }
 
@@ -1094,47 +801,14 @@ function TemplatesPanel() {
         </div>
         <div className="template-panel-grid">
           {shown.map((t) => (
-            <button
-              type="button"
-              className="template-card template-panel-card"
+            <HomeTemplateCard
               key={t.name}
-              aria-label={`Use ${t.name} template`}
-              onClick={() => apply(t)}
-            >
-              <span className="template-preview">
-                <span className="template-preview-media">
-                  <DocumentPreview doc={t.document} />
-                </span>
-                <span className="template-preview-reveal" aria-hidden="true">
-                  <span className="template-preview-details">
-                    <span className="template-preview-swatches">
-                      {[
-                        ...(t.document.background.type === "solid"
-                          ? [t.document.background.value]
-                          : []),
-                        t.document.creativeDirection.primaryColor,
-                        t.document.creativeDirection.secondaryColor,
-                      ].map((color, index) => (
-                        <i key={index} style={{ background: color }} />
-                      ))}
-                    </span>
-                    <span className="template-preview-format">
-                      {t.document.format.width} × {t.document.format.height}
-                    </span>
-                  </span>
-                  <span className="template-preview-action">
-                    <span className="template-preview-action-label">
-                      Use template
-                    </span>
-                    <ArrowRight size={14} />
-                  </span>
-                </span>
-              </span>
-              <span className="template-card-copy">
-                <span className="template-card-title">{t.name}</span>
-                <span className="template-card-meta">{t.category}</span>
-              </span>
-            </button>
+              className="template-panel-card"
+              doc={t.document}
+              category={t.category}
+              templatePhoto={false}
+              onOpen={() => apply(t)}
+            />
           ))}
           {!shown.length && (
             <p className="template-panel-empty">No templates match.</p>
@@ -1145,8 +819,8 @@ function TemplatesPanel() {
   );
 }
 
-/** Compact labeled number input for the Style panel (X/Y/W/H, rotation, opacity, angle). */
-function DockNumberField({
+/** Drafts retain precision; only a complete finite value creates an undo step. */
+export function DockNumberField({
   prefix,
   label,
   value,
@@ -1155,16 +829,31 @@ function DockNumberField({
   max,
   suffix,
   disabled = false,
+  displayDecimals,
 }: {
   prefix: ReactNode;
   label: string;
-  value: number;
+  value: number | undefined;
   onChange: (value: number) => void;
-  min?: number;
-  max?: number;
+  min?: number | undefined;
+  max?: number | undefined;
   suffix?: string;
   disabled?: boolean;
+  displayDecimals?: number;
 }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const cancelBlur = useRef(false);
+  const commit = (text: string) => {
+    if (!text.trim()) return;
+    const number = Number(text);
+    if (
+      Number.isFinite(number) &&
+      (min === undefined || number >= min) &&
+      (max === undefined || number <= max) &&
+      number !== value
+    )
+      onChange(number);
+  };
   return (
     <Hint label={label}>
       <label className="style-dock-field">
@@ -1173,12 +862,55 @@ function DockNumberField({
         </span>
         <input
           type="number"
+          step="any"
           aria-label={label}
           min={min}
           max={max}
-          value={value}
+          placeholder={value === undefined ? "Mixed" : undefined}
+          value={
+            draft ??
+            (value !== undefined &&
+            Number.isFinite(value) &&
+            displayDecimals !== undefined
+              ? value.toFixed(displayDecimals)
+              : (value ?? ""))
+          }
           disabled={disabled}
-          onChange={(event) => onChange(Number(event.target.value))}
+          onChange={(event) => setDraft(event.target.value)}
+          onBlur={(event) => {
+            if (!cancelBlur.current && draft !== null)
+              commit(event.target.value);
+            cancelBlur.current = false;
+            setDraft(null);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              event.stopPropagation();
+              cancelBlur.current = true;
+              setDraft(null);
+              event.currentTarget.blur();
+            }
+            if (event.key === "Enter") {
+              event.preventDefault();
+              event.stopPropagation();
+              if (draft !== null) commit(draft);
+              cancelBlur.current = true;
+              setDraft(null);
+              event.currentTarget.blur();
+            }
+            if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+              event.preventDefault();
+              const base = draft === null ? value : Number(draft);
+              if (base === undefined || !Number.isFinite(base) || draft === "")
+                return;
+              const next =
+                base +
+                (event.key === "ArrowUp" ? 1 : -1) * (event.shiftKey ? 10 : 1);
+              commit(String(next));
+              setDraft(null);
+            }
+          }}
         />
         {suffix && <em className="style-dock-field-suffix">{suffix}</em>}
       </label>
@@ -1186,11 +918,27 @@ function DockNumberField({
   );
 }
 
-function StylePanel() {
+export function StylePanel() {
   const s = useEditorStore();
   const d = s.doc;
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [regenCopied, setRegenCopied] = useState(false);
+  const [ratioLocked, setRatioLocked] = useState(false);
+  const [moreMaterials, setMoreMaterials] = useState(false);
+  const [materialDraft, setMaterialDraft] = useState<string | null>(null);
+  const textColorGesture = useRef<{
+    context: string;
+    doc: SpecDocument;
+    changed: boolean;
+    invalid: boolean;
+  } | null>(null);
+  const selectionKey = inspectorContext();
+  useEffect(() => {
+    setRatioLocked(false);
+    setMaterialDraft(null);
+    setMoreMaterials(false);
+    setDetailsOpen(false);
+  }, [selectionKey]);
   const storedTab = s.styleTab;
   const setTab = s.setStyleTab;
 
@@ -1203,708 +951,1352 @@ function StylePanel() {
   const selectedElements = d.elements.filter((element) =>
     s.selectedIds.includes(element.id),
   );
-  const textElements = selectedElements.filter((element) =>
-    isTextKind(element.kind),
-  );
+  const category = inspectorCategory(selectedElements);
   const firstElement = selectedElements[0];
-  const firstTextElement = textElements[0];
+  const firstTextElement = category === "text" ? firstElement : undefined;
+  const selectionName = commonValue(selectedElements.map((el) => el.name));
+  const selectionRole = commonValue(selectedElements.map(semanticRole));
+  const showSelectionRole =
+    selectionName.mixed ||
+    selectionRole.mixed ||
+    selectionName.value === undefined ||
+    selectionRole.value === undefined ||
+    selectionName.value.trim().replace(/\s+/g, " ").toLowerCase() !==
+      selectionRole.value.trim().replace(/\s+/g, " ").toLowerCase();
+  const commonStyle = <K extends keyof SpecElement["style"]>(
+    key: K,
+    fallback?: SpecElement["style"][K],
+  ) =>
+    commonValue(selectedElements.map((el) => el.style[key] ?? fallback)).value;
+  const imageFit = commonValue(
+    selectedElements.map(
+      (el) => el.style.objectFit ?? (el.src ? "cover" : "contain"),
+    ),
+  ).value;
+  const editableCount = selectedElements.filter((el) => !el.locked).length;
+  const geometryLocked = selectedElements.some(
+    (el) => el.locked || !el.visible,
+  );
+  const selectionBounds = boundsOf(selectedElements);
   const updateSelectedStyles = (
     patch: Partial<SpecElement["style"]>,
     textOnly = false,
   ) =>
-    s.mutate((doc) => {
-      doc.elements.forEach((element) => {
-        if (
-          s.selectedIds.includes(element.id) &&
-          (!textOnly || isTextKind(element.kind))
-        )
-          Object.assign(element.style, patch);
-      });
+    commitInspectorEdit(selectionKey, (el) => {
+      if (!textOnly || isTextKind(el.kind)) Object.assign(el.style, patch);
     });
-  const updateBackground = (patch: Partial<SpecDocument["background"]>) =>
-    s.mutate((doc) => Object.assign(doc.background, patch));
+  const beginTextColorGesture = () => {
+    const current = useEditorStore.getState();
+    if (current.doc && inspectorContext() === selectionKey)
+      textColorGesture.current = {
+        context: selectionKey,
+        doc: current.doc,
+        changed: false,
+        invalid: false,
+      };
+  };
+  const updateTextColor = (
+    property: TextColorProperty,
+    intent: TextColorIntent,
+    grouped = false,
+  ) => {
+    const current = useEditorStore.getState();
+    if (!current.doc || inspectorContext() !== selectionKey) return;
+    const gesture = textColorGesture.current;
+    if (
+      grouped &&
+      (!gesture ||
+        gesture.invalid ||
+        gesture.context !== selectionKey ||
+        gesture.doc !== current.doc)
+    ) {
+      if (gesture) gesture.invalid = true;
+      return;
+    }
+    const accepted = commitInspectorEdit(
+      selectionKey,
+      (el) => {
+        if (!isTextKind(el.kind)) return;
+        const value = applyTextColorIntent(el.style[property], property, intent);
+        if (value === undefined) delete el.style[property];
+        else el.style[property] = value;
+      },
+      false,
+      !grouped || !gesture?.changed,
+    );
+    if (accepted && grouped && gesture) {
+      gesture.changed = true;
+      gesture.doc = useEditorStore.getState().doc!;
+    }
+  };
+  const textPresets = textColorPresets([
+    ...(activeBrandKit?.colors
+      .filter((color) => color.type === "solid")
+      .map((color) => color.hex) ?? []),
+    d.creativeDirection.primaryColor,
+    "#18181b",
+    "#ffffff",
+    "#C55454",
+  ]);
+  const updateBackground = (patch: Partial<SpecDocument["background"]>) => {
+    const current = useEditorStore.getState();
+    if (
+      inspectorContext() !== selectionKey ||
+      !current.doc ||
+      Object.entries(patch).every(
+        ([key, value]) =>
+          current.doc!.background[key as keyof SpecDocument["background"]] ===
+          value,
+      )
+    )
+      return;
+    current.mutate((doc) => Object.assign(doc.background, patch));
+  };
   const updateSelectedMaterial = (value: string) =>
-    s.mutate((doc) => {
-      doc.elements.forEach((element) => {
-        if (!s.selectedIds.includes(element.id)) return;
-        if (value.trim()) element.material = value;
-        else delete element.material;
-      });
+    commitInspectorEdit(selectionKey, (el) => {
+      if (value.trim()) el.material = value;
+      else delete el.material;
     });
   const updateFirstElement = (patch: Partial<SpecElement>) => {
     if (
-      ["x", "y", "width", "height", "rotation"].some((key) => key in patch) &&
-      selectedElements.some((el) => el.locked)
+      selectedElements.length !== 1 ||
+      inspectorContext() !== selectionKey ||
+      !firstElement ||
+      firstElement.locked
     )
       return;
-    if (firstElement) s.updateElement(firstElement.id, patch);
+    useEditorStore.getState().updateElement(firstElement.id, patch);
   };
-  const showImageFit = !!firstElement && isImageKind(firstElement.kind);
-  const showColorControls =
-    !!firstElement &&
-    !s.backgroundSelected &&
-    (isTextKind(firstElement.kind) ||
-      firstElement.kind === "shape" ||
-      firstElement.kind === "divider");
+  const showImageFit = category === "image";
+  const showColorControls = category === "text" || category === "shape";
+  const material = commonValue(selectedElements.map((el) => el.material ?? ""));
+  const suggestions = materialSuggestions(selectedElements);
+  const units = alignUnits(
+    layerAlignmentItems(d, s.selectedIds, s.selectedGroupIds),
+  ).filter(
+    (unit) =>
+      !unit.locked &&
+      unit.ids.every((id) => d.elements.find((el) => el.id === id)?.visible),
+  );
+  // Scene objects (environment editor) are mutually exclusive with
+  // element/background selection; selecting one does not auto-switch panels,
+  // but it does keep the Style tab available, like any other selection.
+  const sceneRef = s.selectedSceneId ? resolveSceneObject(d, s.selectedSceneId) : undefined;
   // Keep the stored tab so selecting something returns to Style.
-  const canStyle = !!firstElement || s.backgroundSelected;
+  const canStyle = !!firstElement || s.backgroundSelected || !!sceneRef;
   const tab = canStyle ? storedTab : "layout";
 
   return (
     <section className="style-panel" data-tab={tab} aria-label="Style controls">
       <PanelHeader
         icon={Palette}
-        eyebrow="Design"
+        eyebrow="Design Inspector"
         title="Style"
         meta={
           s.backgroundSelected
             ? "Background"
-            : s.selectedIds.length
-              ? `${s.selectedIds.length} selected`
-              : "Nothing selected"
+            : sceneRef
+              ? `${sceneObjectLabel(sceneRef)} selected`
+              : s.selectedIds.length
+                ? `${selectedElements.length} selected`
+                : "Nothing selected"
         }
       />
       <div className="style-dock">
-        <div className="style-dock-tabs" role="tablist">
-          <Hint label={canStyle ? undefined : "Select an element to edit its style"}>
+        <SegmentedTabs
+          className="style-dock-tabs"
+          label="Design inspector"
+          onKeyDown={(event) => {
+            if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key))
+              return;
+            event.preventDefault();
+            const next =
+              event.key === "Home"
+                ? canStyle
+                  ? "style"
+                  : "layout"
+                : event.key === "End"
+                  ? "layout"
+                  : tab === "style"
+                    ? "layout"
+                    : canStyle
+                      ? "style"
+                      : "layout";
+            setTab(next);
+            event.currentTarget
+              .querySelector<HTMLButtonElement>(`#inspector-tab-${next}`)
+              ?.focus();
+          }}
+        >
+          <Hint
+            label={canStyle ? undefined : "Select an element to edit its style"}
+          >
             <span className="style-dock-tab-slot">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={tab === "style"}
-                className={tab === "style" ? "active" : ""}
+              <SegmentedTab
+                id="inspector-tab-style"
+                controls="inspector-style"
+                selected={tab === "style"}
+                icon={Palette}
                 disabled={!canStyle}
                 onClick={() => setTab("style")}
               >
-                <Palette aria-hidden="true" />
                 Style
-              </button>
+              </SegmentedTab>
             </span>
           </Hint>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === "layout"}
-            className={tab === "layout" ? "active" : ""}
+          <SegmentedTab
+            id="inspector-tab-layout"
+            controls="inspector-layout"
+            selected={tab === "layout"}
+            icon={LayoutGrid}
             onClick={() => setTab("layout")}
           >
-            <LayoutGrid aria-hidden="true" />
-            Layout
-          </button>
+            Layout Presets
+          </SegmentedTab>
+        </SegmentedTabs>
+
+        <div
+          id="inspector-layout"
+          role="tabpanel"
+          aria-labelledby="inspector-tab-layout"
+          hidden={tab !== "layout"}
+        >
+          {tab === "layout" && <ComposeList />}
         </div>
-        <span className="style-dock-separator" />
 
-        {tab === "layout" && <ComposeList />}
-
-        {tab === "style" && (
-          <>
-            {firstElement && !s.backgroundSelected && (
-              <div className="style-dock-section element-details-section">
-                <h3 className="style-dock-section-title element-details-heading">
-                  <button
-                    type="button"
-                    className="element-details-toggle"
-                    aria-expanded={detailsOpen}
-                    aria-controls="style-panel-element-details"
-                    onClick={() => setDetailsOpen((open) => !open)}
-                  >
-                    <span>Element details</span>
-                    <b className="truncate">{firstElement.name}</b>
-                    <ChevronDown aria-hidden="true" />
-                  </button>
-                </h3>
-
-                {detailsOpen && (
-                  <div
-                    id="style-panel-element-details"
-                    className="element-details-fields"
-                  >
-                    <label>
-                      <span>Name</span>
-                      <input
-                        value={firstElement.name}
-                        onChange={(event) =>
-                          updateFirstElement({ name: event.target.value })
-                        }
-                      />
-                    </label>
-                    {!isTextKind(firstElement.kind) &&
-                      firstElement.content !== undefined && (
-                        <label>
-                          <span>Content</span>
-                          <textarea
-                            rows={3}
-                            value={firstElement.content ?? ""}
-                            onChange={(event) =>
-                              s.setElementText(
-                                firstElement.id,
-                                event.target.value,
-                              )
-                            }
-                          />
-                        </label>
-                      )}
-                    {isImageKind(firstElement.kind) && (
-                      <label>
-                        <span>AI description</span>
-                        <textarea
-                          rows={3}
-                          value={firstElement.aiDescription ?? ""}
-                          onChange={(event) =>
-                            updateFirstElement({
-                              aiDescription: event.target.value,
-                            })
-                          }
-                        />
-                      </label>
-                    )}
-                    {isImageKind(firstElement.kind) && !firstElement.src && (
-                      <label>
-                        <span>Placeholder art</span>
-                        <select
-                          value={
-                            hasPlaceholderArt(firstElement.placeholderArt)
-                              ? firstElement.placeholderArt
-                              : "none"
-                          }
-                          onChange={(event) =>
-                            updateFirstElement({
-                              placeholderArt: event.target.value,
-                            })
-                          }
-                        >
-                          {PLACEHOLDER_ART_GROUPS.map(([group, options]) => (
-                            <optgroup key={group} label={group}>
-                              {options.map((option) => (
-                                <option key={option.key} value={option.key}>
-                                  {option.label}
-                                </option>
-                              ))}
-                            </optgroup>
-                          ))}
-                          <option value="none">None (empty slot)</option>
-                        </select>
-                      </label>
-                    )}
-                    {isImageKind(firstElement.kind) && (
-                      <label>
-                        <span>Replace image (regenerate this region)</span>
-                        <input
-                          type="file"
-                          accept="image/png,image/jpeg,image/webp"
-                          onChange={async (event) => {
-                            const f = event.target.files?.[0];
-                            event.target.value = "";
-                            if (!f) return;
-                            try {
-                              const src = await readImageUpload(f);
-                              updateFirstElement({
-                                src,
-                                aiDescription: f.name,
-                              });
-                            } catch (error) {
-                              toast.error(
-                                error instanceof Error
-                                  ? error.message
-                                  : "Image is invalid",
-                              );
-                            }
-                          }}
-                        />
-                      </label>
-                    )}
-                    <div className="element-constraint-fields">
-                      <h4 className="element-constraint-title">
-                        AI constraints
-                      </h4>
-                      <label>
-                        <span>Lock (anti-slop)</span>
-                        <select
-                          value={firstElement.constraint?.lock ?? "guided"}
-                          onChange={(event) =>
-                            s.updateElementConstraint(firstElement.id, {
-                              lock: event.target.value as
-                                "exact" | "guided" | "free",
-                            })
-                          }
-                        >
-                          <option value="free">Free — fully generative</option>
-                          <option value="guided">Guided — stay in style</option>
-                          <option value="exact">Exact — must not change</option>
-                        </select>
-                      </label>
-                      <label>
-                        <span>Must include</span>
-                        <textarea
-                          rows={3}
-                          placeholder="e.g. photographic, studio lighting"
-                          value={
-                            firstElement.constraint?.positiveConstraint ?? ""
-                          }
-                          onChange={(event) =>
-                            s.updateElementConstraint(firstElement.id, {
-                              positiveConstraint: event.target.value,
-                            })
-                          }
-                        />
-                      </label>
-                      <label>
-                        <span>Must avoid</span>
-                        <textarea
-                          rows={3}
-                          placeholder="e.g. no added text, no watermark"
-                          value={
-                            firstElement.constraint?.negativeConstraint ?? ""
-                          }
-                          onChange={(event) =>
-                            s.updateElementConstraint(firstElement.id, {
-                              negativeConstraint: event.target.value,
-                            })
-                          }
-                        />
-                      </label>
-                      <label className="element-constraint-checkbox">
-                        <input
-                          type="checkbox"
-                          checked={
-                            firstElement.constraint?.brandLocked ?? false
-                          }
-                          onChange={(event) =>
-                            s.updateElementConstraint(firstElement.id, {
-                              brandLocked: event.target.checked,
-                            })
-                          }
-                        />
-                        <span>Brand-locked (colors/fonts non-negotiable)</span>
-                      </label>
-                      <div className="element-constraint-actions">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          type="button"
-                          onClick={() =>
-                            s.mutate((doc) => {
-                              doc.elements.forEach((el) => {
-                                if (el.id !== firstElement.id)
-                                  el.constraint = {
-                                    ...el.constraint,
-                                    lock: "exact",
-                                  };
-                                else if (el.constraint?.lock === "exact")
-                                  el.constraint = {
-                                    ...el.constraint,
-                                    lock: "guided",
-                                  };
-                              });
-                            })
-                          }
-                        >
-                          <Lock size={14} />
-                          Lock all except this
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          type="button"
-                          onClick={async () => {
-                            await navigator.clipboard.writeText(
-                              compileRegionPrompt(d, firstElement.id),
-                            );
-                            setRegenCopied(true);
-                            setTimeout(() => setRegenCopied(false), 1500);
-                          }}
-                        >
-                          {regenCopied ? (
-                            <Check size={14} />
-                          ) : (
-                            <Clipboard size={14} />
-                          )}
-                          {regenCopied ? "Copied" : "Copy region prompt"}
-                        </Button>
-                      </div>
-                    </div>
+        <div
+          key={selectionKey}
+          id="inspector-style"
+          role="tabpanel"
+          aria-labelledby="inspector-tab-style"
+          className="inspector-sections"
+          hidden={tab !== "style"}
+        >
+          {tab === "style" && (
+            <>
+              {firstElement && (
+                <div className="inspector-selection">
+                  <div className="inspector-selection-thumb" aria-hidden="true">
+                    <InspectorGlyph
+                      name={
+                        category === "text"
+                          ? "kind-text"
+                          : category === "image"
+                            ? "kind-image"
+                            : category === "shape"
+                              ? "kind-shape"
+                              : "kind-mixed"
+                      }
+                    />
                   </div>
-                )}
-              </div>
-            )}
-
-            {firstElement &&
-              !s.backgroundSelected &&
-              isTextKind(firstElement.kind) && (
-                <div className="style-dock-section element-details-fields">
-                  <h3 className="style-dock-section-title">Content</h3>
-                  <textarea
-                    aria-label="Content"
-                    rows={3}
-                    value={firstElement.content ?? ""}
-                    disabled={firstElement.locked}
-                    onChange={(event) =>
-                      s.setElementText(firstElement.id, event.target.value)
-                    }
-                  />
+                  <div className="inspector-selection-text">
+                    <strong>{selectionName.value ?? "Mixed"}</strong>
+                    {showSelectionRole && (
+                      <span>{selectionRole.value ?? "Mixed"}</span>
+                    )}
+                    {editableCount !== selectedElements.length && (
+                      <small>
+                        {editableCount} of {selectedElements.length} editable ·
+                        locked layers preserved
+                      </small>
+                    )}
+                  </div>
                 </div>
               )}
-
-            {firstElement && !s.backgroundSelected && (
-              <div className="style-dock-section element-details-fields">
-                <h3
-                  className="style-dock-section-title"
-                  id="style-panel-material-title"
-                >
-                  Material and texture
-                </h3>
-                <textarea
-                  aria-labelledby="style-panel-material-title"
-                  rows={2}
-                  placeholder="e.g. Brushed aluminum, soft fabric"
-                  value={firstElement.material ?? ""}
-                  onChange={(event) =>
-                    updateSelectedMaterial(event.target.value)
-                  }
-                />
-                <PresetChips
-                  label="Material and texture"
-                  presets={MATERIAL_PRESETS}
-                  value={firstElement.material ?? ""}
-                  onChange={updateSelectedMaterial}
-                />
-              </div>
-            )}
-
-            {firstElement && !s.backgroundSelected && (
-              <div className="style-dock-section">
-                <h3 className="style-dock-section-title">Transform</h3>
-                <div className="style-dock-grid">
-                  <DockNumberField
-                    prefix="X"
-                    label="X position"
-                    disabled={selectedElements.some((el) => el.locked)}
-                    value={Math.round(firstElement.x)}
-                    onChange={(value) => updateFirstElement({ x: value })}
-                  />
-                  <DockNumberField
-                    prefix="Y"
-                    label="Y position"
-                    disabled={selectedElements.some((el) => el.locked)}
-                    value={Math.round(firstElement.y)}
-                    onChange={(value) => updateFirstElement({ y: value })}
-                  />
-                  <DockNumberField
-                    prefix="W"
-                    label="Width"
-                    disabled={selectedElements.some((el) => el.locked)}
-                    min={1}
-                    value={Math.round(firstElement.width)}
-                    onChange={(value) =>
-                      updateFirstElement({ width: Math.max(1, value) })
-                    }
-                  />
-                  <DockNumberField
-                    prefix="H"
-                    label="Height"
-                    disabled={selectedElements.some((el) => el.locked)}
-                    min={1}
-                    value={Math.round(firstElement.height)}
-                    onChange={(value) =>
-                      updateFirstElement({ height: Math.max(1, value) })
-                    }
-                  />
-                  <DockNumberField
-                    prefix={<RotateCw aria-hidden="true" />}
-                    label="Rotation"
-                    disabled={selectedElements.some((el) => el.locked)}
-                    suffix="°"
-                    value={Math.round(firstElement.rotation)}
-                    onChange={(value) =>
-                      updateFirstElement({ rotation: value })
-                    }
-                  />
-                  <DockNumberField
-                    prefix="O"
-                    label="Opacity"
-                    suffix="%"
-                    min={0}
-                    max={100}
-                    value={Math.round((firstElement.style.opacity ?? 1) * 100)}
-                    onChange={(value) =>
-                      updateSelectedStyles({
-                        opacity: Math.min(100, Math.max(0, value)) / 100,
-                      })
-                    }
-                  />
-                </div>
-                <input
-                  className="style-dock-opacity-range"
-                  type="range"
-                  min="0"
-                  max="100"
-                  step="1"
-                  aria-label="Opacity"
-                  value={Math.round((firstElement.style.opacity ?? 1) * 100)}
-                  onChange={(event) =>
-                    updateSelectedStyles({
-                      opacity: Number(event.target.value) / 100,
-                    })
-                  }
-                />
-              </div>
-            )}
-
-            {firstTextElement && (
-              <div className="style-dock-section">
-                <h3 className="style-dock-section-title">Text</h3>
-                <label className="style-dock-control style-dock-font">
-                  {activeBrandKit?.typography ? (
-                    <Hint label="Set by design kit">
-                      <div className="font-trigger style-dock-font-locked">
-                        <Lock aria-hidden="true" />
-                        <b>
-                          {firstTextElement.style.fontFamily ??
-                            activeBrandKit.typography}
-                        </b>
-                      </div>
-                    </Hint>
-                  ) : (
-                    <select
-                      aria-label="Font"
-                      value={firstTextElement.style.fontFamily ?? "Manrope"}
+              {selectedElements.length === 1 &&
+                firstElement &&
+                !s.backgroundSelected &&
+                isTextKind(firstElement.kind) && (
+                  <div className="style-dock-section element-details-fields">
+                    <h3 className="style-dock-section-title">
+                      <InspectorGlyph name="content" />
+                      Content
+                    </h3>
+                    <textarea
+                      aria-label="Content"
+                      rows={3}
+                      value={firstElement.content ?? ""}
+                      disabled={firstElement.locked}
                       onChange={(event) =>
-                        updateSelectedStyles(
-                          { fontFamily: event.target.value },
+                        s.setElementText(firstElement.id, event.target.value)
+                      }
+                    />
+                  </div>
+                )}
+
+              {firstElement && !s.backgroundSelected && (
+                <div className="style-dock-section">
+                  <h3 className="style-dock-section-title">
+                    <InspectorGlyph name="transform" />
+                    Transform <span>Canvas</span>
+                  </h3>
+                  {selectedElements.length > 1 && (
+                    <p className="inspector-note">
+                      Selection bounds · unrotated · relative positions
+                      preserved
+                    </p>
+                  )}
+                  {geometryLocked && (
+                    <p className="inspector-note">
+                      Unlock and show every selected layer to transform this
+                      selection.
+                    </p>
+                  )}
+                  <div className="style-dock-grid">
+                    {(
+                      [
+                        ["x", "X", "X position"],
+                        ["y", "Y", "Y position"],
+                        ["width", "W", "Width"],
+                        ["height", "H", "Height"],
+                      ] as const
+                    ).map(([key, prefix, label]) => (
+                      <DockNumberField
+                        key={`${selectionKey}-${key}`}
+                        prefix={prefix}
+                        label={label}
+                        suffix="px"
+                        displayDecimals={2}
+                        min={
+                          key === "width" || key === "height" ? 1 : undefined
+                        }
+                        disabled={geometryLocked}
+                        value={selectionBounds[key]}
+                        onChange={(value) =>
+                          commitInspectorGeometry(
+                            selectionKey,
+                            key,
+                            value,
+                            ratioLocked,
+                          )
+                        }
+                      />
+                    ))}
+                  </div>
+                  <div className="style-dock-grid">
+                    <DockNumberField
+                      key={`${selectionKey}-rotation`}
+                      prefix={<InspectorGlyph name="rotation" />}
+                      label="Rotation"
+                      suffix="°"
+                      disabled={geometryLocked}
+                      value={
+                        commonValue(selectedElements.map((el) => el.rotation))
+                          .value
+                      }
+                      onChange={(value) =>
+                        commitInspectorEdit(
+                          selectionKey,
+                          (el) => {
+                            el.rotation = value;
+                          },
+                          true,
+                        )
+                      }
+                    />
+                    <button
+                      type="button"
+                      className="inspector-action"
+                      aria-label="Lock aspect ratio"
+                      aria-pressed={ratioLocked}
+                      disabled={geometryLocked}
+                      onClick={() => setRatioLocked((locked) => !locked)}
+                    >
+                      {ratioLocked ? <Lock size={13} /> : <Unlock size={13} />}{" "}
+                      Ratio
+                    </button>
+                  </div>
+                  <div className="inspector-opacity">
+                    <input
+                      className="style-dock-opacity-range"
+                      type="range"
+                      min="0"
+                      max="100"
+                      step="1"
+                      aria-label="Opacity slider"
+                      aria-valuetext={
+                        commonStyle("opacity", 1) === undefined
+                          ? "Mixed; choose a percentage to apply to editable layers"
+                          : `${commonStyle("opacity", 1)! * 100}%`
+                      }
+                      disabled={!editableCount}
+                      value={(commonStyle("opacity", 1) ?? 1) * 100}
+                      onChange={(event) =>
+                        updateSelectedStyles({
+                          opacity: Number(event.target.value) / 100,
+                        })
+                      }
+                    />
+                    <DockNumberField
+                      key={`${selectionKey}-opacity`}
+                      prefix={<InspectorGlyph name="opacity" />}
+                      label="Opacity"
+                      suffix="%"
+                      min={0}
+                      max={100}
+                      disabled={!editableCount}
+                      value={
+                        commonStyle("opacity", 1) === undefined
+                          ? undefined
+                          : commonStyle("opacity", 1)! * 100
+                      }
+                      onChange={(value) =>
+                        updateSelectedStyles({ opacity: value / 100 })
+                      }
+                    />
+                  </div>
+                  <div className="inspector-actions">
+                    <button
+                      type="button"
+                      disabled={geometryLocked}
+                      onClick={() =>
+                        commitInspectorEdit(
+                          selectionKey,
+                          (el) => {
+                            el.rotation = 0;
+                          },
                           true,
                         )
                       }
                     >
-                      {[...FEATURED_FONTS, ...MORE_FONTS].map((font) => (
-                        <option key={font} value={font}>
-                          {font}
-                        </option>
+                      Reset rotation
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!editableCount}
+                      onClick={() => updateSelectedStyles({ opacity: 1 })}
+                    >
+                      Reset opacity
+                    </button>
+                  </div>
+                  <div
+                    className="inspector-alignment"
+                    role="group"
+                    aria-label="Align selection"
+                  >
+                    {(
+                      [
+                        ["left", AlignStartVertical],
+                        ["center", AlignCenterVertical],
+                        ["right", AlignEndVertical],
+                        ["top", AlignStartHorizontal],
+                        ["middle", AlignCenterHorizontal],
+                        ["bottom", AlignEndHorizontal],
+                      ] as const
+                    ).map(([edge, Icon]) => (
+                      <button
+                        type="button"
+                        key={edge}
+                        aria-label={`Align ${edge}`}
+                        title={`Align ${edge}`}
+                        disabled={geometryLocked || !units.length}
+                        onClick={() => {
+                          if (inspectorContext() === selectionKey)
+                            useEditorStore.getState().align(edge);
+                        }}
+                      >
+                        <Icon size={15} />
+                      </button>
+                    ))}
+                    {units.length >= 3 &&
+                      (
+                        [
+                          ["horizontal", AlignHorizontalDistributeCenter],
+                          ["vertical", AlignVerticalDistributeCenter],
+                        ] as const
+                      ).map(([axis, Icon]) => (
+                        <button
+                          type="button"
+                          key={axis}
+                          aria-label={`Distribute ${axis}`}
+                          title={`Distribute ${axis}`}
+                          disabled={geometryLocked}
+                          onClick={() => {
+                            if (inspectorContext() === selectionKey)
+                              useEditorStore.getState().distribute(axis);
+                          }}
+                        >
+                          <Icon size={15} />
+                        </button>
                       ))}
-                    </select>
-                  )}
-                </label>
-                <div className="style-dock-grid">
-                  <DockNumberField
-                    prefix="Aa"
-                    label="Font size"
-                    min={1}
-                    max={1000}
-                    value={Math.round(firstTextElement.style.fontSize ?? 16)}
-                    onChange={(value) =>
-                      updateSelectedStyles(
-                        { fontSize: Math.max(1, value) },
-                        true,
-                      )
-                    }
-                  />
-                  <Hint label="Font weight">
-                    <label className="style-dock-control style-dock-weight">
+                  </div>
+                </div>
+              )}
+
+              {firstTextElement && (
+                <div className="style-dock-section">
+                  <h3 className="style-dock-section-title">
+                    <InspectorGlyph name="appearance" />
+                    Appearance <span>Canvas</span>
+                  </h3>
+                  <label className="style-dock-control style-dock-font">
+                    {activeBrandKit?.typography ? (
+                      <Hint label="Set by design kit">
+                        <div className="font-trigger style-dock-font-locked">
+                          <Lock aria-hidden="true" />
+                          <b>
+                            {commonStyle(
+                              "fontFamily",
+                              activeBrandKit.typography,
+                            ) ?? "Mixed"}
+                          </b>
+                        </div>
+                      </Hint>
+                    ) : (
                       <select
-                        aria-label="Font weight"
-                        value={firstTextElement.style.fontWeight ?? 400}
+                        aria-label="Font"
+                        disabled={!editableCount}
+                        value={commonStyle("fontFamily", "Manrope") ?? ""}
                         onChange={(event) =>
                           updateSelectedStyles(
-                            { fontWeight: Number(event.target.value) },
+                            { fontFamily: event.target.value },
                             true,
                           )
                         }
                       >
-                        {[100, 200, 300, 400, 500, 600, 700, 800, 900].map(
-                          (weight) => (
-                            <option key={weight} value={weight}>
-                              {weight}
-                            </option>
-                          ),
+                        {commonStyle("fontFamily", "Manrope") === undefined && (
+                          <option value="">Mixed</option>
                         )}
+                        {[...FEATURED_FONTS, ...MORE_FONTS].map((font) => (
+                          <option key={font} value={font}>
+                            {font}
+                          </option>
+                        ))}
                       </select>
-                    </label>
-                  </Hint>
-                </div>
-                <label className="style-dock-row">
-                  <span>Text color</span>
-                  <input
-                    type="color"
-                    className="style-dock-swatch"
-                    value={colorInputValue(
-                      firstTextElement.style.color,
-                      "#18181b",
                     )}
-                    onChange={(event) =>
-                      updateSelectedStyles(
-                        { color: event.target.value },
-                        true,
-                      )
-                    }
-                  />
-                </label>
-              </div>
-            )}
-
-            {(showImageFit || showColorControls) && (
-              <div className="style-dock-section">
-                <h3 className="style-dock-section-title">Appearance</h3>
-                {showColorControls && firstElement && (
-                  <>
-                    {isTextKind(firstElement.kind) ? (
-                      <label className="style-dock-row">
-                        <span>Background</span>
-                        <input
-                          type="color"
-                          className="style-dock-swatch"
-                          value={colorInputValue(
-                            firstElement.style.background,
-                            "#ffffff",
-                          )}
+                  </label>
+                  <div className="style-dock-grid">
+                    <DockNumberField
+                      prefix="Aa"
+                      label="Font size"
+                      disabled={!editableCount}
+                      min={1}
+                      max={1000}
+                      value={commonStyle("fontSize", 16)}
+                      onChange={(value) =>
+                        updateSelectedStyles(
+                          { fontSize: Math.max(1, value) },
+                          true,
+                        )
+                      }
+                    />
+                    <Hint label="Font weight">
+                      <label className="style-dock-control style-dock-weight">
+                        <select
+                          aria-label="Font weight"
+                          disabled={!editableCount}
+                          value={commonStyle("fontWeight", 400) ?? ""}
                           onChange={(event) =>
                             updateSelectedStyles(
-                              { background: event.target.value },
+                              { fontWeight: Number(event.target.value) },
                               true,
                             )
                           }
-                        />
-                      </label>
-                    ) : firstElement.kind === "shape" ||
-                      firstElement.kind === "divider" ? (
-                      <label className="style-dock-row">
-                        <span>Element color</span>
-                        <input
-                          type="color"
-                          className="style-dock-swatch"
-                          value={colorInputValue(
-                            firstElement.style.background,
-                            "#8b5cf6",
+                        >
+                          {commonStyle("fontWeight", 400) === undefined && (
+                            <option value="">Mixed</option>
                           )}
-                          onChange={(event) =>
-                            updateSelectedStyles({
-                              background: event.target.value,
-                            })
-                          }
-                        />
+                          {[100, 200, 300, 400, 500, 600, 700, 800, 900].map(
+                            (weight) => (
+                              <option key={weight} value={weight}>
+                                {weight}
+                              </option>
+                            ),
+                          )}
+                        </select>
                       </label>
-                    ) : null}
-                  </>
-                )}
-                {showImageFit && firstElement && (
+                    </Hint>
+                  </div>
                   <label className="style-dock-row">
-                    <span>Image fit</span>
+                    <span>Alignment</span>
                     <select
-                      className="style-dock-row-select"
-                      value={firstElement.style.objectFit ?? "cover"}
+                      aria-label="Text alignment"
+                      disabled={!editableCount}
+                      value={commonStyle("alignment", "left") ?? ""}
                       onChange={(event) =>
                         updateSelectedStyles({
-                          objectFit: event.target.value as "cover" | "contain",
+                          alignment: event.target.value as
+                            "left" | "center" | "right",
                         })
                       }
                     >
-                      <option value="cover">Cover</option>
-                      <option value="contain">Contain</option>
+                      {commonStyle("alignment", "left") === undefined && (
+                        <option value="">Mixed</option>
+                      )}
+                      {["left", "center", "right"].map((value) => (
+                        <option key={value} value={value}>
+                          {value}
+                        </option>
+                      ))}
                     </select>
                   </label>
-                )}
-              </div>
-            )}
-
-            {s.backgroundSelected && (
-              <div className="style-dock-section">
-                <h3 className="style-dock-section-title">Background</h3>
-                <label className="style-dock-row">
-                  <span>Fill</span>
-                  <select
-                    className="style-dock-row-select"
-                    value={d.background.type}
-                    onChange={(event) =>
-                      updateBackground({
-                        type: event.target.value as "solid" | "gradient",
-                        ...(event.target.value === "gradient" &&
-                        !d.background.secondaryValue
-                          ? { secondaryValue: d.background.value, angle: 135 }
-                          : {}),
-                      })
-                    }
-                  >
-                    <option value="solid">Solid</option>
-                    <option value="gradient">Gradient</option>
-                  </select>
-                </label>
-                {d.background.type === "gradient" ? (
-                  <>
-                    <label className="style-dock-row">
-                      <span>From</span>
-                      <input
-                        type="color"
-                        className="style-dock-swatch"
-                        value={d.background.value}
-                        onChange={(event) =>
-                          updateBackground({ value: event.target.value })
-                        }
-                      />
-                    </label>
-                    <label className="style-dock-row">
-                      <span>To</span>
-                      <input
-                        type="color"
-                        className="style-dock-swatch"
-                        value={
-                          d.background.secondaryValue ?? d.background.value
-                        }
-                        onChange={(event) =>
-                          updateBackground({
-                            secondaryValue: event.target.value,
-                          })
-                        }
-                      />
-                    </label>
-                  </>
-                ) : (
-                  <label className="style-dock-row">
-                    <span>Color</span>
-                    <input
-                      type="color"
-                      className="style-dock-swatch"
-                      value={d.background.value}
-                      onChange={(event) =>
-                        updateBackground({ value: event.target.value })
+                  <div className="style-dock-grid">
+                    <DockNumberField
+                      prefix={<InspectorGlyph name="line-height" />}
+                      label="Line height"
+                      disabled={!editableCount}
+                      min={0.1}
+                      value={commonStyle("lineHeight", 1.2)}
+                      onChange={(value) =>
+                        updateSelectedStyles({ lineHeight: value })
                       }
                     />
-                  </label>
-                )}
-                {d.background.type === "gradient" && (
-                  <DockNumberField
-                    prefix={<RotateCw aria-hidden="true" />}
-                    label="Gradient angle"
-                    suffix="°"
-                    min={0}
-                    max={360}
-                    value={d.background.angle ?? 135}
-                    onChange={(value) =>
-                      updateBackground({
-                        angle: Math.min(360, Math.max(0, value)),
-                      })
+                    <DockNumberField
+                      prefix={<InspectorGlyph name="letter-spacing" />}
+                      label="Letter spacing"
+                      disabled={!editableCount}
+                      suffix="px"
+                      value={commonStyle("letterSpacing", 0)}
+                      onChange={(value) =>
+                        updateSelectedStyles({ letterSpacing: value })
+                      }
+                    />
+                  </div>
+                  <TextColorControl
+                    label="Text color"
+                    property="color"
+                    values={selectedElements.map((el) => el.style.color)}
+                    presets={textPresets}
+                    onChange={(intent, grouped) =>
+                      updateTextColor("color", intent, grouped)
                     }
+                    onGestureStart={beginTextColorGesture}
+                    onGestureEnd={() => {
+                      textColorGesture.current = null;
+                    }}
+                    disabled={!editableCount}
                   />
+                  <TextColorControl
+                    label="Text background"
+                    property="background"
+                    values={selectedElements.map((el) => el.style.background)}
+                    presets={textPresets}
+                    onChange={(intent, grouped) =>
+                      updateTextColor("background", intent, grouped)
+                    }
+                    onGestureStart={beginTextColorGesture}
+                    onGestureEnd={() => {
+                      textColorGesture.current = null;
+                    }}
+                    disabled={!editableCount}
+                  />
+                </div>
+              )}
+              {(showImageFit || (showColorControls && category !== "text")) && (
+                <div className="style-dock-section">
+                  <h3 className="style-dock-section-title">
+                    <InspectorGlyph name="appearance" />
+                    Appearance <span>Canvas</span>
+                  </h3>
+                  {category === "shape" && (
+                    <>
+                      <OpaqueColorControl
+                        label="Fill"
+                        values={selectedElements.map((el) => el.style.background)}
+                        onChange={(background) =>
+                          updateSelectedStyles({ background })
+                        }
+                        disabled={!editableCount}
+                      />
+                      <OpaqueColorControl
+                        label="Border color"
+                        values={selectedElements.map((el) => el.style.borderColor)}
+                        onChange={(borderColor) =>
+                          updateSelectedStyles({ borderColor })
+                        }
+                        removalLabel="Remove border"
+                        onRemove={() =>
+                          commitInspectorEdit(selectionKey, (el) => {
+                            if (el.kind !== "shape" && el.kind !== "divider")
+                              return;
+                            if (
+                              (el.style.borderWidth ?? 0) === 0 &&
+                              el.style.borderColor === undefined
+                            )
+                              return;
+                            el.style.borderWidth = 0;
+                            delete el.style.borderColor;
+                          })
+                        }
+                        disabled={!editableCount}
+                      />
+                      <DockNumberField
+                        prefix={<InspectorGlyph name="border-width" />}
+                        label="Border width"
+                        min={0}
+                        suffix="px"
+                        disabled={!editableCount}
+                        value={commonStyle("borderWidth", 0)}
+                        onChange={(borderWidth) =>
+                          updateSelectedStyles({ borderWidth })
+                        }
+                      />
+                      {selectedElements.length > 1 &&
+                        selectedElements.every(
+                          (el) => el.style.shapeType === "rounded rectangle",
+                        ) && (
+                          <DockNumberField
+                            prefix={<InspectorGlyph name="corner-radius" />}
+                            label="Corner radius"
+                            disabled={!editableCount}
+                            min={0}
+                            suffix="px"
+                            value={commonStyle("borderRadius", 0)}
+                            onChange={(borderRadius) =>
+                              commitInspectorEdit(selectionKey, (el) => {
+                                el.style.borderRadius = Math.min(
+                                  borderRadius,
+                                  el.width / 2,
+                                  el.height / 2,
+                                );
+                              })
+                            }
+                          />
+                        )}
+                    </>
+                  )}
+                  {showImageFit && (
+                    <>
+                      <label className="style-dock-row">
+                        <span>Image fit</span>
+                        <select
+                          aria-label="Image fit"
+                          value={imageFit ?? ""}
+                          disabled={!editableCount}
+                          onChange={(event) =>
+                            updateSelectedStyles({
+                              objectFit: event.target.value as
+                                "cover" | "contain",
+                            })
+                          }
+                        >
+                          {imageFit === undefined && (
+                            <option value="">Mixed</option>
+                          )}
+                          <option value="cover">Cover</option>
+                          <option value="contain">Contain</option>
+                        </select>
+                      </label>
+                      {selectedElements.every((el) => !!el.src) && (
+                        <div className="style-dock-grid">
+                          <DockNumberField
+                            prefix="X"
+                            label="Focal point X"
+                            disabled={!editableCount}
+                            suffix="%"
+                            min={0}
+                            max={100}
+                            value={
+                              commonStyle("focalX", 0.5) === undefined
+                                ? undefined
+                                : commonStyle("focalX", 0.5)! * 100
+                            }
+                            onChange={(value) =>
+                              updateSelectedStyles({ focalX: value / 100 })
+                            }
+                          />
+                          <DockNumberField
+                            prefix="Y"
+                            label="Focal point Y"
+                            disabled={!editableCount}
+                            suffix="%"
+                            min={0}
+                            max={100}
+                            value={
+                              commonStyle("focalY", 0.5) === undefined
+                                ? undefined
+                                : commonStyle("focalY", 0.5)! * 100
+                            }
+                            onChange={(value) =>
+                              updateSelectedStyles({ focalY: value / 100 })
+                            }
+                          />
+                        </div>
+                      )}
+                    </>
+                  )}
+                  {selectedElements.length === 1 &&
+                    firstElement?.kind === "shape" &&
+                    !s.backgroundSelected && (
+                      <ShapeControls
+                        key={firstElement.id}
+                        element={firstElement}
+                      />
+                    )}
+                </div>
+              )}
+              {firstElement && !s.backgroundSelected && (
+                <div className="style-dock-section element-details-fields">
+                  <h3
+                    className="style-dock-section-title"
+                    id="style-panel-material-title"
+                  >
+                    <InspectorGlyph name="material" />
+                    Material & Texture <span>Prompt only</span>
+                  </h3>
+                  <textarea
+                    key={`${selectionKey}-material`}
+                    className="inspector-material"
+                    aria-labelledby="style-panel-material-title"
+                    rows={1}
+                    placeholder={
+                      material.mixed ? "Mixed" : "Describe material or texture"
+                    }
+                    disabled={!editableCount}
+                    value={materialDraft ?? material.value ?? ""}
+                    onChange={(event) => setMaterialDraft(event.target.value)}
+                    onBlur={(event) => {
+                      if (materialDraft !== null)
+                        updateSelectedMaterial(event.target.value);
+                      setMaterialDraft(null);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Escape") {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        setMaterialDraft(null);
+                      }
+                      if (event.key === "Enter" && !event.shiftKey) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        if (materialDraft !== null)
+                          updateSelectedMaterial(event.currentTarget.value);
+                        setMaterialDraft(null);
+                      }
+                    }}
+                  />
+                  <div
+                    className="inspector-chips"
+                    role="group"
+                    aria-label="Material suggestions"
+                  >
+                    {suggestions
+                      .slice(0, moreMaterials ? undefined : 4)
+                      .map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          aria-pressed={materialState(selectedElements, preset)}
+                          disabled={!editableCount}
+                          onClick={() => {
+                            const current = useEditorStore.getState();
+                            if (
+                              inspectorContext() !== selectionKey ||
+                              !current.doc
+                            )
+                              return;
+                            const members = current.doc.elements.filter((el) =>
+                              current.selectedIds.includes(el.id),
+                            );
+                            const remove =
+                              materialState(members, preset) === true;
+                            commitInspectorEdit(selectionKey, (el) => {
+                              el.material = toggledMaterial(el, preset, remove);
+                            });
+                          }}
+                        >
+                          {preset}
+                        </button>
+                      ))}
+                    {suggestions.length > 4 && (
+                      <button
+                        type="button"
+                        aria-expanded={moreMaterials}
+                        onClick={() => setMoreMaterials((open) => !open)}
+                      >
+                        {moreMaterials ? "Less" : "More"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+              {selectedElements.length === 1 &&
+                firstElement &&
+                !s.backgroundSelected && (
+                  <div className="style-dock-section element-details-section">
+                    <h3 className="style-dock-section-title element-details-heading">
+                      <button
+                        type="button"
+                        className="element-details-toggle"
+                        aria-expanded={detailsOpen}
+                        aria-controls="style-panel-element-details"
+                        onClick={() => setDetailsOpen((open) => !open)}
+                      >
+                        <span>Element details</span>
+                        <b className="truncate">{firstElement.name}</b>
+                        <ChevronDown aria-hidden="true" />
+                      </button>
+                    </h3>
+
+                    {detailsOpen && (
+                      <div
+                        id="style-panel-element-details"
+                        className="element-details-fields"
+                      >
+                        <label>
+                          <span>Name</span>
+                          <input
+                            value={firstElement.name}
+                            onChange={(event) =>
+                              updateFirstElement({ name: event.target.value })
+                            }
+                          />
+                        </label>
+                        {!isTextKind(firstElement.kind) &&
+                          firstElement.content !== undefined && (
+                            <label>
+                              <span>Content</span>
+                              <textarea
+                                rows={3}
+                                value={firstElement.content ?? ""}
+                                onChange={(event) =>
+                                  s.setElementText(
+                                    firstElement.id,
+                                    event.target.value,
+                                  )
+                                }
+                              />
+                            </label>
+                          )}
+                        {isImageKind(firstElement.kind) && (
+                          <label>
+                            <span>AI description</span>
+                            <textarea
+                              rows={3}
+                              value={firstElement.aiDescription ?? ""}
+                              onChange={(event) =>
+                                updateFirstElement({
+                                  aiDescription: event.target.value,
+                                })
+                              }
+                            />
+                          </label>
+                        )}
+                        {isImageKind(firstElement.kind) &&
+                          !firstElement.src && (
+                            <label>
+                              <span>Placeholder art</span>
+                              <select
+                                value={
+                                  hasPlaceholderArt(firstElement.placeholderArt)
+                                    ? firstElement.placeholderArt
+                                    : "none"
+                                }
+                                onChange={(event) =>
+                                  updateFirstElement({
+                                    placeholderArt: event.target.value,
+                                  })
+                                }
+                              >
+                                {PLACEHOLDER_ART_GROUPS.map(
+                                  ([group, options]) => (
+                                    <optgroup key={group} label={group}>
+                                      {options.map((option) => (
+                                        <option
+                                          key={option.key}
+                                          value={option.key}
+                                        >
+                                          {option.label}
+                                        </option>
+                                      ))}
+                                    </optgroup>
+                                  ),
+                                )}
+                                <option value="none">None (empty slot)</option>
+                              </select>
+                            </label>
+                          )}
+                        {isImageKind(firstElement.kind) && (
+                          <label>
+                            <span>Replace image (regenerate this region)</span>
+                            <input
+                              type="file"
+                              accept="image/png,image/jpeg,image/webp"
+                              onChange={async (event) => {
+                                const f = event.target.files?.[0];
+                                event.target.value = "";
+                                if (!f) return;
+                                try {
+                                  const src = await readImageUpload(f);
+                                  updateFirstElement({
+                                    src,
+                                    aiDescription: f.name,
+                                  });
+                                } catch (error) {
+                                  toast.error(
+                                    error instanceof Error
+                                      ? error.message
+                                      : "Image is invalid",
+                                  );
+                                }
+                              }}
+                            />
+                          </label>
+                        )}
+                        <div className="element-constraint-fields">
+                          <h4 className="element-constraint-title">
+                            AI constraints
+                          </h4>
+                          <label>
+                            <span>Lock (anti-slop)</span>
+                            <select
+                              value={firstElement.constraint?.lock ?? "guided"}
+                              onChange={(event) =>
+                                s.updateElementConstraint(firstElement.id, {
+                                  lock: event.target.value as
+                                    "exact" | "guided" | "free",
+                                })
+                              }
+                            >
+                              <option value="free">
+                                Free — fully generative
+                              </option>
+                              <option value="guided">
+                                Guided — stay in style
+                              </option>
+                              <option value="exact">
+                                Exact — must not change
+                              </option>
+                            </select>
+                          </label>
+                          <label>
+                            <span>Must include</span>
+                            <textarea
+                              rows={3}
+                              placeholder="e.g. photographic, studio lighting"
+                              value={
+                                firstElement.constraint?.positiveConstraint ??
+                                ""
+                              }
+                              onChange={(event) =>
+                                s.updateElementConstraint(firstElement.id, {
+                                  positiveConstraint: event.target.value,
+                                })
+                              }
+                            />
+                          </label>
+                          <label>
+                            <span>Must avoid</span>
+                            <textarea
+                              rows={3}
+                              placeholder="e.g. no added text, no watermark"
+                              value={
+                                firstElement.constraint?.negativeConstraint ??
+                                ""
+                              }
+                              onChange={(event) =>
+                                s.updateElementConstraint(firstElement.id, {
+                                  negativeConstraint: event.target.value,
+                                })
+                              }
+                            />
+                          </label>
+                          <label className="element-constraint-checkbox">
+                            <input
+                              type="checkbox"
+                              checked={
+                                firstElement.constraint?.brandLocked ?? false
+                              }
+                              onChange={(event) =>
+                                s.updateElementConstraint(firstElement.id, {
+                                  brandLocked: event.target.checked,
+                                })
+                              }
+                            />
+                            <span>
+                              Brand-locked (colors/fonts non-negotiable)
+                            </span>
+                          </label>
+                          <div className="element-constraint-actions">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              type="button"
+                              onClick={() =>
+                                s.mutate((doc) => {
+                                  doc.elements.forEach((el) => {
+                                    if (el.id !== firstElement.id)
+                                      el.constraint = {
+                                        ...el.constraint,
+                                        lock: "exact",
+                                      };
+                                    else if (el.constraint?.lock === "exact")
+                                      el.constraint = {
+                                        ...el.constraint,
+                                        lock: "guided",
+                                      };
+                                  });
+                                })
+                              }
+                            >
+                              <Lock size={14} />
+                              Lock all except this
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              type="button"
+                              onClick={async () => {
+                                await navigator.clipboard.writeText(
+                                  compileRegionPrompt(d, firstElement.id),
+                                );
+                                setRegenCopied(true);
+                                setTimeout(() => setRegenCopied(false), 1500);
+                              }}
+                            >
+                              {regenCopied ? (
+                                <Check size={14} />
+                              ) : (
+                                <Clipboard size={14} />
+                              )}
+                              {regenCopied ? "Copied" : "Copy region prompt"}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )}
-              </div>
-            )}
-          </>
-        )}
+
+              {s.backgroundSelected && (
+                <div className="style-dock-section">
+                  <h3 className="style-dock-section-title">
+                    <InspectorGlyph name="background" />
+                    Background
+                  </h3>
+                  <label className="style-dock-row">
+                    <span>Fill</span>
+                    <select
+                      className="style-dock-row-select"
+                      value={d.background.type}
+                      onChange={(event) =>
+                        updateBackground({
+                          type: event.target.value as "solid" | "gradient",
+                          ...(event.target.value === "gradient" &&
+                          !d.background.secondaryValue
+                            ? { secondaryValue: d.background.value, angle: 135 }
+                            : {}),
+                        })
+                      }
+                    >
+                      <option value="solid">Solid</option>
+                      <option value="gradient">Gradient</option>
+                    </select>
+                  </label>
+                  {d.background.type === "gradient" ? (
+                    <>
+                      <OpaqueColorControl
+                        label="From"
+                        value={d.background.value}
+                        onChange={(value) => updateBackground({ value })}
+                      />
+                      <OpaqueColorControl
+                        label="To"
+                        value={d.background.secondaryValue ?? d.background.value}
+                        onChange={(secondaryValue) =>
+                          updateBackground({ secondaryValue })
+                        }
+                      />
+                    </>
+                  ) : (
+                    <OpaqueColorControl
+                      label="Color"
+                      value={d.background.value}
+                      onChange={(value) => updateBackground({ value })}
+                    />
+                  )}
+                  {d.background.type === "gradient" && (
+                    <DockNumberField
+                      prefix={<InspectorGlyph name="angle" />}
+                      label="Gradient angle"
+                      suffix="°"
+                      min={0}
+                      max={360}
+                      value={d.background.angle ?? 135}
+                      onChange={(value) =>
+                        updateBackground({
+                          angle: Math.min(360, Math.max(0, value)),
+                        })
+                      }
+                    />
+                  )}
+                </div>
+              )}
+              {sceneRef && (
+                <div className="style-dock-section">
+                  <h3 className="style-dock-section-title">
+                    <SceneIcon id={sceneObjectIconId(sceneRef)} />
+                    {sceneObjectLabel(sceneRef)}
+                  </h3>
+                  {controlsForSceneObject(sceneRef).map((descriptor) => {
+                    const value = sceneControlValue(sceneRef, descriptor);
+                    const commit = (next: unknown) =>
+                      applySceneControl(s.selectedSceneId!, descriptor, next);
+                    if (descriptor.type === "slider")
+                      return (
+                        <CommitInput
+                          key={descriptor.key}
+                          label={descriptor.label}
+                          numeric
+                          required
+                          min={descriptor.min ?? 0}
+                          max={descriptor.max ?? 100}
+                          step={descriptor.step ?? 1}
+                          value={String(
+                            typeof value === "number" ? value : descriptor.min ?? 0,
+                          )}
+                          onCommit={(next) => commit(Number(next))}
+                        />
+                      );
+                    if (descriptor.type === "select")
+                      return (
+                        <label key={descriptor.key} className="se-field">
+                          <span>{descriptor.label}</span>
+                          <select
+                            className="se-input"
+                            value={typeof value === "string" ? value : ""}
+                            onChange={(event) => commit(event.target.value)}
+                          >
+                            {descriptor.options?.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      );
+                    if (descriptor.type === "color")
+                      return (
+                        <OpaqueColorControl
+                          key={descriptor.key}
+                          label={descriptor.label}
+                          value={typeof value === "string" ? value : undefined}
+                          onChange={(hex) => commit(hex)}
+                          onRemove={() => commit(undefined)}
+                        />
+                      );
+                    if (descriptor.type === "toggle")
+                      return (
+                        <label key={descriptor.key} className="scene-include">
+                          <input
+                            type="checkbox"
+                            checked={!!value}
+                            onChange={(event) => commit(event.target.checked)}
+                          />
+                          {descriptor.label}
+                        </label>
+                      );
+                    return (
+                      <button
+                        key={descriptor.key}
+                        type="button"
+                        className="inspector-action"
+                        onClick={() => commit(undefined)}
+                      >
+                        {descriptor.label}
+                      </button>
+                    );
+                  })}
+                  {sceneRef.type === "light" && (
+                    <details className="studio-advanced">
+                      <summary>Advanced</summary>
+                      <label className="se-field">
+                        <span>Depth</span>
+                        <select
+                          className="se-input"
+                          value={sceneRef.light.depth ?? "front"}
+                          onChange={(event) =>
+                            s.updateSceneLight(s.selectedSceneId!, {
+                              depth: event.target.value as (typeof SCENE_DEPTHS)[number],
+                            })
+                          }
+                        >
+                          {SCENE_DEPTHS.map((depth) => (
+                            <option key={depth} value={depth}>
+                              {depth.charAt(0).toUpperCase() + depth.slice(1)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </details>
+                  )}
+                  {sceneRef.type === "camera" && (
+                    <details className="studio-advanced">
+                      <summary>Advanced</summary>
+                      <div className="se-row">
+                        <CommitInput
+                          label="Target X"
+                          numeric
+                          required
+                          min={-1.5}
+                          max={1.5}
+                          step={0.05}
+                          value={String(sceneRef.camera.target.x)}
+                          onCommit={(next) =>
+                            s.updateSceneCamera({
+                              target: { ...sceneRef.camera.target, x: Number(next) },
+                            })
+                          }
+                        />
+                        <CommitInput
+                          label="Target Y"
+                          numeric
+                          required
+                          min={-1.5}
+                          max={1.5}
+                          step={0.05}
+                          value={String(sceneRef.camera.target.y)}
+                          onCommit={(next) =>
+                            s.updateSceneCamera({
+                              target: { ...sceneRef.camera.target, y: Number(next) },
+                            })
+                          }
+                        />
+                      </div>
+                    </details>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </section>
   );
 }
 
-function Workspace({ onCanvasSelect }: { onCanvasSelect: () => void }) {
+function Workspace({
+  onCanvasSelect,
+  navigationLayoutKey,
+}: {
+  onCanvasSelect: () => void;
+  navigationLayoutKey: string;
+}) {
   return (
-    <CanvasWorkspace onCanvasSelect={onCanvasSelect}>
+    <CanvasWorkspace
+      onCanvasSelect={onCanvasSelect}
+      navigationLayoutKey={navigationLayoutKey}
+    >
       <FloatingControls />
     </CanvasWorkspace>
   );
 }
 
-const COPY_OPTIONS: Record<CopyKind, { label: string; Icon: typeof Palette }> =
-  {
-    prompt: { label: "Copy prompt", Icon: FileText },
-    design: { label: "Copy design", Icon: Palette },
-  };
+const COPY_OPTIONS: Record<
+  CopyKind,
+  { label: string; description: string; Icon: typeof Palette }
+> = {
+  prompt: {
+    label: "Copy prompt",
+    description: "Copy optimized generation prompt",
+    Icon: FileText,
+  },
+  design: {
+    label: "Copy design",
+    description: "Copy current design specification",
+    Icon: Palette,
+  },
+};
 
 /** Per-viewer default for the top-bar Copy button; survives the component
  * unmounting while the right panel is open. */
@@ -1926,7 +2318,7 @@ function saveCopyMode(mode: CopyKind) {
  * panel's "before you copy" warnings and only blocks on the hard
  * external-tool requirement, surfaced as a toast instead of opening a
  * dialog. */
-function TopBarCopyActions() {
+export function TopBarCopyActions() {
   const [copied, setCopied] = useState<CopyKind | null>(null);
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<CopyKind>(loadCopyMode);
@@ -1984,16 +2376,17 @@ function TopBarCopyActions() {
             variant="ghost"
             size="sm"
             aria-label={modeLabel}
+            aria-busy={busy || undefined}
             onClick={() => void copy(mode)}
             className="editor-split-main"
           >
             {copied === mode ? (
-              <Check size={14} aria-hidden="true" />
+              <Check size={16} aria-hidden="true" />
             ) : (
-              <ModeIcon size={14} aria-hidden="true" />
+              <ModeIcon size={16} aria-hidden="true" />
             )}
             <span className="editor-copy-label">
-              {copied === mode ? "Copied" : modeLabel}
+              {copied === mode ? "Copied!" : modeLabel}
             </span>
           </Button>
         </Hint>
@@ -2005,29 +2398,41 @@ function TopBarCopyActions() {
                 variant="ghost"
                 size="icon"
                 aria-label="More copy options"
-                className="editor-split-toggle w-6"
+                className="editor-split-toggle"
               >
-                <ChevronDown size={12} aria-hidden="true" />
+                <ChevronDown
+                  size={14}
+                  aria-hidden="true"
+                  className="editor-split-chevron"
+                />
               </Button>
             </DropdownMenuTrigger>
           </Hint>
-          <DropdownMenuContent align="end" sideOffset={6} className="editor-menu">
-            <DropdownMenuRadioGroup value={mode}>
-              {(["prompt", "design"] as const).map((kind) => {
-                const { label, Icon } = COPY_OPTIONS[kind];
-                return (
-                  <DropdownMenuRadioItem
-                    key={kind}
-                    value={kind}
-                    className="editor-menu-item"
-                    onSelect={() => choose(kind)}
-                  >
-                    <Icon aria-hidden="true" />
-                    {label}
-                  </DropdownMenuRadioItem>
-                );
-              })}
-            </DropdownMenuRadioGroup>
+          <DropdownMenuContent
+            align="end"
+            side="bottom"
+            sideOffset={6}
+            collisionPadding={8}
+            className="editor-menu editor-copy-menu"
+          >
+            {(["design", "prompt"] as const).map((kind) => {
+              const { label, description, Icon } = COPY_OPTIONS[kind];
+              return (
+                <DropdownMenuItem
+                  key={kind}
+                  className="editor-menu-item"
+                  onSelect={() => choose(kind)}
+                >
+                  <Icon aria-hidden="true" />
+                  <span className="editor-copy-menu-text">
+                    <span>{label}</span>
+                    <span className="editor-copy-menu-desc">
+                      {description}
+                    </span>
+                  </span>
+                </DropdownMenuItem>
+              );
+            })}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -2047,8 +2452,12 @@ function FloatingControls() {
   const d = s.doc;
   if (!s.selectedIds.length || !d) return null;
   const selectedEls = d.elements.filter((e) => s.selectedIds.includes(e.id));
-  const hasGroup = selectedEls.some((e) => e.groupId);
-  const units = alignUnits(selectedEls);
+  const hasGroup = canonicalLayers(d, s.selectedGroupIds).some(
+    (node) => !node.element && !node.leaves.some((element) => element.locked),
+  );
+  const canGroup = canGroupLayers(d, selectedLayerIds(d, s.selectedIds, s.selectedGroupIds));
+  const units = alignUnits(layerAlignmentItems(d, s.selectedIds, s.selectedGroupIds));
+  const canAlign = units.some((unit) => !unit.locked);
   const canDistribute = units.filter((u) => !u.locked).length >= 3;
   const allLocked = selectedEls.every((element) => element.locked);
   const allVisible = selectedEls.every((element) => element.visible);
@@ -2063,38 +2472,38 @@ function FloatingControls() {
       <Tool
         label="Align left"
         icon={<AlignStartVertical />}
-        disabled={allLocked}
+        disabled={!canAlign}
         onClick={() => s.align("left")}
       />
       <Tool
         label="Align center"
         icon={<AlignCenterVertical />}
-        disabled={allLocked}
+        disabled={!canAlign}
         onClick={() => s.align("center")}
       />
       <Tool
         label="Align right"
         icon={<AlignEndVertical />}
-        disabled={allLocked}
+        disabled={!canAlign}
         onClick={() => s.align("right")}
       />
       <Sep />
       <Tool
         label="Align top"
         icon={<AlignStartHorizontal />}
-        disabled={allLocked}
+        disabled={!canAlign}
         onClick={() => s.align("top")}
       />
       <Tool
         label="Align middle"
         icon={<AlignCenterHorizontal />}
-        disabled={allLocked}
+        disabled={!canAlign}
         onClick={() => s.align("middle")}
       />
       <Tool
         label="Align bottom"
         icon={<AlignEndHorizontal />}
-        disabled={allLocked}
+        disabled={!canAlign}
         onClick={() => s.align("bottom")}
       />
       {canDistribute && (
@@ -2133,7 +2542,7 @@ function FloatingControls() {
         onClick={s.duplicate}
       />
       <Tool
-        disabled={s.selectedIds.length < 2}
+        disabled={!canGroup}
         label="Group"
         shortcut="Ctrl+G"
         icon={<Group />}
@@ -2166,107 +2575,6 @@ function FloatingControls() {
   );
 }
 
-type ThumbRect = [x: number, y: number, w: number, h: number];
-type ThumbSpec = { visual?: ThumbRect | ThumbRect[]; blocks: ThumbRect[] };
-
-/** ThumbRect is itself a 4-tuple array, so Array.isArray can't tell it apart
- * from ThumbRect[] by narrowing alone — check the first entry's type instead. */
-function toVisualRects(visual: ThumbSpec["visual"]): ThumbRect[] {
-  if (!visual) return [];
-  return typeof visual[0] === "number" ? [visual as ThumbRect] : (visual as ThumbRect[]);
-}
-
-/** Builds a thumbnail sketch from a planned box map: the pool's visuals
- * become the visual rect(s) (an array for multi-image layouts like
- * collage), logos and copy become blocks. Elements the layout didn't touch
- * (e.g. an unselected element, or a layout that found no visual) are
- * omitted. */
-function thumbSpecFromBoxes(
-  pool: ComposePool,
-  boxes: Record<string, Box>,
-): ThumbSpec {
-  const spec: ThumbSpec = { blocks: [] };
-  const visualRects = pool.visuals
-    .map((e) => boxes[e.id])
-    .filter((b): b is Box => !!b)
-    .map((b): ThumbRect => [b.x, b.y, b.width, b.height]);
-  if (visualRects.length === 1) spec.visual = visualRects[0]!;
-  else if (visualRects.length > 1) spec.visual = visualRects;
-  for (const e of [...pool.logos, ...pool.copy]) {
-    const b = boxes[e.id];
-    if (b) spec.blocks.push([b.x, b.y, b.width, b.height]);
-  }
-  return spec;
-}
-
-/** Scales a spec's actual-px rects to fit a 40x50 viewBox without distorting
- * the canvas's real aspect ratio (scale = min(40/w, 50/h)), so e.g. a wide
- * landscape format renders as a short wide sketch instead of a square one. */
-function ComposeThumb({
-  format,
-  spec,
-}: {
-  format: { width: number; height: number };
-  spec: ThumbSpec;
-}) {
-  const scale = Math.min(40 / format.width, 50 / format.height);
-  const vw = format.width * scale;
-  const vh = format.height * scale;
-  const visuals = toVisualRects(spec.visual);
-  return (
-    <svg
-      className="compose-thumb"
-      viewBox={`0 0 ${vw} ${vh}`}
-      aria-hidden="true"
-      focusable="false"
-    >
-      <rect className="compose-thumb-page" width={vw} height={vh} />
-      {visuals.map(([x, y, w, h], i) => (
-        <rect
-          key={`visual-${i}`}
-          className="compose-thumb-visual"
-          x={x * scale}
-          y={y * scale}
-          width={w * scale}
-          height={h * scale}
-        />
-      ))}
-      {spec.blocks.map(([x, y, w, h], i) => (
-        <rect
-          key={i}
-          className="compose-thumb-block"
-          x={x * scale}
-          y={y * scale}
-          width={w * scale}
-          height={h * scale}
-          rx="1"
-        />
-      ))}
-    </svg>
-  );
-}
-
-// Sketches the saved pre-compose boxes, or the current ones before any compose.
-function originThumb(
-  doc: SpecDocument | undefined,
-  origin: Record<string, Box> | undefined,
-): ThumbSpec {
-  if (!doc) return { blocks: [] };
-  const spec: ThumbSpec = { blocks: [] };
-  const visuals: ThumbRect[] = [];
-  doc.elements
-    .filter((e) => e.visible && e.kind !== "shape" && e.kind !== "divider")
-    .forEach((e) => {
-      const b = origin?.[e.id] ?? e;
-      const rect: ThumbRect = [b.x, b.y, b.width, b.height];
-      if (e.kind.toLowerCase().includes("image")) visuals.push(rect);
-      else spec.blocks.push(rect);
-    });
-  if (visuals.length === 1) spec.visual = visuals[0]!;
-  else if (visuals.length > 1) spec.visual = visuals;
-  return spec;
-}
-
 const COMPOSE_GROUPS: ComposeGroup[] = [
   "split",
   "overlay",
@@ -2284,7 +2592,7 @@ function ComposeList() {
   const s = useEditorStore();
   const doc = s.doc;
   const selectedIds = s.selectedIds;
-  const { pool, plans, activeId } = useMemo(() => {
+  const { pool, activeId } = useMemo(() => {
     const emptyPool: ComposePool = {
       visuals: [],
       logos: [],
@@ -2294,7 +2602,6 @@ function ComposeList() {
     if (!doc)
       return {
         pool: emptyPool,
-        plans: {} as Record<ComposeLayout, Record<string, Box>>,
         activeId: undefined as ComposeLayout | undefined,
       };
     const nextPool = composePool(doc, selectedIds);
@@ -2319,7 +2626,7 @@ function ComposeList() {
         );
       });
     })?.id;
-    return { pool: nextPool, plans: nextPlans, activeId: active };
+    return { pool: nextPool, activeId: active };
   }, [doc, selectedIds]);
 
   if (!doc) return null;
@@ -2334,13 +2641,25 @@ function ComposeList() {
         <p className="compose-scope">{scopeNote}</p>
         <button
           type="button"
-          className="compose-item"
+          className="compose-item compose-original"
+          aria-label="Original"
+          aria-description={
+            s.composeOrigin
+              ? "Restore positions from before any layout"
+              : "Apply a layout first to save the original positions"
+          }
+          title={
+            s.composeOrigin
+              ? "Restore positions from before any layout"
+              : "Apply a layout first to save the original positions"
+          }
           disabled={!s.composeOrigin}
           onClick={s.resetCompose}
         >
-          <ComposeThumb
-            format={doc.format}
-            spec={originThumb(doc, s.composeOrigin)}
+          <LayoutPresetThumbnail
+            presetId="original"
+            document={doc}
+            origin={s.composeOrigin}
           />
           <span className="compose-item-copy">
             <b>Original</b>
@@ -2363,18 +2682,18 @@ function ComposeList() {
                   key={l.id}
                   type="button"
                   className="compose-item"
+                  aria-label={l.label}
+                  aria-description={available ? l.hint : `${l.hint}. ${reason}`}
+                  title={available ? l.hint : `${l.hint}. ${reason}`}
                   aria-pressed={l.id === activeId}
                   data-active={l.id === activeId || undefined}
                   disabled={!available}
                   onClick={() => s.compose(l.id)}
                 >
-                  <ComposeThumb
-                    format={doc.format}
-                    spec={thumbSpecFromBoxes(pool, plans[l.id] ?? {})}
-                  />
+                  <LayoutPresetThumbnail presetId={l.id} />
                   <span className="compose-item-copy">
                     <b>{l.label}</b>
-                    <small>{available ? l.hint : reason}</small>
+                    <small>{l.hint}</small>
                   </span>
                 </button>
               );
@@ -2496,6 +2815,11 @@ const clearHandEdit = (x: SpecDocument, mode: PromptMode) => {
   }
 };
 
+const PROMPT_MODES = [
+  ["design_skill", "design.md", Palette],
+  ["visual_prompt", "prompt.md", FileText],
+] as const;
+
 function PromptPanel({
   sidebars,
   exportOpen,
@@ -2509,6 +2833,8 @@ function PromptPanel({
 }) {
   const s = useEditorStore();
   const d = s.doc;
+  const promptTabsId = useId();
+  const promptTabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [copied, setCopied] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editingPart, setEditingPart] = useState<string | null>(null);
@@ -2587,7 +2913,7 @@ function PromptPanel({
   const generated = isSkill
     ? compileDesignSkill(d, kit)
     : compileVisualPrompt(d);
-  const effective = edit ?? generated;
+  const effective = resolveEditorText(d, d.promptMode, generated);
   const handEdited = isSkill ? (
     <DesignMarkdown text={effective} />
   ) : (
@@ -2715,6 +3041,13 @@ function PromptPanel({
     if (editing && edit === generated)
       s.mutate((x) => clearHandEdit(x, x.promptMode), false);
     setEditing(false);
+  };
+  const switchPromptMode = (mode: PromptMode) => {
+    if (editing) finishEditing();
+    setEditingPart(null);
+    s.mutate((x) => {
+      x.promptMode = mode;
+    }, false);
   };
   // One section's row: tag, edit/delete actions and its body (visual
   // controls, raw textarea or rendered text). Shared by the Prompt Editor's
@@ -2974,39 +3307,44 @@ function PromptPanel({
         )}
         <div className="segmented">
           {/* Chat is a dialog trigger, not a tab, so it sits outside the tablist. */}
-          <div
-            className="segmented-tabs"
-            role="tablist"
-            aria-label="Prompt mode"
-          >
-            {(
-              [
-                ["design_skill", "design.md", Palette],
-                ["visual_prompt", "prompt.md", FileText],
-              ] as const
-            ).map(([id, label, Icon]) => (
-              <button
+          <SegmentedTabs className="segmented-tabs" label="Prompt mode">
+            {PROMPT_MODES.map(([id, label, Icon], index) => (
+              <SegmentedTab
                 key={id}
-                type="button"
-                role="tab"
-                aria-selected={d.promptMode === id}
-                className={d.promptMode === id ? "active" : ""}
-                data-tour={
+                id={`${promptTabsId}-${id}-tab`}
+                controls={`${promptTabsId}-panel`}
+                selected={d.promptMode === id}
+                icon={Icon}
+                dataTour={
                   id === "design_skill" ? "design-editor" : "prompt-editor"
                 }
-                onClick={() => {
-                  if (editing) finishEditing();
-                  setEditingPart(null);
-                  s.mutate((x) => {
-                    x.promptMode = id;
-                  }, false);
+                buttonRef={(node) => {
+                  promptTabRefs.current[index] = node;
+                }}
+                onClick={() => switchPromptMode(id)}
+                onKeyDown={(event) => {
+                  const nextIndex =
+                    event.key === "ArrowRight"
+                      ? (index + 1) % PROMPT_MODES.length
+                      : event.key === "ArrowLeft"
+                        ? (index + PROMPT_MODES.length - 1) % PROMPT_MODES.length
+                        : event.key === "Home"
+                          ? 0
+                          : event.key === "End"
+                            ? PROMPT_MODES.length - 1
+                            : null;
+                  if (nextIndex === null) return;
+                  event.preventDefault();
+                  const next = PROMPT_MODES[nextIndex];
+                  if (!next) return;
+                  switchPromptMode(next[0]);
+                  promptTabRefs.current[nextIndex]?.focus();
                 }}
               >
-                <Icon aria-hidden="true" />
-                <span className="segmented-label">{label}</span>
-              </button>
+                {label}
+              </SegmentedTab>
             ))}
-          </div>
+          </SegmentedTabs>
           <Hint label="Chat (coming soon)">
             <button
               type="button"
@@ -3032,7 +3370,12 @@ function PromptPanel({
           </button>
         </Hint>
       </div>
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div
+        className="flex min-h-0 flex-1 flex-col"
+        role="tabpanel"
+        id={`${promptTabsId}-panel`}
+        aria-labelledby={`${promptTabsId}-${d.promptMode}-tab`}
+      >
         <div className="p-3 empty:hidden">
           {chatOpen && (
             <ChatComingSoonSplash close={() => setChatOpen(false)} />
@@ -3304,11 +3647,28 @@ function PromptPanel({
 
 function Preview({ close }: { close: () => void }) {
   const d = useEditorStore((s) => s.doc);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [available, setAvailable] = useState({ width: 0, height: 0 });
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const measure = (width: number, height: number) =>
+      setAvailable((previous) =>
+        previous.width === width && previous.height === height
+          ? previous
+          : { width, height },
+      );
+    const initial = stage.getBoundingClientRect();
+    measure(initial.width, initial.height);
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) measure(entry.contentRect.width, entry.contentRect.height);
+    });
+    observer.observe(stage);
+    return () => observer.disconnect();
+  }, [d?.id]);
   if (!d) return null;
-  const scale = Math.min(
-    (innerWidth - 120) / d.format.width,
-    (innerHeight - 120) / d.format.height,
-  );
+  const fit = fitPreview(d.format, available);
   return (
     <div className="preview-overlay">
       <Hint label="Close" side="left">
@@ -3316,20 +3676,30 @@ function Preview({ close }: { close: () => void }) {
           aria-label="Close preview"
           size="icon"
           variant="secondary"
-          className="absolute right-5 top-5"
+          className="preview-close"
           onClick={close}
         >
           <X />
         </Button>
       </Hint>
-      <div
-        style={{
-          width: d.format.width,
-          height: d.format.height,
-          transform: `scale(${scale})`,
-        }}
-      >
-        <StaticArtboard />
+      <div className="preview-stage" ref={stageRef}>
+        {fit && (
+          <div
+            className="preview-footprint"
+            style={{ width: fit.width, height: fit.height }}
+          >
+            <div
+              className="preview-artboard"
+              style={{
+                width: d.format.width,
+                height: d.format.height,
+                transform: `scale(${fit.scale})`,
+              }}
+            >
+              <StaticArtboard />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -3367,7 +3737,11 @@ function ExportDialog({ close }: { close: () => void }) {
   const markdown = () => {
     const kit = brandKits.find((k) => k.id === d.creativeDirection.brandKitId);
     // A hand-edited DESIGN.md wins over the generated one.
-    const text = d.designEdit ?? compileDesignSkill(d, kit);
+    const text = resolveEditorText(
+      d,
+      "design_skill",
+      compileDesignSkill(d, kit),
+    );
     save(new Blob([text], { type: "text/markdown" }), "DESIGN.md");
   };
   const png = async () => {
@@ -3423,6 +3797,7 @@ function ExportDialog({ close }: { close: () => void }) {
 function useShortcuts(preview: () => void) {
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
       const s = useEditorStore.getState();
       const t = e.target as HTMLElement;
       if (
@@ -3430,7 +3805,7 @@ function useShortcuts(preview: () => void) {
         t.isContentEditable
       )
         return;
-      if (t.closest?.('[role="dialog"], [role="alertdialog"]')) return;
+      if (t.closest?.('[role="dialog"], [role="alertdialog"], [data-layer-interaction]')) return;
       const mod = e.metaKey || e.ctrlKey;
       if (mod && e.key.toLowerCase() === "z") {
         e.preventDefault();

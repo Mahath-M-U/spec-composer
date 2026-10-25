@@ -229,7 +229,7 @@ function fromEmptyPosition(
     width: editorRect.width / zoom,
     fontSize: el.style.fontSize ?? DEFAULT_FONT_SIZE,
     lineHeight: el.style.lineHeight,
-    alignment: el.style.alignment,
+    alignment: el.style.alignment === "justify" ? "left" : el.style.alignment,
     rotationDeg: el.rotation ?? 0,
     zoom,
     lineOffset: approximateLineOffset(node, container, offset),

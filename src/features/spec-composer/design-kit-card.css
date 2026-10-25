@@ -1,0 +1,503 @@
+/* Applied-border token for the editor tool rail's kit box only.
+   Full Design Kit cards are neutral, with primary tint only when applied.
+   Scoped at :root so the tool rail wrapper can read it. */
+:root {
+  /* Intentionally softer than --card-border-selected (0.45). */
+  --design-kit-card-applied-border: rgb(255 255 255 / 0.30);
+}
+
+/* Shared full Design Kit card: a self-contained preview of one kit's
+   colors, typography, and mood across the library and editor sidebars. */
+.design-kit-card.bk-showcase-card {
+  display: flex;
+  flex-direction: column;
+  container-type: inline-size;
+  border: none;
+  background: color-mix(in oklab, var(--color-editor-surface), white 7%);
+  transition:
+    transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.design-kit-card.bk-showcase-card.active {
+  background: color-mix(
+    in oklab,
+    var(--bk-card-primary) 20%,
+    var(--color-editor-surface)
+  );
+}
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .design-kit-card.card-hover-scale:hover,
+  .editor-shell
+    :is(.context-panel, .right-panel)
+    .design-kit-card.card-hover-scale:hover {
+    z-index: 1;
+    transform: scale(1.025);
+    box-shadow: 0 6px 18px rgb(0 0 0 / 0.1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .design-kit-card.bk-showcase-card {
+    transition: none;
+  }
+}
+.bk-face {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem;
+}
+.bk-face-name-input {
+  width: 100%;
+  min-width: 0;
+  border: none;
+  border-radius: 0.3rem;
+  background: transparent;
+  padding: 0.1rem 0.2rem;
+  color: inherit;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  outline: none;
+}
+.bk-face-name-input:focus-visible {
+  outline: 2px solid var(--color-editor-foreground);
+  outline-offset: 2px;
+}
+.bk-default-toggle {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--color-editor-border);
+  border-radius: 999px;
+  background: transparent;
+  padding: 0 12px;
+  color: var(--color-editor-muted);
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.bk-default-toggle.active {
+  border-color: color-mix(in oklab, var(--color-primary) 85%, transparent);
+}
+.bk-default-toggle.active svg {
+  color: var(--color-primary);
+}
+.bk-default-toggle.active:hover {
+  border-color: var(--color-primary);
+}
+.bk-icon-action {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  width: 24px;
+  border-radius: 0.375rem;
+  color: var(--color-editor-muted);
+  transition:
+    background-color 160ms ease,
+    color 160ms ease;
+}
+.bk-icon-action:hover {
+  background: var(--color-editor-hover);
+  color: var(--color-editor-foreground);
+}
+.bk-icon-action svg {
+  height: 14px;
+  width: 14px;
+}
+.bk-toolbar-btn {
+  height: 32px;
+  min-height: 32px;
+  min-width: 32px;
+  color: var(--color-editor-foreground);
+}
+.bk-toolbar-btn.bk-icon-action {
+  width: 32px;
+  border-radius: 10px;
+}
+.bk-toolbar-btn.bk-icon-action svg {
+  height: 16px;
+  width: 16px;
+}
+
+/* Card-only overrides: a smaller sidebar card (3.png). Scoped off
+   .bk-preview--builder so the kit-builder's preview stays untouched. */
+.bk-preview:not(.bk-preview--builder) {
+  gap: 10px;
+  min-height: 160px;
+  padding: 12px 12px 10px 12px;
+  --bk-art-w: 36%;
+}
+.bk-preview:not(.bk-preview--builder) .bk-preview-heading {
+  gap: 2px;
+  padding-top: 2px;
+  max-width: calc(100% - var(--bk-art-w) + 16px);
+}
+.bk-preview:not(.bk-preview--builder) .bk-preview-content {
+  gap: 10px;
+  max-width: calc(100% - var(--bk-art-w) + 16px);
+}
+.bk-preview:not(.bk-preview--builder) .bk-preview-headline {
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: -0.015em;
+}
+.bk-preview:not(.bk-preview--builder) .bk-preview-support {
+  font-size: 11.5px;
+  font-weight: 500;
+  opacity: 0.78;
+}
+.bk-preview:not(.bk-preview--builder) .bk-preview-chips {
+  flex-wrap: nowrap;
+  gap: 5px;
+}
+.bk-preview:not(.bk-preview--builder) .bk-preview-chip {
+  gap: 5px;
+  min-height: 22px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in oklab, var(--bk-primary) 22%, transparent);
+  background: color-mix(in oklab, var(--bk-primary) 8%, var(--bk-canvas));
+  padding: 3px 9px 3px 7px;
+}
+.bk-preview:not(.bk-preview--builder) .bk-preview-chip-icon {
+  height: 13px;
+  width: 13px;
+}
+.bk-preview:not(.bk-preview--builder) .bk-preview-chip-value {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 14px;
+}
+.bk-preview:not(.bk-preview--builder) .bk-preview-type {
+  gap: 9px;
+}
+.bk-preview:not(.bk-preview--builder) .bk-preview-type-specimen {
+  font-size: 26px;
+  font-weight: 500;
+}
+.bk-preview:not(.bk-preview--builder) .bk-preview-type-family {
+  display: flex;
+  align-self: stretch;
+  align-items: center;
+  border-left: 1px solid color-mix(in oklab, currentColor 25%, transparent);
+  padding-left: 9px;
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.bk-preview:not(.bk-preview--builder) .bk-preview-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 12px 0 14px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.bk-preview-cta-icon {
+  flex: none;
+  height: 12px;
+  width: 12px;
+}
+.bk-preview-actions {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+.bk-preview-actions :is(.bk-default-toggle, .bk-icon-action) {
+  height: 26px;
+  min-height: 26px;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  background: rgb(24 24 27 / 0.78);
+  color: #f5f5f4;
+  backdrop-filter: blur(6px);
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease;
+}
+.bk-preview-actions :is(.bk-default-toggle, .bk-icon-action):hover {
+  background: rgb(39 39 42 / 0.88);
+}
+.bk-preview-actions .bk-icon-action {
+  width: 26px;
+  border-radius: 999px;
+}
+.bk-preview-actions .bk-icon-action svg {
+  height: 13px;
+  width: 13px;
+}
+.bk-preview-actions .bk-default-toggle {
+  padding: 0 10px;
+  gap: 5px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.bk-preview-actions .bk-default-toggle.active {
+  background: color-mix(in oklab, var(--bk-primary) 24%, var(--bk-canvas));
+  border-color: var(--bk-mark);
+  color: var(--bk-ink);
+  backdrop-filter: none;
+}
+.bk-preview-actions .bk-default-toggle.active svg {
+  height: 12px;
+  width: 12px;
+  color: var(--bk-mark);
+}
+.bk-preview-actions .bk-default-toggle.active:hover {
+  background: color-mix(in oklab, var(--bk-primary) 34%, var(--bk-canvas));
+}
+
+.bk-palette {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+}
+.bk-palette-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  border-radius: 0.375rem;
+  padding: 2px;
+  text-align: center;
+}
+button.bk-palette-slot:hover {
+  background: var(--color-editor-hover);
+}
+.bk-palette-swatch {
+  display: block;
+  height: 18px;
+  width: 100%;
+  border-radius: 4px;
+  outline: 1px solid
+    color-mix(in oklab, var(--color-editor-foreground) 14%, transparent);
+  outline-offset: -1px;
+}
+.bk-palette-role {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-editor-foreground);
+  font-size: 10px;
+  font-weight: 600;
+}
+.bk-palette-slot code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-editor-muted);
+  font-size: 9px;
+}
+.bk-palette-slot.is-empty .bk-palette-swatch {
+  border: 1px dashed var(--color-editor-border);
+  background: transparent;
+  outline: none;
+}
+
+@media (max-width: 480px) {
+  .bk-preview:not(.bk-preview--builder) .bk-preview-headline {
+    font-size: 17px;
+  }
+  .bk-palette-role {
+    font-size: 9px;
+  }
+}
+/* Narrow cards, such as the editor's brand kit sidebar. Below this width the
+   toolbar wraps onto its own row above the title. */
+@container (max-width: 339px) {
+  .bk-face {
+    gap: 0.55rem;
+    padding: 0.625rem;
+  }
+  .bk-preview:not(.bk-preview--builder) {
+    padding: 10px 12px;
+    --bk-art-w: 30%;
+  }
+  .bk-preview-top {
+    flex-wrap: wrap;
+  }
+  .bk-preview-actions {
+    order: -1;
+    flex-basis: 100%;
+    justify-content: flex-end;
+  }
+  .bk-preview:not(.bk-preview--builder) .bk-preview-chips {
+    flex-wrap: wrap;
+  }
+  .bk-preview:not(.bk-preview--builder) .bk-preview-heading {
+    flex-basis: 100%;
+    max-width: calc(100% - var(--bk-art-w));
+    padding-top: 0;
+  }
+  .bk-preview:not(.bk-preview--builder) .bk-preview-headline {
+    font-size: 17px;
+  }
+  .bk-preview:not(.bk-preview--builder) .bk-preview-type-specimen {
+    font-size: 22px;
+  }
+  .bk-preview:not(.bk-preview--builder) .bk-preview-cta {
+    height: 24px;
+    padding: 0 10px 0 12px;
+    font-size: 10px;
+  }
+  .bk-palette {
+    gap: 3px;
+  }
+  .bk-palette-role {
+    font-size: 9px;
+  }
+}
+
+.brandkit-card {
+  border: 1px solid transparent;
+  border-radius: 0.75rem;
+  background: color-mix(in oklab, var(--color-editor-surface), white 7%);
+  overflow: hidden;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+/* Compact icon + name + detail summary — the tool rail button and the
+   discovery sidebar link's no-kit empty state. See DesignKitSummary. */
+.design-kit-summary {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+}
+.design-kit-card-icon {
+  width: 20px;
+  height: 20px;
+  color: var(--color-primary);
+}
+.design-kit-card-copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+.design-kit-card-title {
+  display: block;
+  overflow: hidden;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.design-kit-card-subtitle {
+  display: block;
+  overflow: hidden;
+  font-size: 11px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.78;
+}
+.design-kit-card-dots {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+}
+.design-kit-card-dots i {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+}
+.design-kit-card-dots small {
+  font-size: 10px;
+  color: var(--color-muted-foreground);
+}
+.sidebar-brandkit-card > .design-kit-summary {
+  grid-column: 1 / -1;
+}
+/* The sidebar nav link renders a smaller summary than elsewhere. */
+.sidebar-brandkit-card .design-kit-card-title {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sidebar-brandkit-card .design-kit-card-subtitle {
+  font-size: 10px;
+}
+/* Reuse the same summary in the expanded tool rail without changing
+   navigation sizing. */
+.editor-shell
+  #editor-tool-rail.tool-rail--redesigned
+  .tool-rail-kit
+  .design-kit-summary {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 9px;
+  width: 100%;
+  text-align: left;
+}
+.editor-shell
+  #editor-tool-rail.tool-rail--redesigned
+  .tool-rail-kit
+  .design-kit-card-copy {
+  display: grid;
+  gap: 3px;
+}
+.editor-shell
+  #editor-tool-rail.tool-rail--redesigned
+  .tool-rail-kit
+  .design-kit-card-title {
+  font-size: 12px;
+  color: var(--color-editor-foreground);
+}
+.editor-shell
+  #editor-tool-rail.tool-rail--redesigned
+  .tool-rail-kit
+  .design-kit-card-subtitle {
+  color: var(--color-editor-muted);
+}
+.editor-shell
+  #editor-tool-rail.tool-rail--redesigned
+  .tool-rail-kit
+  .design-kit-card-dots {
+  display: flex;
+  gap: 4px;
+}
+
+.design-kit-card :is(
+    .bk-icon-action,
+    .bk-default-toggle,
+    .bk-toolbar-btn,
+    .bk-palette-slot,
+    .bk-face-name-input
+  ):focus-visible {
+  outline: 2px solid var(--color-editor-foreground);
+  outline-offset: 2px;
+}
+/* Applied card: icon buttons always pick up the kit's primary (matching the
+   Applied pill); the tint keeps the icon legible. */
+.design-kit-card.active .bk-preview-actions .bk-icon-action {
+  color: var(--bk-mark);
+  background: color-mix(in oklab, var(--bk-primary) 24%, var(--bk-canvas));
+}
+.design-kit-card.active .bk-preview-actions .bk-icon-action:hover {
+  background: color-mix(in oklab, var(--bk-primary) 34%, var(--bk-canvas));
+}

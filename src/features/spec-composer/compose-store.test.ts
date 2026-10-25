@@ -27,11 +27,18 @@ describe("compose / doc.layout lifecycle", () => {
       .setDocument(createDocument("instagram-post", "Product Launch"));
     useEditorStore.getState().select();
     const pastBefore = useEditorStore.getState().past.length;
+    const original = structuredClone(useEditorStore.getState().doc!.elements);
     useEditorStore.getState().compose("copy-left");
+    const composed = structuredClone(useEditorStore.getState().doc!.elements);
+    expect(composed.map(({ id }) => id)).toEqual(original.map(({ id }) => id));
     expect(useEditorStore.getState().doc?.layout).toBe("copy-left");
     expect(useEditorStore.getState().past.length).toBe(pastBefore + 1);
     useEditorStore.getState().undo();
     expect(useEditorStore.getState().doc?.layout).toBeUndefined();
+    expect(useEditorStore.getState().doc!.elements).toEqual(original);
+    useEditorStore.getState().redo();
+    expect(useEditorStore.getState().doc?.layout).toBe("copy-left");
+    expect(useEditorStore.getState().doc!.elements).toEqual(composed);
     useEditorStore.getState().closeDocument();
   });
 
@@ -54,6 +61,28 @@ describe("compose / doc.layout lifecycle", () => {
     useEditorStore.getState().compose("copy-left");
     useEditorStore.getState().resetCompose();
     expect(useEditorStore.getState().doc?.layout).toBeUndefined();
+    useEditorStore.getState().closeDocument();
+  });
+
+  it("keeps Tidy geometry and element identity in a single undo/redo transaction", () => {
+    const document = createDocument("instagram-post", "Product Launch");
+    document.elements.forEach((element, i) => {
+      element.x = 13 + i * 17;
+      element.y = 27 + i * 41;
+    });
+    useEditorStore.getState().setDocument(document);
+    useEditorStore.getState().select();
+    const original = structuredClone(useEditorStore.getState().doc!.elements);
+    const pastBefore = useEditorStore.getState().past.length;
+    useEditorStore.getState().tidy();
+    const tidied = structuredClone(useEditorStore.getState().doc!.elements);
+    expect(tidied).not.toEqual(original);
+    expect(tidied.map(({ id }) => id)).toEqual(original.map(({ id }) => id));
+    expect(useEditorStore.getState().past.length).toBe(pastBefore + 1);
+    useEditorStore.getState().undo();
+    expect(useEditorStore.getState().doc!.elements).toEqual(original);
+    useEditorStore.getState().redo();
+    expect(useEditorStore.getState().doc!.elements).toEqual(tidied);
     useEditorStore.getState().closeDocument();
   });
 
